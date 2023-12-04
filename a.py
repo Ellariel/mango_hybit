@@ -38,9 +38,9 @@ from mango import Agent
 #from src.mas.controller import Controller
 #from src.mas.wecs import WecsAgent
 
-from src.mas.agent_messages import UpdateStateMessage, SetPMaxMessage, RequestInformationMessage, RegisterRequestMessage, \
-    RegisterConfirmMessage, CurrentPMessage, CurrentPMaxMessage, TriggerControlActions, UpdateConfirmMessage, \
-ControlActionsDone, create_msg_content, read_msg_content
+from src.mas.agent_messages import UpdateStateMessage, RegisterRequestMessage, \
+    RegisterConfirmMessage, TriggerControlActions, UpdateConfirmMessage, \
+ControlActionsDone, RequestInformationMessage, AnswerInformationMessage, create_msg_content, read_msg_content
 
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 
@@ -48,13 +48,14 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 
 class CellAgent(Agent):
-    def __init__(self, container, controller):
+    def __init__(self, container, controller, initial_state={}):
         super().__init__(container)
         self.container = container
         self.controller = controller
         self.registration_confirmed = asyncio.Future()
         #print(f"Hello world! I am CellAgent. My id is {self.aid}, controller: {self.controller}")
-        self.state = {}
+        self.current_state = initial_state
+        self.previous_states = []
 
     def handle_message(self, content, meta):
         """
@@ -71,8 +72,28 @@ class CellAgent(Agent):
         elif isinstance(content, UpdateStateMessage):
             # This should inform agents about the state of connected mosaik Entities
             self.update_state(content, meta)
+        elif isinstance(content, RequestInformationMessage):
+            # This should send information requested to the controller
+            self.send_info(content, meta)
         else:
             pass
+
+    def send_info(self, content, meta):
+        """
+        Request information of the current state or any calculated data of connected Entity
+        :param state_msg: The state message including the information requested
+        :param meta: the meta dict
+        """
+        # send info if sender_id is provided
+        msg_content = create_msg_content(AnswerInformationMessage, info=content.info)
+        if 'sender_id' in meta.keys():
+            conv_id = meta.get('conversation_id', None)
+            self.schedule_instant_task(self.container.send_acl_message(
+                content=msg_content,
+                receiver_addr=meta['sender_addr'],
+                receiver_id=meta['sender_id'],
+                acl_metadata={'conversation_id': conv_id},
+            ))        
 
     def update_state(self, content, meta):
         """
@@ -80,8 +101,9 @@ class CellAgent(Agent):
         :param state_msg: The state message including the current state coming from mosaik
         :param meta: the meta dict
         """
-        self.state = content.state
-        # print(content, meta)
+        if len(self.current_state):
+            self.previous_states.append(self.current_state) # store old state
+        self.current_state = content.state # update current state
         # confirm if sender_id is provided
         msg_content = create_msg_content(UpdateConfirmMessage)
         if 'sender_id' in meta.keys():
@@ -110,12 +132,14 @@ class CellAgent(Agent):
         await asyncio.wait_for(self.registration_confirmed, timeout=3)
 
 class ControllerAgent(Agent):
-    def __init__(self, container):
+    def __init__(self, container, initial_state={}):
         super().__init__(container)
         self.container = container
         self.connected_agents = []
         #print(f"Hello world! I am ControllerAgent. My id is {self.aid}")
-        self.state = {}
+        self.current_state = initial_state
+        self.previous_states = []
+        self.requested_info = {}
 
     def handle_message(self, content, meta):
         """
@@ -131,14 +155,60 @@ class ControllerAgent(Agent):
         elif isinstance(content, UpdateStateMessage):
             self.update_state(content, meta)
         elif isinstance(content, TriggerControlActions):
-            self.perform_control_actions(content, meta)
+            self.schedule_instant_task(self.perform_control_actions(content, meta))
+        elif isinstance(content, RequestInformationMessage):
+            # This should send information requested to the controller
+            self.send_info(content, meta)
+        elif isinstance(content, AnswerInformationMessage):
+            self.requested_info[meta['conversation_id']].set_result(content.info)
+            #print(meta['conversation_id'])
+            #print('self.requested_info', self.requested_info)
+            #pass
         else:
-            pass
+            pass #self.info_requests = {}
 
-    def perform_control_actions(self, content, meta):
+    def send_info(self, content, meta):
+        """
+        Request information of the current state or any calculated data of connected Entity
+        :param state_msg: The state message including the information requested
+        :param meta: the meta dict
+        """
+        # send info if sender_id is provided
+        msg_content = create_msg_content(AnswerInformationMessage, info=content.info)
+        if 'sender_id' in meta.keys():
+            conv_id = meta.get('conversation_id', None)
+            self.schedule_instant_task(self.container.send_acl_message(
+                content=msg_content,
+                receiver_addr=meta['sender_addr'],
+                receiver_id=meta['sender_id'],
+                acl_metadata={'conversation_id': conv_id},
+            )) 
+
+    async def perform_control_actions(self, content, meta):
         """
         """
+        #async def request_info():
+            # Request information
+        print('REQUEST')
+        self.requested_info = {aid: asyncio.Future() for _, aid in self.connected_agents}
+        futs = [self.schedule_instant_task(self.container.send_acl_message(
+                        receiver_addr=addr,
+                        receiver_id=aid,
+                        content=create_msg_content(RequestInformationMessage, info={'A':self.aid}),
+                        acl_metadata={'conversation_id': aid,
+                                    'sender_id': self.aid},
+                ))
+                for addr, aid in self.connected_agents]
+        await asyncio.gather(*futs)
+            # wait for info
+        #print('self._info_confirm', self._info_confirm)
+        await asyncio.gather(*[fut for fut in self.requested_info.values()])
+        print('self.requested_info', self.requested_info)
+        
 
+        #self.schedule_instant_task(request_info())
+        print('ACTION')
+        #print('self._info_confirm', self._info_confirm)
 
         # confirm if sender_id is provided
         msg_content = create_msg_content(ControlActionsDone)
@@ -157,8 +227,10 @@ class ControllerAgent(Agent):
         :param state_msg: The state message including the current state coming from mosaik
         :param meta: the meta dict
         """
-        self.state = content.state
-        # print(content, meta)
+        if len(self.current_state):
+            self.previous_states.append(self.current_state) # store old state
+        self.current_state = content.state # update current state
+        # print(self.previous_states, self.current_state)
         # confirm if sender_id is provided
         msg_content = create_msg_content(UpdateConfirmMessage)
         if 'sender_id' in meta.keys():
@@ -196,7 +268,7 @@ class MosaikAgent(Agent):
         # We need this to make sure all agents have received their updates and confirmations.
         self._updates_received = {}
         self._controllers_done = {}
-        self._all_actors = {}
+        self._all_agents = {}
         self._controllers = {}
         print(f"Hello world! I am MosaikAgent. My id is {self.aid}")
 
@@ -217,7 +289,7 @@ class MosaikAgent(Agent):
             pass
 
     def _reset(self):
-        self._updates_received = {aid: asyncio.Future() for aid in self._all_actors.keys()}
+        self._updates_received = {aid: asyncio.Future() for aid in self._all_agents.keys()}
         self._controllers_done = {aid: asyncio.Future() for aid in self._controllers.keys()}
 
     async def _update_agents(self, data):
@@ -227,8 +299,8 @@ class MosaikAgent(Agent):
         #print('update_agents')
         #print(data)
         futs = [self.schedule_instant_task(self.container.send_acl_message(
-                    receiver_addr=self._all_actors[mosaik_eid][0],
-                    receiver_id=self._all_actors[mosaik_eid][1],
+                    receiver_addr=self._all_agents[mosaik_eid][0],
+                    receiver_id=self._all_agents[mosaik_eid][1],
                     content=create_msg_content(UpdateStateMessage, state=input_data),
                     acl_metadata={'conversation_id': mosaik_eid,
                                   'sender_id': self.aid},
@@ -254,13 +326,24 @@ class MosaikAgent(Agent):
         # wait for confirmation
         await asyncio.gather(*[fut for fut in self._controllers_done.values()])
 
+    async def loop_step(self, inputs):
+            """
+            This will be called from the mosaik api once per step.
+
+            :param inputs: the input dict from mosaik: {eid_1: {'P': p_value}, eid_2: {'P': p_value}...}
+            :return: the output dict: {eid_1: p_max_value, eid_2: p_max_value}
+            """
+            # 1. reset
+            self._reset()
+            # 2. update state of agents
+            await self._update_agents(inputs)
+            # 3. trigger control actions
+            await self._trigger_control_cycle()
+
+            return {}
 
 
-
-
-
-
-logger = logging.getLogger('mas.mosaik')
+#logger = logging.getLogger('mas.mosaik')
 
 
 def main():
@@ -276,8 +359,9 @@ META = {
     'models': {
         'MosaikAgents': {
             'public': True,
-            'params': ['P_rated', 'v_rated', 'v_min', 'v_max', 'controller'],
-            'attrs': ['P'],
+            'any_inputs': True,
+            'params': ['controller', 'initial_state'],
+            'attrs': [],
         },
     },
 }
@@ -293,23 +377,21 @@ class MosaikAgents(mosaik_api.Simulator):
         self.step_size = 60 * 15  # We have a step size of 15 minutes specified in seconds:
         self.host = 'localhost'
         self.port = 5678
-
         # Set by "run()":
         self.mosaik = None  # Proxy object for mosaik
         # Set in "init()"
         self.sid = None  # Mosaik simulator ID
         self.loop = None  # Mango agents loop
-        self.main_container = None #Mango container
+        self.main_container = None # Mango container
+        self.mosaik_agent = None # Mosaik Mango Agent
         # Updated in "create()"
-        self.agents = {}  # eid : ((host,port), aid)
+        self.cell_agents = {}  # eid : ((host,port), aid)
         self.controllers = {}  # eid : ((host,port), aid)
-        self._all_actors = {}
         # Set/updated in "setup_done()"
+        self.all_agents = {} # contains agents + controllers for technical tasks
         self.entities = {}  # agent_id: unit_id
-        self.mosaik_agent = None
 
     def init(self, sid, time_resolution=1., **sim_params):
-        #print('init')
         self.sid = sid
         self.loop = asyncio.get_event_loop()
         self.main_container = self.loop.run_until_complete(self._create_container(self.host, self.port))
@@ -322,74 +404,66 @@ class MosaikAgents(mosaik_api.Simulator):
     async def _create_mosaik_agent(self, container):
         return MosaikAgent(container)
 
-    async def _create_agent(self, container, controller):
-        """
-        Creates main container, the agents and the controller
-        :param controller_config: Configuration for the controller coming from the init call of mosaik
-        """
+    async def _create_agent(self, container, controller, initial_state={}):
         if controller == None:
-            agent = ControllerAgent(container)
+            agent = ControllerAgent(container, initial_state)
         else:
-            agent = CellAgent(container, self.controllers[controller])
+            agent = CellAgent(container, self.controllers[controller], initial_state)
             await agent.register()
         return agent
-    
-
 
     def create(self, num, model, **model_conf):
         """
         Create *num* instances of *model* and return a list of entity dicts
         to mosaik.
         """
-        #print('create')
-        #print(model_conf)
-
         assert model in META['models']
-        entities = []
         # Get the number of agents created so far and count from this number
         # when creating new entity IDs:
-        n_agents = len(self.agents)
-        for i in range(n_agents, n_agents + num):
-            # Entity data
-            agent = self.loop.run_until_complete(self._create_agent(self.main_container, model_conf['controller']))
-            if model_conf['controller'] == None:
+        entities = []
+        if model_conf['controller'] == None:
+            n_agents = len(self.controllers)
+            for i in range(n_agents, n_agents + num):
                 eid = 'ControllerAgent_%s' % i
+                agent = self.loop.run_until_complete(self._create_agent(self.main_container, 
+                                                                        None, 
+                                                                        model_conf['initial_state'] ))
                 self.controllers[eid] = (self.main_container.addr, agent.aid)
-            else:
+                entities.append({'eid': eid, 'type': model})
+        else:
+            n_agents = len(self.cell_agents)
+            for i in range(n_agents, n_agents + num):
                 eid = 'Agent_%s' % i
-                self.agents[eid] = (self.main_container.addr, agent.aid)
-            entities.append({'eid': eid, 'type': model})
+                agent = self.loop.run_until_complete(self._create_agent(self.main_container, 
+                                                                        model_conf['controller'], 
+                                                                        model_conf['initial_state']))
+                self.cell_agents[eid] = (self.main_container.addr, agent.aid)
+                entities.append({'eid': eid, 'type': model})                  
             # as the event loop is not running here, we have to create the agents via loop.run_unti_complete.
             # That means however, that the agents are not able to receive or send messages unless the loop is
             # triggered from this module.
-        #print(self.agents)
         return entities
-
 
     def setup_done(self):
         """
         Get the entities that our agents are connected to once the scenario
         setup is done.
         """
-
-        self._all_actors = self.agents.copy()
-        self._all_actors.update(self.controllers)
-        self.mosaik_agent._all_actors = self._all_actors
+        self.all_agents = self.cell_agents.copy()
+        self.all_agents.update(self.controllers)
+        self.mosaik_agent._all_agents = self.all_agents
         self.mosaik_agent._controllers = self.controllers
 
-        #print('setup done')
-        full_ids = ['%s.%s' % (self.sid, eid) for eid in self._all_actors.keys()]
+        full_ids = ['%s.%s' % (self.sid, eid) for eid in self.all_agents.keys()]
         relations = yield self.mosaik.get_related_entities(full_ids)
-        #print(relations)
         for full_aid, units in relations.items():
-            # We should only be connected to at least one entity
+            # We should be connected to at least one entity
             assert len(units) >= 1
             uid, _ = units.popitem()
             # Create a mapping "agent ID -> unit ID"
             aid = full_aid.split('.')[-1]
             self.entities[aid] = uid
         #print(self.entities)
-        print(self.mosaik_agent)
 
     def finalize(self):
         self.loop.run_until_complete(self._shutdown(self.main_container))
@@ -403,47 +477,6 @@ class MosaikAgents(mosaik_api.Simulator):
         await asyncio.gather(*futs)
         print('done.')
 
-    def _reset(self):
-        self._updates_received = {aid: asyncio.Future() for aid in self._all_actors.keys()}
-        self._controllers_done = {aid: asyncio.Future() for aid in self.controllers.keys()}
-
-    async def _update_agents(self, data):
-        """
-        Update the agents with new data from mosaik.
-        """
-        #print('update_agents')
-        #print(data)
-
-        futs = [self.main_container.send_message(
-                    receiver_addr=self._all_actors[mosaik_eid][0],
-                    receiver_id=self._all_actors[mosaik_eid][1],
-                    content=create_msg_content(UpdateStateMessage, state=input_data),
-                    acl_metadata={'conversation_id': mosaik_eid,
-                                  'sender_id': self._all_actors[mosaik_eid][1]},
-                    create_acl=True,
-            )
-            for mosaik_eid, input_data in data.items()]
-        await asyncio.gather(*futs)
-        # wait for confirmation
-        # await asyncio.gather(*[fut for fut in self._updates_received.values()])
-
-    async def _trigger_control_cycle(self):
-        """
-        Trigger control cycle after all the agents got their updates from Mosaik.
-        """
-        futs = [self.main_container.send_message(
-                    receiver_addr=controller[0],
-                    receiver_id=controller[1],
-                    content=create_msg_content(TriggerControlActions),
-                    acl_metadata={'conversation_id': mosaik_eid,
-                                  'sender_id': controller[1]},
-                    create_acl=True,
-            )
-            for mosaik_eid, controller in self.controllers.items()]
-        await asyncio.gather(*futs)
-        # wait for confirmation
-        # await asyncio.gather(*[fut for fut in self._controllers_done.values()])
-
     def step(self, time, inputs, max_advance):
         """Send the inputs of the controlled unites to our agents and get new
         set-points for these units from the agents.
@@ -454,44 +487,8 @@ class MosaikAgents(mosaik_api.Simulator):
         mosaik to continue the simulation.
 
         """
-        #print('step')
-        #print(inputs)
-
-
-        async def loop_step(inputs):
-            """
-            This will be called from the mosaik api once per step.
-
-            :param inputs: the input dict from mosaik: {eid_1: {'P': p_value}, eid_2: {'P': p_value}...}
-            :return: the output dict: {eid_1: p_max_value, eid_2: p_max_value}
-            """
-            # 1. reset
-            self.mosaik_agent._reset()
-            # 2. update state of agents
-            await self.mosaik_agent._update_agents(inputs)
-            # 3. trigger control actions
-            await self.mosaik_agent._trigger_control_cycle()
-
-            return {}
-        
-        # Prepare input data and forward it to the agents:
-        '''
-        data = {}
-        for eid, attrs in inputs.items():
-            data[eid] = {}
-            input_data = {}
-            for attr, values in attrs.items():
-                #assert len(values) >= 1  # b/c we're connected to at least 1 unit
-                id, value = values.popitem()
-                input_data[attr] = value
-                if id not in data:
-                    data[id] = input_data
-                else:
-                #data[eid] = input_data
-                    data[id].update(input_data)
-        '''
         # trigger the loop to enable agents to send / receive messages via run_until_complete
-        output_dict = self.loop.run_until_complete(loop_step(inputs=inputs))
+        output_dict = self.loop.run_until_complete(self.mosaik_agent.loop_step(inputs=inputs))
 
         # Make "set_data()" call back to mosaik to send the set-points:
         inputs = {aid: {self.entities[aid]: {'P_max': P_max}}
@@ -503,13 +500,6 @@ class MosaikAgents(mosaik_api.Simulator):
     def get_data(self, outputs):
         # we are going to send the data asynchronously via set_data, hence we do not need to implement get_data()
         pass
-
-
-
-
-
-
-
 
 if __name__ == '__main__':
     main()

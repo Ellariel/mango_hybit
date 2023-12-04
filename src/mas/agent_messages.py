@@ -52,54 +52,19 @@ class ControlActionsDone:
     Controller -> Mosaik
     """
 
-
-
-
-
-
-
-
-@dataclass
-class SetPMaxMessage:
-    """
-    Controller -> WecsAgent
-    """
-    p_max: float
-
-
 @dataclass
 class RequestInformationMessage:
     """
-    Controller -> WecsAgent
-    MosaikAgent -> WecsAgent
+    Controller -> Agents
     """
-    requested_information: str
-
-
-
-
+    info: Dict
 
 @dataclass
-class CurrentPMessage:
+class AnswerInformationMessage:
     """
-    WecsAgent -> Controller
+    Agents -> Controller
     """
-    current_p: float
-
-
-@dataclass
-class CurrentPMaxMessage:
-    """
-    Controller -> WecsAgent
-    """
-    p_max: float
-
-
-
-
-
-
-
+    info: Dict
 
 def get_class(msg_id: int):
     if msg_id >= len(CLSMEMBERS):

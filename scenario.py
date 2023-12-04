@@ -64,11 +64,11 @@ WECS_CONFIG = [
 ]
 
 AGENTS_CONFIG = [
-    (1, {'P_rated': 2000, 'v_rated': 12, 'v_min': 2.0, 'v_max': 25,  'controller': None}),
-    (1, {'P_rated': 5000, 'v_rated': 13, 'v_min': 3.5, 'v_max': 25, 'controller': None}),
+    (1, {'controller': None, 'initial_state': {}}),
+    (1, {'controller': None, 'initial_state': {}}),
 ]
 CONTROLLERS_CONFIG = [
-    (1, {'P_rated': 2000, 'v_rated': 12, 'v_min': 2.0, 'v_max': 25,  'controller': None}),
+    (1, {'controller': None, 'initial_state': {}}),
 ]
 
 # MAS config
