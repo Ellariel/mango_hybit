@@ -23,29 +23,14 @@ mosaik sends a *stop* message to the MAS.
 
 import asyncio
 import logging
-
 import mosaik_api
-
-#from mango.core.agent import Agent
-#from mango.core.container import Container
-#from mango.messages.message import Performatives
-
-from mango import create_container
 from mango import Agent
+from mango import create_container
+from agent_messages import *
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 #from src.mas.agent_messages import UpdateStateMessage, RequestInformationMessage, CurrentPMaxMessage, \
 #    ControlActionsDone, TriggerControlActions, create_msg_content, read_msg_content
-#from src.mas.controller import Controller
-#from src.mas.wecs import WecsAgent
-
-from src.mas.agent_messages import UpdateStateMessage, RegisterRequestMessage, \
-    RegisterConfirmMessage, TriggerControlActions, UpdateConfirmMessage, \
-ControlActionsDone, RequestInformationMessage, AnswerInformationMessage, create_msg_content, read_msg_content
-
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
-
-
-
 
 class CellAgent(Agent):
     def __init__(self, container, controller, initial_state={}):
@@ -205,7 +190,7 @@ class ControllerAgent(Agent):
         futs = [self.schedule_instant_task(self.container.send_acl_message(
                         receiver_addr=addr,
                         receiver_id=aid,
-                        content=create_msg_content(RequestInformationMessage, info={'A':self.aid}),
+                        content=create_msg_content(RequestInformationMessage, info={}),
                         acl_metadata={'conversation_id': aid,
                                     'sender_id': self.aid},
                 ))
@@ -344,14 +329,11 @@ class MosaikAgent(Agent):
             return {}
 
 
-#logger = logging.getLogger('mas.mosaik')
-
-
+#logger = logging.getLogger('mosaik_agents')
 def main():
     """Run the multi-agent system."""
-    logging.basicConfig(level=logging.INFO)
+    #logging.basicConfig(level=logging.INFO)
     return mosaik_api.start_simulation(MosaikAgents())
-
 
 # The simulator meta data that we return in "init()":
 META = {
@@ -366,7 +348,6 @@ META = {
         },
     },
 }
-
 
 class MosaikAgents(mosaik_api.Simulator):
     """

@@ -27,7 +27,7 @@ SIM_CONFIG = {
     },
     'MAS': {
         #'python': 'mas.mosaik:MosaikAPI'
-        'python': 'a:MosaikAgents'
+        'python': 'mosaik_agents:MosaikAgents'
 
         # In the future we might run the MAS in a different processes, in which case we would
         # need to use the cmd call.
