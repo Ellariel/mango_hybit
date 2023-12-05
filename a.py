@@ -84,8 +84,16 @@ class CellAgent(Agent):
         :param state_msg: The state message including the information requested
         :param meta: the meta dict
         """
+
+        data = {}
+        for v in self.current_state.keys():
+            values = [j for i in self.previous_states + [self.current_state] for j in i[v].values()]     
+            data[v] = {'min' : min(values),
+                       'max' : max(values),
+                       'cur' : values[-1]}  
+
         # send info if sender_id is provided
-        msg_content = create_msg_content(AnswerInformationMessage, info=content.info)
+        msg_content = create_msg_content(AnswerInformationMessage, info=data)
         if 'sender_id' in meta.keys():
             conv_id = meta.get('conversation_id', None)
             self.schedule_instant_task(self.container.send_acl_message(
@@ -155,17 +163,14 @@ class ControllerAgent(Agent):
         elif isinstance(content, UpdateStateMessage):
             self.update_state(content, meta)
         elif isinstance(content, TriggerControlActions):
-            self.schedule_instant_task(self.perform_control_actions(content, meta))
+            self.schedule_instant_task(self.perform_control_actions(meta))
         elif isinstance(content, RequestInformationMessage):
             # This should send information requested to the controller
             self.send_info(content, meta)
         elif isinstance(content, AnswerInformationMessage):
             self.requested_info[meta['conversation_id']].set_result(content.info)
-            #print(meta['conversation_id'])
-            #print('self.requested_info', self.requested_info)
-            #pass
         else:
-            pass #self.info_requests = {}
+            pass
 
     def send_info(self, content, meta):
         """
@@ -173,8 +178,16 @@ class ControllerAgent(Agent):
         :param state_msg: The state message including the information requested
         :param meta: the meta dict
         """
+
+        #data = {}
+        #for v in self.current_state.keys():
+        #    values = [j for i in self.previous_states + [self.current_state] for j in i[v].values()]     
+        #    data[v] = {'min' : min(values),
+        #               'max' : max(values),
+        #               'cur' : values[-1]}  
+                    
         # send info if sender_id is provided
-        msg_content = create_msg_content(AnswerInformationMessage, info=content.info)
+        msg_content = create_msg_content(AnswerInformationMessage, info=data)
         if 'sender_id' in meta.keys():
             conv_id = meta.get('conversation_id', None)
             self.schedule_instant_task(self.container.send_acl_message(
@@ -184,7 +197,7 @@ class ControllerAgent(Agent):
                 acl_metadata={'conversation_id': conv_id},
             )) 
 
-    async def perform_control_actions(self, content, meta):
+    async def perform_control_actions(self, meta):
         """
         """
         #async def request_info():
@@ -200,8 +213,7 @@ class ControllerAgent(Agent):
                 ))
                 for addr, aid in self.connected_agents]
         await asyncio.gather(*futs)
-            # wait for info
-        #print('self._info_confirm', self._info_confirm)
+        # wait for info
         await asyncio.gather(*[fut for fut in self.requested_info.values()])
         print('self.requested_info', self.requested_info)
         
@@ -230,7 +242,6 @@ class ControllerAgent(Agent):
         if len(self.current_state):
             self.previous_states.append(self.current_state) # store old state
         self.current_state = content.state # update current state
-        # print(self.previous_states, self.current_state)
         # confirm if sender_id is provided
         msg_content = create_msg_content(UpdateConfirmMessage)
         if 'sender_id' in meta.keys():
