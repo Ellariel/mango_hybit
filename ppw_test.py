@@ -68,7 +68,7 @@ world = mosaik.World(sim_config, mosaik_config)
 # Initialize the simulators.
 csv_sim = world.start('CSV', 
                       sim_start=START,
-                      datafile='data.csv',
+                      datafile='./data/example_data.csv',
                       #date_format='YYYY-MM-DD HH:mm:ss',
                       delimiter=',')
 

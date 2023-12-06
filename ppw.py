@@ -1,10 +1,8 @@
 import pandapower as pp
 '''
-Simple 3 bus grid, compare: https://github.com/e2nIEE/pandapower/blob/master/tutorials/minimal_example.ipynb
-1 bus with connection to external grid, and two busses  with each one Household and a PV 
+Simple grid
 
 '''
-# net[table].at[index, col] = val
 # create empty net
 net = pp.create_empty_network() 
 

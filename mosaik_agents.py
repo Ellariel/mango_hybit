@@ -286,6 +286,9 @@ class MosaikAgent(Agent):
         """
         Update the agents with new data from mosaik.
         """
+        self._updates_received = {aid: asyncio.Future() for aid in data.keys()}
+        #print(data)
+        #print(self._updates_received)
         futs = [self.schedule_instant_task(self.container.send_acl_message(
                     receiver_addr=self._all_agents[mosaik_eid][0],
                     receiver_id=self._all_agents[mosaik_eid][1],
@@ -301,6 +304,7 @@ class MosaikAgent(Agent):
         """
         Trigger control cycle after all the agents got their updates from Mosaik.
         """
+        self._controllers_done = {aid: asyncio.Future() for aid in self._controllers.keys()}
         futs = [self.schedule_instant_task(self.container.send_acl_message(
                     receiver_addr=controller[0],
                     receiver_id=controller[1],
@@ -320,7 +324,7 @@ class MosaikAgent(Agent):
             :return: the output dict: {eid_1: p_max_value, eid_2: p_max_value}
             """
             # 1. reset
-            self._reset()
+            #self._reset()
             # 2. update state of agents
             await self._update_agents(inputs)
             # 3. trigger control actions
@@ -438,14 +442,17 @@ class MosaikAgents(mosaik_api.Simulator):
 
         full_ids = ['%s.%s' % (self.sid, eid) for eid in self.all_agents.keys()]
         relations = yield self.mosaik.get_related_entities(full_ids)
+        #print(full_ids)
+        print('relations:', relations)
         for full_aid, units in relations.items():
-            # We should be connected to at least one entity
-            assert len(units) >= 1
-            uid, _ = units.popitem()
-            # Create a mapping "agent ID -> unit ID"
-            aid = full_aid.split('.')[-1]
-            self.entities[aid] = uid
-        #print(self.entities)
+            if len(units):
+                # We should be connected to at least one entity
+                #assert len(units) >= 1
+                uid, _ = units.popitem()
+                # Create a mapping "agent ID -> unit ID"
+                aid = full_aid.split('.')[-1]
+                self.entities[aid] = uid
+        print('entities:', self.entities)
 
     def finalize(self):
         self.loop.run_until_complete(self._shutdown(self.main_container))
@@ -469,12 +476,13 @@ class MosaikAgents(mosaik_api.Simulator):
         mosaik to continue the simulation.
 
         """
+        print('inputs:', inputs)
         # trigger the loop to enable agents to send / receive messages via run_until_complete
         output_dict = self.loop.run_until_complete(self.mosaik_agent.loop_step(inputs=inputs))
 
         # Make "set_data()" call back to mosaik to send the set-points:
-        inputs = {aid: {self.entities[aid]: {'P_max': P_max}}
-                  for aid, P_max in output_dict.items()}
+        inputs = {aid: {self.entities[aid]: {'P': P}}
+                  for aid, P in output_dict.items()}
         yield self.mosaik.set_data(inputs)
 
         return time + self.step_size
