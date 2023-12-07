@@ -24,6 +24,7 @@ mosaik sends a *stop* message to the MAS.
 import asyncio
 import logging
 import mosaik_api
+#import mosaik_api_v3 as mosaik_api
 from mango import Agent
 from mango import create_container
 from agent_messages import *
@@ -278,9 +279,9 @@ class MosaikAgent(Agent):
         else:
             pass
 
-    def _reset(self):
-        self._updates_received = {aid: asyncio.Future() for aid in self._all_agents.keys()}
-        self._controllers_done = {aid: asyncio.Future() for aid in self._controllers.keys()}
+    #def _reset(self):
+    #    self._updates_received = {aid: asyncio.Future() for aid in self._all_agents.keys()}
+    #    self._controllers_done = {aid: asyncio.Future() for aid in self._controllers.keys()}
 
     async def _update_agents(self, data):
         """
@@ -376,6 +377,7 @@ class MosaikAgents(mosaik_api.Simulator):
         # Set/updated in "setup_done()"
         self.all_agents = {} # contains agents + controllers for technical tasks
         self.entities = {}  # agent_id: unit_id
+        #self.loop = asyncio.get_running_loop()
 
     def init(self, sid, time_resolution=1., **sim_params):
         self.sid = sid

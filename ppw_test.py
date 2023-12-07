@@ -59,7 +59,7 @@ emission_config = {
 
 # Add PV data file
 END = 60*60 #* 60 #1 * 24 * 60 * 60  #two days
-START = '2014-01-01 01:00:00'
+START = '2014-01-01 00:00:00'
 GRID_FILE = 'pandapower_example.json' # import directly from pandpaower simbench module
 
 # Set up the "world" of the scenario.
@@ -86,7 +86,6 @@ db_sim = world.start('DB',
 em_sim = world.start('Emission', sim_params=emission_config)
 
 # Instantiate model entities.
-#print(csv_sim['DNI'])
 csv = csv_sim.TestData.create(1)
 
 grid = gridsim.Grid(json=GRID_FILE)#,

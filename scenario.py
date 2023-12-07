@@ -35,8 +35,8 @@ SIM_CONFIG = {
 }
 
 DURATION = 3600 #* 24 * 1  # 1 day
-START_DATE = '2016-01-01T00:00:00+01:00'  # CET
-GRID_FILE = 'pandapower_example.json' 
+START_DATE = '2014-01-01T00:00:00+01:00'  # CET
+GRID_FILE = 'data/pandapower_example.json' 
 WIND_FILE = 'data/wind_speed_m-s_15min.csv'
 DB_PATH = 'data/mosaik_results.hdf5'
 
@@ -47,9 +47,6 @@ WECS_CONFIG = [
 
 AGENTS_CONFIG = [
     (4, {'controller': None, 'initial_state': {}}),
-    #(1, {'controller': None, 'initial_state': {}}),
-    #(1, {'controller': None, 'initial_state': {}}),
-    #(1, {'controller': None, 'initial_state': {}}),
 ]
 CONTROLLERS_CONFIG = [
     (1, {'controller': None, 'initial_state': {}}),
@@ -97,47 +94,6 @@ def main():
     #world.connect(wecs[0], controllers[0], 'P', async_requests=True)
     #world.connect(controllers[0], hdf5, 'P', async_requests=True)
     #mosaik.util.connect_many_to_one(world, wecs, hdf5, 'v', 'P', 'P_max')
-
-
-    '''
-    wecs = []
-    for n_wecs, params in WECS_CONFIG:  # Iterate over the config sets
-        for _ in range(n_wecs):
-            w = wecssim.WECS(**params)
-            a = (agents + controllers)[len(wecs)]
-            #print(a.eid)
-            # Connect "w.P" to "a.P" and allow "a" to do async. requests to "w"
-            # (e.g., set_data() to set new P_max to "w"):
-            world.connect(w, a, 'P', async_requests=True)
-
-            # Remember the WECS entity for connecting it to the DB later:
-            wecs.append(w)
-
-            # Connect "w.P" to "a.P" and allow "a" to do async. requests to "w"
-            # (e.g., set_data() to set new P_max to "w"):
-            #world.connect(w, a, 'P', async_requests=True)
-
-            # Remember the WECS entity for connecting it to the DB later:
-            #wecs.append(w)
-    print('wecs:', wecs)
-    '''
-    '''
-    wecs = []
-    for n_wecs, params in WECS_CONFIG:  # Iterate over the config sets
-        for _ in range(n_wecs):
-            w = wecssim.WECS(**params)
-            a = mas.MosaikAgents(**params)
-            print(a.eid)
-            # Connect "w.P" to "a.P" and allow "a" to do async. requests to "w"
-            # (e.g., set_data() to set new P_max to "w"):
-            world.connect(w, a, 'P', async_requests=True)
-
-            # Remember the WECS entity for connecting it to the DB later:
-            wecs.append(w)
-    '''
-    
-    #mosaik.util.connect_many_to_one(world, wecs, hdf5, 'v', 'P', 'P_max')
-
 
     world.run(DURATION)
 
