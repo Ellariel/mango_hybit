@@ -40,4 +40,4 @@ The MAS consists of multiple `CellAgent`s (one for each simulated entity) and a 
 
 The following diagram describes the message exchange between the agents during every mosaik step.
 
-![]()
+![](misc/mas.png)
