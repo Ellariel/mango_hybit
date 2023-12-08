@@ -5,3 +5,4 @@ __pycache__/
 
 .idea/*
 ./data/mosaik_results.hdf5
+mosaik_components

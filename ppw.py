@@ -16,7 +16,7 @@ ext_grid = pp.create_ext_grid(net, bus=b1)
 gen = pp.create_gen(net, bus=b1, p_mw=1.)#, slack=True)
 load = pp.create_load(net, bus=b2, p_mw=1.)
 
-pp.to_json(net, "pandapower_example.json")
+pp.to_json(net, "./data/pandapower_example.json")
 
 # test
 pp.runpp(net, numba=False)
