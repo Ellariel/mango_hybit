@@ -50,6 +50,7 @@ class ControlActionsDone:
     """
     Controller -> Mosaik
     """
+    info: Dict
 
 @dataclass
 class RequestInformationMessage:
@@ -64,6 +65,20 @@ class AnswerInformationMessage:
     Agents -> Controller
     """
     info: Dict
+
+@dataclass
+class BroadcastInstructionsMessage:
+    """
+    Controller -> Agents
+    """
+    instructions: Dict
+
+@dataclass
+class InstructionsConfirmMessage:
+    """
+    Agents -> Controller
+    """
+    instructions: Dict
 
 def get_class(msg_id: int):
     if msg_id >= len(CLSMEMBERS):

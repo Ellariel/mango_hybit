@@ -17,8 +17,6 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 import pandapower.auxiliary
 pandapower.auxiliary._check_if_numba_is_installed = lambda x: x
 
-#sys.path.insert(0, 'src/')
-
 SIM_CONFIG = {
     'Grid': {
          'python': 'mosaik_components.pandapower:Simulator'
