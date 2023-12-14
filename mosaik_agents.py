@@ -30,18 +30,18 @@ from mango import create_container
 from agent_messages import *
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 
-#from src.mas.agent_messages import UpdateStateMessage, RequestInformationMessage, CurrentPMaxMessage, \
-#    ControlActionsDone, TriggerControlActions, create_msg_content, read_msg_content
+import nest_asyncio
+nest_asyncio.apply()
 
 class CellAgent(Agent):
-    def __init__(self, container, controller, initial_state={}):
+    def __init__(self, container, controller, initial_state={}, previous_states=[]):
         super().__init__(container)
         self.container = container
         self.controller = controller
         self.registration_confirmed = asyncio.Future()
         #print(f"Hello world! I am CellAgent. My id is {self.aid}, controller: {self.controller}")
         self.current_state = initial_state
-        self.previous_states = []
+        self.previous_states = previous_states
 
     def handle_message(self, content, meta):
         """
@@ -94,7 +94,7 @@ class CellAgent(Agent):
 
         data = {}
         for v in self.current_state.keys():
-            values = [j for i in self.previous_states + [self.current_state] for j in i[v].values()]     
+            values = [j for i in self.previous_states + [self.current_state] if v in i for j in i[v].values()]     
             data[v] = {'min' : min(values),
                        'max' : max(values),
                        'cur' : values[-1]}  
@@ -147,13 +147,13 @@ class CellAgent(Agent):
         await asyncio.wait_for(self.registration_confirmed, timeout=3)
 
 class ControllerAgent(Agent):
-    def __init__(self, container, initial_state={}):
+    def __init__(self, container, initial_state={}, previous_states=[]):
         super().__init__(container)
         self.container = container
         self.connected_agents = []
         #print(f"Hello world! I am ControllerAgent. My id is {self.aid}")
         self.current_state = initial_state
-        self.previous_states = []
+        self.previous_states = previous_states
         self.requested_info = {}
         self.instructions_confirm = {}
 
@@ -211,11 +211,11 @@ class ControllerAgent(Agent):
         """
 
         data = {}
-        #for v in self.current_state.keys():
-        #    values = [j for i in self.previous_states + [self.current_state] for j in i[v].values()]     
-        #    data[v] = {'min' : min(values),
-        #               'max' : max(values),
-        #               'cur' : values[-1]}  
+        for v in self.current_state.keys():
+            values = [j for i in self.previous_states + [self.current_state] if v in i for j in i[v].values()]     
+            data[v] = {'min' : min(values),
+                       'max' : max(values),
+                       'cur' : values[-1]}    
                     
         # send info if sender_id is provided
         msg_content = create_msg_content(AnswerInformationMessage, info=data)
@@ -457,9 +457,9 @@ class MosaikAgents(mosaik_api.Simulator):
     async def _create_mosaik_agent(self, container):
         return MosaikAgent(container)
 
-    async def _create_agent(self, container, controller, initial_state={}):
+    async def _create_agent(self, container, controller, initial_state={}, previous_states=[]):
         if controller == None:
-            agent = ControllerAgent(container, initial_state)
+            agent = ControllerAgent(container, initial_state, previous_states)
         else:
             agent = CellAgent(container, self.controllers[controller], initial_state)
             await agent.register()
