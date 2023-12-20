@@ -1,23 +1,6 @@
 
 """
-Gateway between mosaik and the MAS.
 
-The class :class:`MosaikAPI` implements the `high-level mosaik API`.
-
-The MosaikAPI also manages the root main_container for the MAS.  It starts
-a :class:`MosaikAgent` and a :class:`mas.controller.Controller` agent within
-that main_container.  The MosaikAgent serves as a gateway between the WecsAgents
-and mosaik.  The Controller agent coordinates all WecsAgents of a wind farm.
-
-The WecsAgents do not run within the root main_container but in separate containers
-in sub processes.  These subprocesses are as well managed by the MosaikAPI.
-
-The entry point for the MAS is the function :func:`main()`.  It parses the
-command line arguments and starts the :func:`run()` coroutine which runs until
-mosaik sends a *stop* message to the MAS.
-
-.. _mosaik API:
-   https://mosaik.readthedocs.org/en/latest/mosaik-api/low-level.html
 
 """
 
@@ -25,115 +8,58 @@ import asyncio
 import logging
 import mosaik_api
 #import mosaik_api_v3 as mosaik_api
-from mango import Agent
-from mango import create_container
+import mango
 from agent_messages import *
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 import nest_asyncio
 nest_asyncio.apply()
 
-class CellAgent(Agent):
-    def __init__(self, container, controller, initial_state={}, previous_states=[]):
+class Agent(mango.Agent):
+    def __init__(self, container, controller, initial_states=[]):
         super().__init__(container)
         self.container = container
         self.controller = controller
-        self.registration_confirmed = asyncio.Future()
-        #print(f"Hello world! I am CellAgent. My id is {self.aid}, controller: {self.controller}")
-        self.current_state = initial_state
-        self.previous_states = previous_states
+        self.states = initial_states
+        self.connected_agents = []
+        self._registration_confirmed = asyncio.Future()
+        self._instruction_confirmed = {}
+        self._requested_info = {}
+        # print(f"Hello world! I am an Agent. My id is {self.aid}")
 
     def handle_message(self, content, meta):
         """
         Handling all incoming messages of the agent
         :param content: The message content
         :param meta: All meta information in a dict.
-        Possible keys are e. g. performative, sender_addr, sender_id, conversation_id...
+        Possible keys are e.g. sender_addr, sender_id, conversation_id...
         """
+
         content = read_msg_content(content)
         print(f"{self.aid} received: {content}")
-        if isinstance(content, RegisterConfirmMessage):
-            # This should be a confirm message by the controller that it has received our registration
-            self.registration_confirmed.set_result(True)
+        if isinstance(content, RegisterRequestMessage):
+            self.register_agent(content, meta)
+        elif isinstance(content, RegisterConfirmMessage):
+            self._registration_confirmed.set_result(True)
         elif isinstance(content, UpdateStateMessage):
-            # This should inform agents about the state of connected mosaik Entities
             self.update_state(content, meta)
         elif isinstance(content, RequestInformationMessage):
-            # This should send information requested to the controller
-            self.send_info(content, meta)
+            self.schedule_instant_task(self.send_info(content, meta))
+        elif isinstance(content, AnswerInformationMessage):
+            self._requested_info[meta['conversation_id']].set_result(content.info)
+        elif isinstance(content, TriggerControlActions):
+            self.schedule_instant_task(self.perform_control_actions(meta))
         elif isinstance(content, BroadcastInstructionsMessage):
-            self.execute_instructions(content, meta)
+            self.schedule_instant_task(self.execute_instructions(content, meta))
+        elif isinstance(content, InstructionsConfirmMessage):
+            self._instruction_confirmed[meta['conversation_id']].set_result(content.instructions)
         else:
             pass
 
-    def execute_instructions(self, content, meta):
-        """
-        Request information of the current state or any calculated data of connected Entity
-        :param state_msg: The state message including the information requested
-        :param meta: the meta dict
-        """
-
-        # send info if sender_id is provided
-        msg_content = create_msg_content(InstructionsConfirmMessage, instructions={'aid': self.aid,
-                                                                                   'instructions': content.instructions})
-        if 'sender_id' in meta.keys():
-            conv_id = meta.get('conversation_id', None)
-            self.schedule_instant_task(self.container.send_acl_message(
-                content=msg_content,
-                receiver_addr=meta['sender_addr'],
-                receiver_id=meta['sender_id'],
-                acl_metadata={'conversation_id': conv_id},
-            )) 
-
-    def send_info(self, content, meta):
-        """
-        Request information of the current state or any calculated data of connected Entity
-        :param state_msg: The state message including the information requested
-        :param meta: the meta dict
-        """
-
-        data = {}
-        for v in self.current_state.keys():
-            values = [j for i in self.previous_states + [self.current_state] if v in i for j in i[v].values()]     
-            data[v] = {'min' : min(values),
-                       'max' : max(values),
-                       'cur' : values[-1]}  
-
-        # send info if sender_id is provided
-        msg_content = create_msg_content(AnswerInformationMessage, info=data)
-        if 'sender_id' in meta.keys():
-            conv_id = meta.get('conversation_id', None)
-            self.schedule_instant_task(self.container.send_acl_message(
-                content=msg_content,
-                receiver_addr=meta['sender_addr'],
-                receiver_id=meta['sender_id'],
-                acl_metadata={'conversation_id': conv_id},
-            ))        
-
-    def update_state(self, content, meta):
-        """
-        Update the current state of connected Entity
-        :param state_msg: The state message including the current state coming from mosaik
-        :param meta: the meta dict
-        """
-        if len(self.current_state):
-            self.previous_states.append(self.current_state) # store old state
-        self.current_state = content.state # update current state
-        # confirm if sender_id is provided
-        msg_content = create_msg_content(UpdateConfirmMessage)
-        if 'sender_id' in meta.keys():
-            conv_id = meta.get('conversation_id', None)
-            self.schedule_instant_task(self.container.send_acl_message(
-                content=msg_content,
-                receiver_addr=meta['sender_addr'],
-                receiver_id=meta['sender_id'],
-                acl_metadata={'conversation_id': conv_id},
-            ))
-
     async def register(self):
         """
-        Schedule a task that sends a RegisterMessage to the ControllerAgent and wait for the confirmation.
-        This should be called once an agent is initialized
+        Schedule a task that sends a RegisterRequestMessage to the controller agent and wait for the confirmation.
+        This should be called once an agent is initialized.
         """
         msg_content = create_msg_content(RegisterRequestMessage,
                                          aid=self.aid, host=self.container.addr[0], port=self.container.addr[1])
@@ -144,56 +70,46 @@ class CellAgent(Agent):
                 receiver_id=self.controller[1],
                 acl_metadata={}
             ))
-        await asyncio.wait_for(self.registration_confirmed, timeout=3)
+        await asyncio.wait_for(self._registration_confirmed, timeout=3)
 
-class ControllerAgent(Agent):
-    def __init__(self, container, initial_state={}, previous_states=[]):
-        super().__init__(container)
-        self.container = container
-        self.connected_agents = []
-        #print(f"Hello world! I am ControllerAgent. My id is {self.aid}")
-        self.current_state = initial_state
-        self.previous_states = previous_states
-        self.requested_info = {}
-        self.instructions_confirm = {}
+    def register_agent(self, content: RegisterRequestMessage, meta):
+        """
+        Registered an agent
+        :param content: Register message
+        :param meta: The meta information dict
+        """
+        addr = (content.host, content.port)
+        aid = content.aid
+        self.connected_agents.append((addr, aid))
+        
+        msg_content = create_msg_content(RegisterConfirmMessage,
+                                         aid=self.aid, host=self.container.addr[0], port=self.container.addr[1])
+        self.schedule_instant_task(self.container.send_acl_message(
+            receiver_addr=addr,
+            receiver_id=aid,
+            content=msg_content,
+            acl_metadata={},
+        ))
 
-    def handle_message(self, content, meta):
+    def update_state(self, content, meta):
         """
-        Handling all incoming messages of the agent
-        :param content: The message content
-        :param meta: All meta information in a dict.
-        Possible keys are e. g. performative, sender_addr, sender_id, conversation_id...
+        Update the current state of connected Entity
+        :param content: The state content including the current state coming from mosaik
+        :param meta: the meta information dict
         """
-        content = read_msg_content(content)
-        print(f"{self.aid} received: {content}")
-        if isinstance(content, RegisterRequestMessage):
-            self.handle_register_msg(content, meta)
-        elif isinstance(content, UpdateStateMessage):
-            self.update_state(content, meta)
-        elif isinstance(content, TriggerControlActions):
-            self.schedule_instant_task(self.perform_control_actions(meta))
-        elif isinstance(content, RequestInformationMessage):
-            # This should send information requested to the controller
-            self.send_info(content, meta)
-        elif isinstance(content, AnswerInformationMessage):
-            self.requested_info[meta['conversation_id']].set_result(content.info)
-        elif isinstance(content, BroadcastInstructionsMessage):
-            self.execute_instructions(content, meta)
-        elif isinstance(content, InstructionsConfirmMessage):
-            self.instructions_confirm[meta['conversation_id']].set_result(content.instructions)
-        else:
-            pass
+        # state={'P[MW]': {'Grid-0.Gen-0': 1.0}}
+        for k, v in content.state.items():
+            for eid, state in v.items():
+                if 'Load' in eid and state > 0: # check consumtion/production
+                    v[eid] *= -1
+                elif ('Gen' in eid or 'Wecs' in eid) and state < 0:
+                    v[eid] *= -1
+                else:
+                    pass
 
-    def execute_instructions(self, content, meta):
-        """
-        Request information of the current state or any calculated data of connected Entity
-        :param state_msg: The state message including the information requested
-        :param meta: the meta dict
-        """
+        self.states.append(content.state) # store current state
 
-        # send info if sender_id is provided
-        msg_content = create_msg_content(InstructionsConfirmMessage, instructions={'aid': self.aid,
-                                                                                   'instructions': content.instructions})
+        msg_content = create_msg_content(UpdateConfirmMessage)
         if 'sender_id' in meta.keys():
             conv_id = meta.get('conversation_id', None)
             self.schedule_instant_task(self.container.send_acl_message(
@@ -201,24 +117,76 @@ class ControllerAgent(Agent):
                 receiver_addr=meta['sender_addr'],
                 receiver_id=meta['sender_id'],
                 acl_metadata={'conversation_id': conv_id},
-            )) 
+            ))
 
-    def send_info(self, content, meta):
+    async def send_info(self, content, meta):
         """
-        Request information of the current state or any calculated data of connected Entity
-        :param state_msg: The state message including the information requested
-        :param meta: the meta dict
+        Send requested information (e.g. of the current state or any calculated data of connected Entity)
+        :param content: The content including the information requested
+        :param meta: The meta information dict
         """
 
         data = {}
-        for v in self.current_state.keys():
-            values = [j for i in self.previous_states + [self.current_state] if v in i for j in i[v].values()]     
-            data[v] = {'min' : min(values),
-                       'max' : max(values),
-                       'cur' : values[-1]}    
-                    
-        # send info if sender_id is provided
+        if len(self.states):
+            for v in self.states[-1].keys():
+                values = [j for i in self.states if v in i for j in i[v].values()]     
+                data[v] = {'min' : min(values),
+                           'max' : max(values),
+                           'cur' : values[-1]}
+        data = {self.aid : {'flexibility' : data}}
+                
+        # Request information
+        if len(self.connected_agents):
+            self._requested_info = {aid: asyncio.Future() for _, aid in self.connected_agents}
+            futs = [self.schedule_instant_task(self.container.send_acl_message(
+                            receiver_addr=addr,
+                            receiver_id=aid,
+                            content=create_msg_content(RequestInformationMessage, info={}),
+                            acl_metadata={'conversation_id': aid,
+                                        'sender_id': self.aid},
+                    ))
+                    for addr, aid in self.connected_agents]
+            await asyncio.gather(*futs)
+            self._requested_info = await asyncio.gather(*[fut for fut in self._requested_info.values()])
+            self._requested_info = {k : v for i in self._requested_info for k, v in i.items()}
+            data.update(self._requested_info)
+
         msg_content = create_msg_content(AnswerInformationMessage, info=data)
+        if 'sender_id' in meta.keys():
+            conv_id = meta.get('conversation_id', None)
+            self.schedule_instant_task(self.container.send_acl_message(
+                content=msg_content,
+                receiver_addr=meta['sender_addr'],
+                receiver_id=meta['sender_id'],
+                acl_metadata={'conversation_id': conv_id},
+            ))        
+
+    async def execute_instructions(self, content, meta):
+        """
+        Execute received instructions and sent the confirmation
+        :param content: The content including instructions to execute
+        :param meta: The meta information dict
+        """
+
+        # Do execute
+
+
+        if len(self.connected_agents):
+            # Broadcast instructions
+            self._instruction_confirmed = {aid: asyncio.Future() for _, aid in self.connected_agents}
+            futs = [self.schedule_instant_task(self.container.send_acl_message(
+                            receiver_addr=addr,
+                            receiver_id=aid,
+                            content=create_msg_content(BroadcastInstructionsMessage, instructions={self.aid : aid}),
+                            acl_metadata={'conversation_id': aid,
+                                        'sender_id': self.aid},
+                    ))
+                    for addr, aid in self.connected_agents]
+            await asyncio.gather(*futs)
+            self._instruction_confirmed = await asyncio.gather(*[fut for fut in self._instruction_confirmed.values()])
+
+        msg_content = create_msg_content(InstructionsConfirmMessage, instructions={'aid': self.aid,
+                                                                                   'instructions': content.instructions})
         if 'sender_id' in meta.keys():
             conv_id = meta.get('conversation_id', None)
             self.schedule_instant_task(self.container.send_acl_message(
@@ -231,40 +199,62 @@ class ControllerAgent(Agent):
     async def perform_control_actions(self, meta):
         """
         """
-        # Request information
-        self.requested_info = {aid: asyncio.Future() for _, aid in self.connected_agents}
-        futs = [self.schedule_instant_task(self.container.send_acl_message(
-                        receiver_addr=addr,
-                        receiver_id=aid,
-                        content=create_msg_content(RequestInformationMessage, info={}),
-                        acl_metadata={'conversation_id': aid,
-                                    'sender_id': self.aid},
-                ))
-                for addr, aid in self.connected_agents]
-        await asyncio.gather(*futs)
-        self.requested_info = await asyncio.gather(*[fut for fut in self.requested_info.values()])
+        # Request information if there are connected agents
+        if len(self.connected_agents):
+            self._requested_info = {aid: asyncio.Future() for _, aid in self.connected_agents}
+            futs = [self.schedule_instant_task(self.container.send_acl_message(
+                            receiver_addr=addr,
+                            receiver_id=aid,
+                            content=create_msg_content(RequestInformationMessage, info={}),
+                            acl_metadata={'conversation_id': aid,
+                                        'sender_id': self.aid},
+                    ))
+                    for addr, aid in self.connected_agents]
+            await asyncio.gather(*futs)
+            self._requested_info = await asyncio.gather(*[fut for fut in self._requested_info.values()])
+            self._requested_info = {k : v for i in self._requested_info for k, v in i.items()}
 
-        print('ACTION')
-        print('requested_info', self.requested_info)
+            print('ACTION')
+            print('requested_info', self._requested_info)
+            #requested_info requested_info {'agent2': {'flexibility': {'P[MW]': {'min': -1.0, 'max': 1.0, 'cur': 0.00404922087048476}}}, 
+            
+            # calc flexibility
+            #for state in self._requested_info:
+            #    for k, v in state.items():
+            #        v['flexibility'] = (v['cur'] - v['min']) / (v['max'] - v['min']) if (v['max'] - v['min']) != 0 else 0 
 
+            # calc balance
+            #p_in_flow = 0
+            #p_out_flow = 0
+            #for state in self._requested_info:
+            #    for k, v in state.items():
+            #        if 'P' in k:
+            #            if v['cur'] < 0:
+            #                p_out_flow += v['cur']
+            #            else:
+            #                p_in_flow += v['cur']
+            #print(f"p_in_flow: {p_in_flow}, p_out_flow: {p_out_flow}, balance: {p_in_flow + p_out_flow}")
+            
+            #print(self._requested_info)
 
-        # Send instructions
-        self.instructions_confirm = {aid: asyncio.Future() for _, aid in self.connected_agents}
-        futs = [self.schedule_instant_task(self.container.send_acl_message(
-                        receiver_addr=addr,
-                        receiver_id=aid,
-                        content=create_msg_content(BroadcastInstructionsMessage, instructions={'a':'b'}),
-                        acl_metadata={'conversation_id': aid,
-                                    'sender_id': self.aid},
-                ))
-                for addr, aid in self.connected_agents]
-        await asyncio.gather(*futs)
-        self.instructions_confirm = await asyncio.gather(*[fut for fut in self.instructions_confirm.values()])
+            # Send instructions
+            print('SEND INSTRUCTIONS')
+            self._instruction_confirmed = {aid: asyncio.Future() for _, aid in self.connected_agents}
+            futs = [self.schedule_instant_task(self.container.send_acl_message(
+                            receiver_addr=addr,
+                            receiver_id=aid,
+                            content=create_msg_content(BroadcastInstructionsMessage, instructions={self.aid : aid}),
+                            acl_metadata={'conversation_id': aid,
+                                        'sender_id': self.aid},
+                    ))
+                    for addr, aid in self.connected_agents]
+            await asyncio.gather(*futs)
+            self._instruction_confirmed = await asyncio.gather(*[fut for fut in self._instruction_confirmed.values()])
 
-        print('INSTRUCTIONS CONFIRMED')
+            print('INSTRUCTIONS CONFIRMED')
 
         # confirm if sender_id is provided
-        msg_content = create_msg_content(ControlActionsDone, info=self.instructions_confirm)
+        msg_content = create_msg_content(ControlActionsDone, info=self._instruction_confirmed)
         if 'sender_id' in meta.keys():
             conv_id = meta.get('conversation_id', None)
             self.schedule_instant_task(self.container.send_acl_message(
@@ -274,50 +264,10 @@ class ControllerAgent(Agent):
                 acl_metadata={'conversation_id': conv_id},
             ))  
 
-    def update_state(self, content, meta):
-        """
-        Update the current state of connected Entity
-        :param state_msg: The state message including the current state coming from mosaik
-        :param meta: the meta dict
-        """
-        if len(self.current_state):
-            self.previous_states.append(self.current_state) # store old state
-        self.current_state = content.state # update current state
-        # confirm if sender_id is provided
-        msg_content = create_msg_content(UpdateConfirmMessage)
-        if 'sender_id' in meta.keys():
-            conv_id = meta.get('conversation_id', None)
-            self.schedule_instant_task(self.container.send_acl_message(
-                content=msg_content,
-                receiver_addr=meta['sender_addr'],
-                receiver_id=meta['sender_id'],
-                acl_metadata={'conversation_id': conv_id},
-            ))
-
-    def handle_register_msg(self, content: RegisterRequestMessage, meta):
-        """
-        Registered an agent
-        :param content: Register message
-        :param meta information
-        """
-        addr = (content.host, content.port)
-        aid = content.aid
-        self.connected_agents.append((addr, aid))
-        # reply with a confirmation
-        msg_content = create_msg_content(RegisterConfirmMessage,
-                                         aid=self.aid, host=self.container.addr[0], port=self.container.addr[1])
-        self.schedule_instant_task(self.container.send_acl_message(
-            receiver_addr=addr,
-            receiver_id=aid,
-            content=msg_content,
-            acl_metadata={},
-        ))
-
-class MosaikAgent(Agent):
+class MosaikAgent(mango.Agent):
     def __init__(self, container):
         super().__init__(container)
         self.container = container
-        # We need this to make sure all agents have received their updates and confirmations.
         self._updates_received = {}
         self._controllers_done = {}
         self._all_agents = {}
@@ -329,7 +279,7 @@ class MosaikAgent(Agent):
         Handling all incoming messages of the agent
         :param content: The message content
         :param meta: All meta information in a dict.
-        Possible keys are e. g. performative, sender_addr, sender_id, conversation_id...
+        Possible keys are e.g. sender_addr, sender_id, conversation_id...
         """
         content = read_msg_content(content)
         print(f"{self.aid} received: {content}")
@@ -340,17 +290,12 @@ class MosaikAgent(Agent):
         else:
             pass
 
-    #def _reset(self):
-    #    self._updates_received = {aid: asyncio.Future() for aid in self._all_agents.keys()}
-    #    self._controllers_done = {aid: asyncio.Future() for aid in self._controllers.keys()}
-
-    async def _update_agents(self, data):
+    async def update_agents(self, data):
         """
         Update the agents with new data from mosaik.
         """
         self._updates_received = {aid: asyncio.Future() for aid in data.keys()}
         #print(data)
-        #print(self._updates_received)
         futs = [self.schedule_instant_task(self.container.send_acl_message(
                     receiver_addr=self._all_agents[mosaik_eid][0],
                     receiver_id=self._all_agents[mosaik_eid][1],
@@ -362,7 +307,7 @@ class MosaikAgent(Agent):
         await asyncio.gather(*futs)
         await asyncio.gather(*[fut for fut in self._updates_received.values()])
 
-    async def _trigger_control_cycle(self):
+    async def trigger_control_cycle(self):
         """
         Trigger control cycle after all the agents got their updates from Mosaik.
         """
@@ -377,7 +322,6 @@ class MosaikAgent(Agent):
             for mosaik_eid, controller in self._controllers.items()]
         await asyncio.gather(*futs)
         self._controllers_done = await asyncio.gather(*[fut for fut in self._controllers_done.values()])
-        #print(self._all_agents)
         return {eid : info['instructions'] for eid, a in self._all_agents.items() 
                                                 for info in self._controllers_done[0] 
                                                     if a[1] == info['aid']}
@@ -389,15 +333,10 @@ class MosaikAgent(Agent):
             :param inputs: the input dict from mosaik: {eid_1: {'P': p_value}, eid_2: {'P': p_value}...}
             :return: the output dict: {eid_1: p_max_value, eid_2: p_max_value}
             """
-            # 1. reset
-            #self._reset()
-            # 2. update state of agents
-            await self._update_agents(inputs)
-            # 3. trigger control actions
-            return await self._trigger_control_cycle()
-
-            #return self._controllers_done
-
+            # 1. update state of agents
+            await self.update_agents(inputs)
+            # 2. trigger control actions
+            return await self.trigger_control_cycle()
 
 #logger = logging.getLogger('mosaik_agents')
 def main():
@@ -413,7 +352,7 @@ META = {
         'MosaikAgents': {
             'public': True,
             'any_inputs': True,
-            'params': ['controller', 'initial_state'],
+            'params': ['controller', 'initial_states'],
             'attrs': [],
         },
     },
@@ -437,7 +376,7 @@ class MosaikAgents(mosaik_api.Simulator):
         self.main_container = None # Mango container
         self.mosaik_agent = None # Mosaik Mango Agent
         # Updated in "create()"
-        self.cell_agents = {}  # eid : ((host,port), aid)
+        #self.cell_agents = {}  # eid : ((host,port), aid)
         self.controllers = {}  # eid : ((host,port), aid)
         # Set/updated in "setup_done()"
         self.all_agents = {} # contains agents + controllers for technical tasks
@@ -452,16 +391,16 @@ class MosaikAgents(mosaik_api.Simulator):
         return META
 
     async def _create_container(self, host, port):
-        return await create_container(addr=(host, port))
+        return await mango.create_container(addr=(host, port))
     
     async def _create_mosaik_agent(self, container):
         return MosaikAgent(container)
 
-    async def _create_agent(self, container, controller, initial_state={}, previous_states=[]):
+    async def _create_agent(self, container, controller, initial_states=[]):
         if controller == None:
-            agent = ControllerAgent(container, initial_state, previous_states)
+            agent = Agent(container, None, initial_states)
         else:
-            agent = CellAgent(container, self.controllers[controller], initial_state)
+            agent = Agent(container, self.all_agents[controller], initial_states)
             await agent.register()
         return agent
 
@@ -474,23 +413,27 @@ class MosaikAgents(mosaik_api.Simulator):
         # Get the number of agents created so far and count from this number
         # when creating new entity IDs:
         entities = []
+        '''
         if model_conf['controller'] == None:
             n_agents = len(self.controllers)
             for i in range(n_agents, n_agents + num):
                 eid = 'ControllerAgent_%s' % i
                 agent = self.loop.run_until_complete(self._create_agent(self.main_container, 
                                                                         None, 
-                                                                        model_conf['initial_state'] ))
+                                                                        model_conf['initial_states']))
                 self.controllers[eid] = (self.main_container.addr, agent.aid)
                 entities.append({'eid': eid, 'type': model})
         else:
-            n_agents = len(self.cell_agents)
-            for i in range(n_agents, n_agents + num):
+        '''
+        n_agents = len(self.all_agents)
+        for i in range(n_agents, n_agents + num):
                 eid = 'Agent_%s' % i
                 agent = self.loop.run_until_complete(self._create_agent(self.main_container, 
                                                                         model_conf['controller'], 
-                                                                        model_conf['initial_state']))
-                self.cell_agents[eid] = (self.main_container.addr, agent.aid)
+                                                                        model_conf['initial_states']))
+                self.all_agents[eid] = (self.main_container.addr, agent.aid)
+                if model_conf['controller'] == None:
+                    self.controllers[eid] = (self.main_container.addr, agent.aid)
                 entities.append({'eid': eid, 'type': model})                  
             # as the event loop is not running here, we have to create the agents via loop.run_unti_complete.
             # That means however, that the agents are not able to receive or send messages unless the loop is
@@ -502,10 +445,12 @@ class MosaikAgents(mosaik_api.Simulator):
         Get the entities that our agents are connected to once the scenario
         setup is done.
         """
-        self.all_agents = self.cell_agents.copy()
-        self.all_agents.update(self.controllers)
+        #self.all_agents = self.cell_agents.copy()
+        #self.all_agents.update(self.controllers)
         self.mosaik_agent._all_agents = self.all_agents
         self.mosaik_agent._controllers = self.controllers
+
+        #print(self.controllers)
 
         full_ids = ['%s.%s' % (self.sid, eid) for eid in self.all_agents.keys()]
         relations = yield self.mosaik.get_related_entities(full_ids)
@@ -552,8 +497,8 @@ class MosaikAgents(mosaik_api.Simulator):
         #print(self.all_agents)
 
         # Make "set_data()" call back to mosaik to send the set-points:
-        inputs = {aid: {self.entities[aid]: v}
-                  for aid, v in output_dict.items()}
+        #inputs = {aid: {self.entities[aid]: v}
+        #          for aid, v in output_dict.items()}
         
         inputs = {}
         

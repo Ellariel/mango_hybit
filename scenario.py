@@ -44,10 +44,12 @@ WECS_CONFIG = [
 ]
 
 AGENTS_CONFIG = [
-    (4, {'controller': None, 'initial_state': {}}),
+    (2, {'controller': None, 'initial_states': []}),
+    (2, {'controller': None, 'initial_states': []}),
 ]
 CONTROLLERS_CONFIG = [
-    (1, {'controller': None, 'initial_state': {}}),
+    (1, {'controller': None, 'initial_states': []}),
+    (1, {'controller': None, 'initial_states': []}),
 ]
 
 def main():
@@ -59,7 +61,7 @@ def main():
     #db = world.start('DB', step_size=60*60, duration=DURATION)
 
     grid = gridsim.Grid(json=GRID_FILE)
-    print(grid.children)
+    #print(grid.children)
     buses = [e for e in grid.children if e.type in ['Bus']]
     gens = [e for e in grid.children if e.type in ['Gen', 'ControlledGen']]
     ext_grids = [e for e in grid.children if e.type in ['ExternalGrid']]
@@ -68,12 +70,18 @@ def main():
 
     controllers = []
     for n, params in CONTROLLERS_CONFIG:  # Iterate over the config sets
+        if len(controllers) > 0:
+            params.update({'controller' : controllers[0].eid})
         controllers += mas.MosaikAgents.create(num=n, **params)
     print('controllers:', controllers)
 
     agents = []
     for n, params in AGENTS_CONFIG:  # Iterate over the config sets
-        params.update({'controller' : controllers[0].eid})
+        if len(agents) == 0:
+            params.update({'controller' : controllers[0].eid})
+        else:
+            params.update({'controller' : controllers[1].eid})
+        #print(params)
         agents += mas.MosaikAgents.create(num=n, **params)
     print('agents:', agents)
 
@@ -82,7 +90,7 @@ def main():
         for _ in range(n_wecs):
             w = wecssim.WECS(**params)
             wecs.append(w)
-    print('wecs:', wecs)
+    #print('wecs:', wecs)
 
     world.connect(wecs[0], agents[0], 'P', async_requests=True)
     world.connect(gens[0], agents[1], 'P[MW]', async_requests=True)
