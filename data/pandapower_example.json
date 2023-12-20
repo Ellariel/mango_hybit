@@ -20,7 +20,7 @@
     "load": {
       "_module": "pandas.core.frame",
       "_class": "DataFrame",
-      "_object": "{\"columns\":[\"name\",\"bus\",\"p_mw\",\"q_mvar\",\"const_z_percent\",\"const_i_percent\",\"sn_mva\",\"scaling\",\"in_service\",\"type\"],\"index\":[0],\"data\":[[null,1,1.0,0.0,0.0,0.0,null,1.0,true,\"wye\"]]}",
+      "_object": "{\"columns\":[\"name\",\"bus\",\"p_mw\",\"q_mvar\",\"const_z_percent\",\"const_i_percent\",\"sn_mva\",\"scaling\",\"in_service\",\"type\"],\"index\":[0,1],\"data\":[[null,1,1.0,0.0,0.0,0.0,null,1.0,true,\"wye\"],[null,0,1.0,0.0,0.0,0.0,null,1.0,true,\"wye\"]]}",
       "orient": "split",
       "dtype": {
         "name": "object",

@@ -10,12 +10,14 @@ Python will find these modules.
 
 
 """
-import sys
+import copy
 import mosaik
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 import pandapower.auxiliary
 pandapower.auxiliary._check_if_numba_is_installed = lambda x: x
+
+from mosaik_agents import *
 
 SIM_CONFIG = {
     'Grid': {
@@ -44,12 +46,12 @@ WECS_CONFIG = [
 ]
 
 AGENTS_CONFIG = [
-    (2, {'controller': None, 'initial_states': []}),
-    (2, {'controller': None, 'initial_states': []}),
+    (2, {'controller': None, 'initial_state': STATE_DICT}),
+    (2, {'controller': None, 'initial_state': STATE_DICT}),
 ]
 CONTROLLERS_CONFIG = [
-    (1, {'controller': None, 'initial_states': []}),
-    (1, {'controller': None, 'initial_states': []}),
+    (1, {'controller': None, 'initial_state': STATE_DICT}),
+    (2, {'controller': None, 'initial_state': STATE_DICT}),
 ]
 
 def main():
@@ -78,9 +80,9 @@ def main():
     agents = []
     for n, params in AGENTS_CONFIG:  # Iterate over the config sets
         if len(agents) == 0:
-            params.update({'controller' : controllers[0].eid})
-        else:
             params.update({'controller' : controllers[1].eid})
+        else:
+            params.update({'controller' : controllers[2].eid})
         #print(params)
         agents += mas.MosaikAgents.create(num=n, **params)
     print('agents:', agents)
@@ -92,10 +94,11 @@ def main():
             wecs.append(w)
     #print('wecs:', wecs)
 
-    world.connect(wecs[0], agents[0], 'P', async_requests=True)
-    world.connect(gens[0], agents[1], 'P[MW]', async_requests=True)
-    world.connect(loads[0], agents[2], 'P[MW]', async_requests=True)
-    world.connect(ext_grids[0], agents[3], 'P[MW]', async_requests=True)
+    world.connect(wecs[0], agents[0], ('P', 'current'), async_requests=True)
+    world.connect(gens[0], agents[1], ('P[MW]', 'current'), async_requests=True)
+    world.connect(loads[0], agents[1], ('P[MW]', 'current'), async_requests=True)
+    world.connect(loads[0], agents[2], ('P[MW]', 'current'), async_requests=True)
+    world.connect(ext_grids[0], agents[3], ('P[MW]', 'current'), async_requests=True)
 
     #world.connect(wecs[0], controllers[0], 'P', async_requests=True)
     #world.connect(controllers[0], hdf5, 'P', async_requests=True)

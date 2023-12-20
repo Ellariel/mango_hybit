@@ -9,18 +9,32 @@ import logging
 import mosaik_api
 #import mosaik_api_v3 as mosaik_api
 import mango
+import copy
 from agent_messages import *
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 import nest_asyncio
 nest_asyncio.apply()
 
+STATE_DICT = {
+    'production' : {
+        'min' : 0,
+        'max' : 0,
+        'current' : 0,
+    },
+    'consumption' : {
+        'min' : 0,
+        'max' : 0,
+        'current' : 0,
+    },    
+}
+
 class Agent(mango.Agent):
-    def __init__(self, container, controller, initial_states=[]):
+    def __init__(self, container, controller, initial_state=STATE_DICT):
         super().__init__(container)
         self.container = container
         self.controller = controller
-        self.states = initial_states
+        self.state = initial_state
         self.connected_agents = []
         self._registration_confirmed = asyncio.Future()
         self._instruction_confirmed = {}
@@ -97,18 +111,22 @@ class Agent(mango.Agent):
         :param content: The state content including the current state coming from mosaik
         :param meta: the meta information dict
         """
-        # state={'P[MW]': {'Grid-0.Gen-0': 1.0}}
-        for k, v in content.state.items():
-            for eid, state in v.items():
-                if 'Load' in eid and state > 0: # check consumtion/production
-                    v[eid] *= -1
-                elif ('Gen' in eid or 'Wecs' in eid) and state < 0:
-                    v[eid] *= -1
+
+        # state={'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0}}
+        for eid, value in content.state['current'].items():
+            if 'Load' in eid: # check consumtion/production
+                self.state['consumption']['current'] = abs(value)
+            elif 'Gen' in eid or 'Wecs' in eid:
+                self.state['production']['current'] = abs(value)
+            elif 'Grid' in eid:
+                if value >= 0:
+                    self.state['production']['current'] = value
+                    self.state['consumption']['current'] = 0
                 else:
-                    pass
+                    self.state['production']['current'] = 0
+                    self.state['consumption']['current'] = value
 
-        self.states.append(content.state) # store current state
-
+        # print(self.state)
         msg_content = create_msg_content(UpdateConfirmMessage)
         if 'sender_id' in meta.keys():
             conv_id = meta.get('conversation_id', None)
@@ -126,15 +144,8 @@ class Agent(mango.Agent):
         :param meta: The meta information dict
         """
 
-        data = {}
-        if len(self.states):
-            for v in self.states[-1].keys():
-                values = [j for i in self.states if v in i for j in i[v].values()]     
-                data[v] = {'min' : min(values),
-                           'max' : max(values),
-                           'cur' : values[-1]}
-        data = {self.aid : {'flexibility' : data}}
-                
+        data = copy.deepcopy(self.state)
+               
         # Request information
         if len(self.connected_agents):
             self._requested_info = {aid: asyncio.Future() for _, aid in self.connected_agents}
@@ -149,9 +160,13 @@ class Agent(mango.Agent):
             await asyncio.gather(*futs)
             self._requested_info = await asyncio.gather(*[fut for fut in self._requested_info.values()])
             self._requested_info = {k : v for i in self._requested_info for k, v in i.items()}
-            data.update(self._requested_info)
+            # {'agent4': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 1.0}}})
+            for aid, state in self._requested_info.items():
+                for i in data.keys():
+                    for j in data[i].keys():
+                        data[i][j] += state[i][j]
 
-        msg_content = create_msg_content(AnswerInformationMessage, info=data)
+        msg_content = create_msg_content(AnswerInformationMessage, info={self.aid : data})
         if 'sender_id' in meta.keys():
             conv_id = meta.get('conversation_id', None)
             self.schedule_instant_task(self.container.send_acl_message(
@@ -201,6 +216,9 @@ class Agent(mango.Agent):
         """
         # Request information if there are connected agents
         if len(self.connected_agents):
+
+            data = copy.deepcopy(self.state)
+
             self._requested_info = {aid: asyncio.Future() for _, aid in self.connected_agents}
             futs = [self.schedule_instant_task(self.container.send_acl_message(
                             receiver_addr=addr,
@@ -213,29 +231,16 @@ class Agent(mango.Agent):
             await asyncio.gather(*futs)
             self._requested_info = await asyncio.gather(*[fut for fut in self._requested_info.values()])
             self._requested_info = {k : v for i in self._requested_info for k, v in i.items()}
+            # {'agent4': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 1.0}}})
+            for aid, state in self._requested_info.items():
+                for i in data.keys():
+                    for j in data[i].keys():
+                        data[i][j] += state[i][j]
 
             print('ACTION')
-            print('requested_info', self._requested_info)
-            #requested_info requested_info {'agent2': {'flexibility': {'P[MW]': {'min': -1.0, 'max': 1.0, 'cur': 0.00404922087048476}}}, 
-            
-            # calc flexibility
-            #for state in self._requested_info:
-            #    for k, v in state.items():
-            #        v['flexibility'] = (v['cur'] - v['min']) / (v['max'] - v['min']) if (v['max'] - v['min']) != 0 else 0 
+            print('requested_info:', self._requested_info)
+            print('aggregated data:', data)
 
-            # calc balance
-            #p_in_flow = 0
-            #p_out_flow = 0
-            #for state in self._requested_info:
-            #    for k, v in state.items():
-            #        if 'P' in k:
-            #            if v['cur'] < 0:
-            #                p_out_flow += v['cur']
-            #            else:
-            #                p_in_flow += v['cur']
-            #print(f"p_in_flow: {p_in_flow}, p_out_flow: {p_out_flow}, balance: {p_in_flow + p_out_flow}")
-            
-            #print(self._requested_info)
 
             # Send instructions
             print('SEND INSTRUCTIONS')
@@ -352,7 +357,7 @@ META = {
         'MosaikAgents': {
             'public': True,
             'any_inputs': True,
-            'params': ['controller', 'initial_states'],
+            'params': ['controller', 'initial_state'],
             'attrs': [],
         },
     },
@@ -396,11 +401,11 @@ class MosaikAgents(mosaik_api.Simulator):
     async def _create_mosaik_agent(self, container):
         return MosaikAgent(container)
 
-    async def _create_agent(self, container, controller, initial_states=[]):
+    async def _create_agent(self, container, controller, initial_state={}):
         if controller == None:
-            agent = Agent(container, None, initial_states)
+            agent = Agent(container, None, copy.deepcopy(initial_state))
         else:
-            agent = Agent(container, self.all_agents[controller], initial_states)
+            agent = Agent(container, self.all_agents[controller], copy.deepcopy(initial_state))
             await agent.register()
         return agent
 
@@ -430,7 +435,7 @@ class MosaikAgents(mosaik_api.Simulator):
                 eid = 'Agent_%s' % i
                 agent = self.loop.run_until_complete(self._create_agent(self.main_container, 
                                                                         model_conf['controller'], 
-                                                                        model_conf['initial_states']))
+                                                                        model_conf['initial_state']))
                 self.all_agents[eid] = (self.main_container.addr, agent.aid)
                 if model_conf['controller'] == None:
                     self.controllers[eid] = (self.main_container.addr, agent.aid)
