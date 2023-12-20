@@ -217,7 +217,7 @@ class Agent(mango.Agent):
         # Request information if there are connected agents
         if len(self.connected_agents):
 
-            data = copy.deepcopy(self.state)
+            data = copy.deepcopy(STATE_DICT)
 
             self._requested_info = {aid: asyncio.Future() for _, aid in self.connected_agents}
             futs = [self.schedule_instant_task(self.container.send_acl_message(
@@ -237,7 +237,12 @@ class Agent(mango.Agent):
                     for j in data[i].keys():
                         data[i][j] += state[i][j]
 
+# grid state: {'production': {'min': 0, 'max': 0, 'current': 1.0040492208704848}, 'consumption': {'min': 0, 'max': 0, 'current': 0}}
+# requested_info: {'agent2': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 1.0}}, 'agent3': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 1.0}}}
+# aggregated data: {'production': {'min': 0, 'max': 0, 'current': 2.0}, 'consumption': {'min': 0, 'max': 0, 'current': 2.0}}
+
             print('ACTION')
+            print('grid state:', self.state)
             print('requested_info:', self._requested_info)
             print('aggregated data:', data)
 
