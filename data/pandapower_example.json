@@ -20,7 +20,7 @@
     "load": {
       "_module": "pandas.core.frame",
       "_class": "DataFrame",
-      "_object": "{\"columns\":[\"name\",\"bus\",\"p_mw\",\"q_mvar\",\"const_z_percent\",\"const_i_percent\",\"sn_mva\",\"scaling\",\"in_service\",\"type\"],\"index\":[0,1],\"data\":[[null,1,1.0,0.0,0.0,0.0,null,1.0,true,\"wye\"],[null,0,1.0,0.0,0.0,0.0,null,1.0,true,\"wye\"]]}",
+      "_object": "{\"columns\":[\"name\",\"bus\",\"p_mw\",\"q_mvar\",\"const_z_percent\",\"const_i_percent\",\"sn_mva\",\"scaling\",\"in_service\",\"type\"],\"index\":[0,1],\"data\":[[null,0,1.0,0.0,0.0,0.0,null,1.0,true,\"wye\"],[null,1,3.0,0.0,0.0,0.0,null,1.0,true,\"wye\"]]}",
       "orient": "split",
       "dtype": {
         "name": "object",
@@ -148,7 +148,7 @@
     "gen": {
       "_module": "pandas.core.frame",
       "_class": "DataFrame",
-      "_object": "{\"columns\":[\"name\",\"bus\",\"p_mw\",\"vm_pu\",\"sn_mva\",\"min_q_mvar\",\"max_q_mvar\",\"scaling\",\"slack\",\"in_service\",\"slack_weight\",\"type\"],\"index\":[0],\"data\":[[null,0,1.0,1.0,null,null,null,1.0,false,true,0.0,null]]}",
+      "_object": "{\"columns\":[\"name\",\"bus\",\"p_mw\",\"vm_pu\",\"sn_mva\",\"min_q_mvar\",\"max_q_mvar\",\"scaling\",\"slack\",\"in_service\",\"slack_weight\",\"type\"],\"index\":[0,1],\"data\":[[null,0,1.0,1.0,null,null,null,1.0,false,true,0.0,null],[null,1,2.0,1.0,null,null,null,1.0,false,true,0.0,null]]}",
       "orient": "split",
       "dtype": {
         "name": "object",

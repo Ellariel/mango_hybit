@@ -12,6 +12,7 @@ import mango
 import copy
 from agent_messages import *
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
+from pandas.io.json._normalize import nested_to_record    
 
 import nest_asyncio
 nest_asyncio.apply()
@@ -29,6 +30,20 @@ STATE_DICT = {
     },    
 }
 
+def flatten(my_dict):
+    def check_zero_dict(_dict):
+        flattened = nested_to_record(_dict, sep='_')
+        if sum(flattened.values()) == 0:
+            return 0
+        return _dict
+
+    my_dict = check_zero_dict(my_dict)
+    if isinstance(my_dict, dict):
+        for k, v in my_dict.keys():
+            if isinstance(v, dict):
+                flatten(my_dict[k])
+    return my_dict
+        
 class Agent(mango.Agent):
     def __init__(self, container, controller, initial_state=STATE_DICT):
         super().__init__(container)
@@ -39,6 +54,7 @@ class Agent(mango.Agent):
         self._registration_confirmed = asyncio.Future()
         self._instruction_confirmed = {}
         self._requested_info = {}
+        self._aggregated_state = {}
         # print(f"Hello world! I am an Agent. My id is {self.aid}")
 
     def handle_message(self, content, meta):
@@ -50,7 +66,7 @@ class Agent(mango.Agent):
         """
 
         content = read_msg_content(content)
-        print(f"{self.aid} received: {content}")
+        #print(f"{self.aid} received: {content}")
         if isinstance(content, RegisterRequestMessage):
             self.register_agent(content, meta)
         elif isinstance(content, RegisterConfirmMessage):
@@ -144,10 +160,11 @@ class Agent(mango.Agent):
         :param meta: The meta information dict
         """
 
-        data = copy.deepcopy(self.state)
+        self._aggregated_state = copy.deepcopy(self.state)
                
         # Request information
         if len(self.connected_agents):
+            print(f"REQUEST INFO: {', '.join([i[1] for i in self.connected_agents])}")
             self._requested_info = {aid: asyncio.Future() for _, aid in self.connected_agents}
             futs = [self.schedule_instant_task(self.container.send_acl_message(
                             receiver_addr=addr,
@@ -161,12 +178,9 @@ class Agent(mango.Agent):
             self._requested_info = await asyncio.gather(*[fut for fut in self._requested_info.values()])
             self._requested_info = {k : v for i in self._requested_info for k, v in i.items()}
             # {'agent4': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 1.0}}})
-            for aid, state in self._requested_info.items():
-                for i in data.keys():
-                    for j in data[i].keys():
-                        data[i][j] += state[i][j]
+            self._aggregated_state = self.get_aggregated_state(self._requested_info, self.state)
 
-        msg_content = create_msg_content(AnswerInformationMessage, info={self.aid : data})
+        msg_content = create_msg_content(AnswerInformationMessage, info={self.aid : self._aggregated_state})
         if 'sender_id' in meta.keys():
             conv_id = meta.get('conversation_id', None)
             self.schedule_instant_task(self.container.send_acl_message(
@@ -182,17 +196,25 @@ class Agent(mango.Agent):
         :param content: The content including instructions to execute
         :param meta: The meta information dict
         """
+        instructions = content.instructions
+        instruction = instructions[self.aid]
 
-        # Do execute
-
-
+        # Do execute instruction
+        
+        print(f"{self.aid} <- state: {self._aggregated_state}, instruction: {instruction}")
         if len(self.connected_agents):
+            delta = self.calc_delta(self._aggregated_state, instruction)
+            additional_instructions, delta_remained = self.compose_instructions(self._requested_info, delta)
+            instructions.update(additional_instructions)
+            instructions.update({'delta' : delta})
+            print(f"delta for {', '.join(self._requested_info.keys())}: {flatten(delta)}")
+            #print(instructions)
             # Broadcast instructions
             self._instruction_confirmed = {aid: asyncio.Future() for _, aid in self.connected_agents}
             futs = [self.schedule_instant_task(self.container.send_acl_message(
                             receiver_addr=addr,
                             receiver_id=aid,
-                            content=create_msg_content(BroadcastInstructionsMessage, instructions={self.aid : aid}),
+                            content=create_msg_content(BroadcastInstructionsMessage, instructions=instructions),
                             acl_metadata={'conversation_id': aid,
                                         'sender_id': self.aid},
                     ))
@@ -216,9 +238,7 @@ class Agent(mango.Agent):
         """
         # Request information if there are connected agents
         if len(self.connected_agents):
-
-            data = copy.deepcopy(STATE_DICT)
-
+            print(f"REQUEST INFO: {', '.join([i[1] for i in self.connected_agents])}")
             self._requested_info = {aid: asyncio.Future() for _, aid in self.connected_agents}
             futs = [self.schedule_instant_task(self.container.send_acl_message(
                             receiver_addr=addr,
@@ -231,36 +251,42 @@ class Agent(mango.Agent):
             await asyncio.gather(*futs)
             self._requested_info = await asyncio.gather(*[fut for fut in self._requested_info.values()])
             self._requested_info = {k : v for i in self._requested_info for k, v in i.items()}
-            # {'agent4': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 1.0}}})
-            for aid, state in self._requested_info.items():
-                for i in data.keys():
-                    for j in data[i].keys():
-                        data[i][j] += state[i][j]
+            agg_cell_data = self.get_aggregated_state(self._requested_info)
+            print(f"INFO GATHERED")
 
 # grid state: {'production': {'min': 0, 'max': 0, 'current': 1.0040492208704848}, 'consumption': {'min': 0, 'max': 0, 'current': 0}}
-# requested_info: {'agent2': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 1.0}}, 'agent3': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 1.0}}}
+# requested_info: {'agent2': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 1.0}}, 
+#                  'agent3': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 1.0}}}
 # aggregated data: {'production': {'min': 0, 'max': 0, 'current': 2.0}, 'consumption': {'min': 0, 'max': 0, 'current': 2.0}}
 
             print('ACTION')
-            print('grid state:', self.state)
-            print('requested_info:', self._requested_info)
-            print('aggregated data:', data)
-
+            #print('grid state:', self.state)
+            #print('aggregated cell flexibility data:', agg_cell_data)
+            grid_delta, cell_delta = self.compute_delta_state(self.state, agg_cell_data)
+            new_grid_state = self.add_delta(self.state, grid_delta)
+            #new_cell_state = self.build_new_state(agg_cell_data, cell_delta)
+            #print('delta grid state:', grid_delta)
+            #print('delta cell flexibility:', cell_delta)
+            #print('new grid state:', new_grid_state)
+            #print('new cell flexibility:', new_cell_state)        
+            #print('requested_info:', self._requested_info)
+            instructions, delta_remained = self.compose_instructions(self._requested_info, cell_delta)
+            instructions.update({self.aid : new_grid_state, 'delta' : cell_delta})
+            #print('composed instructions:', instructions)
 
             # Send instructions
-            print('SEND INSTRUCTIONS')
+            print('BROADCAST INSTRUCTIONS')
             self._instruction_confirmed = {aid: asyncio.Future() for _, aid in self.connected_agents}
             futs = [self.schedule_instant_task(self.container.send_acl_message(
                             receiver_addr=addr,
                             receiver_id=aid,
-                            content=create_msg_content(BroadcastInstructionsMessage, instructions={self.aid : aid}),
+                            content=create_msg_content(BroadcastInstructionsMessage, instructions=instructions),
                             acl_metadata={'conversation_id': aid,
                                         'sender_id': self.aid},
                     ))
                     for addr, aid in self.connected_agents]
             await asyncio.gather(*futs)
             self._instruction_confirmed = await asyncio.gather(*[fut for fut in self._instruction_confirmed.values()])
-
             print('INSTRUCTIONS CONFIRMED')
 
         # confirm if sender_id is provided
@@ -273,6 +299,244 @@ class Agent(mango.Agent):
                 receiver_id=meta['sender_id'],
                 acl_metadata={'conversation_id': conv_id},
             ))  
+
+    def get_aggregated_state(self, agents_info, current_state=None):
+        if current_state == None:
+            current_state = copy.deepcopy(STATE_DICT)
+        else:
+            current_state = copy.deepcopy(current_state)
+        for aid, state in agents_info.items():
+            for i in current_state.keys():
+                for j in current_state[i].keys():
+                    current_state[i][j] += state[i][j]
+        return current_state
+
+    def add_delta(self, current_state, delta):
+        new_state = copy.deepcopy(current_state)
+        for i in delta.keys():
+            for j in delta[i].keys():
+                new_state[i][j] += delta[i][j]
+        return new_state
+
+    def calc_delta(self, current_state, new_state):
+        _new_state = copy.deepcopy(new_state)
+        for i in new_state.keys():
+            for j in new_state[i].keys():
+                _new_state[i][j] -= current_state[i][j]
+        return _new_state
+    
+    def compose_instructions(self, agents_info, delta):
+        _delta = copy.deepcopy(delta)
+        _agents_info = copy.deepcopy(agents_info)
+        for aid, state in _agents_info.items():
+            for i in _delta.keys():
+                max_inc = state[i]['max'] - state[i]['current']
+                max_dec = state[i]['current'] - state[i]['min']
+                if _delta[i]['current'] > 0:
+                    if _delta[i]['current'] <= max_inc:
+                       state[i]['current'] += _delta[i]['current']
+                       _delta[i]['current'] = 0
+                    else:
+                       state[i]['current'] += max_inc
+                       _delta[i]['current'] -= max_inc
+                elif _delta[i]['current'] < 0:            
+                    if abs(_delta[i]['current']) <= max_dec:
+                       state[i]['current'] += _delta[i]['current']
+                       _delta[i]['current'] = 0
+                    else:
+                       state[i]['current'] -= max_dec
+                       _delta[i]['current'] += max_dec
+        return _agents_info, _delta
+
+    def compute_delta_state(self, grid_state=None, cell_flexibility=None):
+            if grid_state == None:
+                grid_state = copy.deepcopy(STATE_DICT)
+            if cell_flexibility == None:
+                cell_flexibility = copy.deepcopy(STATE_DICT)
+
+            cell_balance = cell_flexibility['production']['current'] - cell_flexibility['consumption']['current']
+            print('cell_balance', cell_balance)
+            cell_inc_production = cell_flexibility['production']['max'] - cell_flexibility['production']['current']
+            if cell_inc_production < 0:
+                cell_inc_production = 0
+            cell_dec_production = cell_flexibility['production']['current'] - cell_flexibility['production']['min']
+            if cell_dec_production < 0:
+                cell_dec_production = 0
+
+            cell_dec_consumption = cell_flexibility['consumption']['current'] - cell_flexibility['consumption']['min']
+            if cell_dec_consumption < 0:
+                cell_dec_consumption = 0
+            cell_inc_consumption = cell_flexibility['consumption']['max'] - cell_flexibility['consumption']['current']
+            if cell_inc_consumption < 0:
+                cell_inc_consumption = 0
+
+            grid_inc_production = grid_state['production']['max'] - grid_state['production']['current']
+            if grid_inc_production < 0:
+                grid_inc_production = 0
+            grid_dec_production = grid_state['production']['current'] - grid_state['production']['min']
+            if grid_dec_production < 0:
+                grid_dec_production = 0
+
+            grid_dec_consumption = grid_state['consumption']['current'] - grid_state['consumption']['min']
+            if grid_dec_consumption < 0:
+                grid_dec_consumption = 0
+            grid_inc_consumption = grid_state['consumption']['max'] - grid_state['consumption']['current']
+            if grid_inc_consumption < 0:
+                grid_inc_consumption = 0
+
+            if cell_balance < 0:
+                if abs(cell_balance) <= cell_inc_production:
+                    cell_inc_production = abs(cell_balance)
+                    #cell_inc_production = 0
+                    cell_dec_production = 0
+                    
+                    cell_inc_consumption = 0
+                    cell_dec_consumption = 0
+
+                    grid_inc_production = 0
+                    grid_dec_production = 0
+                    
+                    grid_inc_consumption = 0
+                    grid_dec_consumption = 0
+                elif abs(cell_balance) <= cell_inc_production + cell_dec_consumption:
+                    cell_dec_consumption = abs(cell_balance) - cell_inc_production
+                    #cell_inc_production = 0
+                    cell_dec_production = 0
+                    
+                    cell_inc_consumption = 0
+                    #cell_dec_consumption = 0
+
+                    grid_inc_production = 0
+                    grid_dec_production = 0
+                    
+                    grid_inc_consumption = 0
+                    grid_dec_consumption = 0
+                elif abs(cell_balance) <= cell_inc_production + cell_dec_consumption + grid_inc_production:
+                    grid_inc_production = abs(cell_balance) - cell_inc_production - cell_dec_consumption
+                    #cell_inc_production = 0
+                    cell_dec_production = 0
+                    
+                    cell_inc_consumption = 0
+                    #cell_dec_consumption = 0
+
+                    #grid_inc_production = 0
+                    grid_dec_production = 0
+                    
+                    grid_inc_consumption = 0
+                    grid_dec_consumption = 0
+                elif abs(cell_balance) <= cell_inc_production + cell_dec_consumption + grid_inc_production + grid_dec_consumption:
+                    grid_dec_consumption = abs(cell_balance) - cell_inc_production - cell_dec_consumption - grid_inc_production
+                    #cell_inc_production = 0
+                    cell_dec_production = 0
+                    
+                    cell_inc_consumption = 0
+                    #cell_dec_consumption = 0
+
+                    #grid_inc_production = 0
+                    grid_dec_production = 0
+                    
+                    grid_inc_consumption = 0
+                    #grid_dec_consumption = 0
+                else:
+                    pass
+                    print('balance mismatch!')
+                    cell_inc_production = 0
+                    cell_dec_production = 0
+                    
+                    cell_inc_consumption = 0
+                    cell_dec_consumption = 0
+
+                    grid_inc_production = 0
+                    grid_dec_production = 0
+                    
+                    grid_inc_consumption = 0
+                    grid_dec_consumption = 0 
+            elif cell_balance > 0:
+                if abs(cell_balance) <= cell_dec_production:
+                    cell_dec_production = abs(cell_balance)
+                    cell_inc_production = 0
+                    #cell_dec_production = 0
+                    
+                    cell_inc_consumption = 0
+                    cell_dec_consumption = 0
+
+                    grid_inc_production = 0
+                    grid_dec_production = 0
+                    
+                    grid_inc_consumption = 0
+                    grid_dec_consumption = 0
+                elif abs(cell_balance) <= cell_dec_production + cell_inc_consumption:
+                    cell_inc_consumption = abs(cell_balance) - cell_dec_production
+                    cell_inc_production = 0
+                    #cell_dec_production = 0
+                    
+                    #cell_inc_consumption = 0
+                    cell_dec_consumption = 0
+
+                    grid_inc_production = 0
+                    grid_dec_production = 0
+                    
+                    grid_inc_consumption = 0
+                    grid_dec_consumption = 0
+                elif abs(cell_balance) <= cell_dec_production + cell_inc_consumption + grid_dec_production:
+                    grid_dec_production = abs(cell_balance) - cell_dec_production - cell_inc_consumption
+                    cell_inc_production = 0
+                    #cell_dec_production = 0
+                    
+                    #cell_inc_consumption = 0
+                    cell_dec_consumption = 0
+
+                    grid_inc_production = 0
+                    #grid_dec_production = 0
+                    
+                    grid_inc_consumption = 0
+                    grid_dec_consumption = 0
+                elif abs(cell_balance) <= cell_dec_production + cell_inc_consumption + grid_dec_production + grid_inc_consumption:
+                    grid_inc_consumption = abs(cell_balance) - cell_dec_production - cell_inc_consumption - grid_dec_production
+                else:
+                    pass
+                    print('balance mismatch!')
+                    cell_inc_production = 0
+                    cell_dec_production = 0
+                    
+                    cell_inc_consumption = 0
+                    cell_dec_consumption = 0
+
+                    grid_inc_production = 0
+                    grid_dec_production = 0
+                    
+                    grid_inc_consumption = 0
+                    grid_dec_consumption = 0 
+            else:
+                    cell_inc_production = 0
+                    cell_dec_production = 0
+                    
+                    cell_inc_consumption = 0
+                    cell_dec_consumption = 0
+
+                    grid_inc_production = 0
+                    grid_dec_production = 0
+                    
+                    grid_inc_consumption = 0
+                    grid_dec_consumption = 0  
+                    print('perfect balance!')             
+                    
+             
+            #print('cell_inc_production', cell_inc_production) 
+            #print('cell_dec_production', cell_dec_production) 
+            #print('cell_dec_consumption', cell_dec_consumption) 
+            #print('cell_inc_consumption', cell_inc_consumption) 
+            #print('grid_inc_production', grid_inc_production)
+            #print('grid_dec_production', grid_dec_production)
+            #print('grid_dec_consumption', grid_dec_consumption) 
+            #print('grid_inc_consumption', grid_inc_consumption) 
+            cell_delta = copy.deepcopy(STATE_DICT)
+            cell_delta['production']['current'] = cell_inc_production - cell_dec_production
+            cell_delta['consumption']['current'] = cell_inc_consumption - cell_dec_consumption     
+            grid_delta = copy.deepcopy(STATE_DICT)
+            grid_delta['production']['current'] = grid_inc_production - grid_dec_production
+            grid_delta['consumption']['current'] = grid_inc_consumption - grid_dec_consumption 
+            return grid_delta, cell_delta        
 
 class MosaikAgent(mango.Agent):
     def __init__(self, container):
@@ -292,7 +556,7 @@ class MosaikAgent(mango.Agent):
         Possible keys are e.g. sender_addr, sender_id, conversation_id...
         """
         content = read_msg_content(content)
-        print(f"{self.aid} received: {content}")
+        #print(f"{self.aid} received: {content}")
         if isinstance(content, UpdateConfirmMessage):
             self._updates_received[meta['conversation_id']].set_result(True)
         elif isinstance(content, ControlActionsDone):
@@ -304,7 +568,8 @@ class MosaikAgent(mango.Agent):
         """
         Update the agents with new data from mosaik.
         """
-        self._updates_received = {aid: asyncio.Future() for aid in data.keys()}
+        print(f"BROADCAST UPDATES: {', '.join([f'{eid}->{self._all_agents[eid][1]}' for eid in data.keys()])}")
+        self._updates_received = {eid: asyncio.Future() for eid in data.keys()}
         #print(data)
         futs = [self.schedule_instant_task(self.container.send_acl_message(
                     receiver_addr=self._all_agents[mosaik_eid][0],
@@ -316,6 +581,7 @@ class MosaikAgent(mango.Agent):
             for mosaik_eid, input_data in data.items()]
         await asyncio.gather(*futs)
         await asyncio.gather(*[fut for fut in self._updates_received.values()])
+        print("UPDATES CONFIRMED")
 
     async def trigger_control_cycle(self):
         """
@@ -498,12 +764,12 @@ class MosaikAgents(mosaik_api.Simulator):
         mosaik to continue the simulation.
 
         """
-        print('inputs:', inputs)
+        print('\ninputs:', inputs)
         # trigger the loop to enable agents to send / receive messages via run_until_complete
         output_dict = self.loop.run_until_complete(self.mosaik_agent.loop_step(inputs=inputs))
 
 
-        print('output', output_dict)
+        print('\noutput', output_dict)
         #print(self.all_agents)
 
         # Make "set_data()" call back to mosaik to send the set-points:
