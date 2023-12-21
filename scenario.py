@@ -46,6 +46,8 @@ MAS_CONFIG = {
     'verbose': 1,
     'input_method': input_to_state,
     'output_method': state_to_output,
+    'states_agg_method': None,
+    'redispatch_method': None,
 }
 
 WECS_CONFIG = [
@@ -54,12 +56,12 @@ WECS_CONFIG = [
 ]
 
 AGENTS_CONFIG = [
-    (2, {'controller': None, 'initial_state': None}),
-    (2, {'controller': None, 'initial_state': None}),
+    (2, {}),#, 'initial_state': None}),
+    (2, {}),#, 'initial_state': None}),
 ]
 CONTROLLERS_CONFIG = [
-    (1, {'controller': None, 'initial_state': None}),
-    (2, {'controller': None, 'initial_state': None}),
+    #(1, {'controller': None, 'initial_state': None}),
+    (2, {}),#, 'initial_state': None}),
 ]
 
 def main():
@@ -80,17 +82,17 @@ def main():
 
     controllers = []
     for n, params in CONTROLLERS_CONFIG:  # Iterate over the config sets
-        if len(controllers) > 0:
-            params.update({'controller' : controllers[0].eid})
+        #if len(controllers) > 0:
+        #    params.update({'controller' : controllers[0].eid})
         controllers += mas.MosaikAgents.create(num=n, **params)
     print('controllers:', controllers)
 
     agents = []
     for n, params in AGENTS_CONFIG:  # Iterate over the config sets
         if len(agents) == 0:
-            params.update({'controller' : controllers[1].eid})
+            params.update({'controller' : controllers[0].eid})
         else:
-            params.update({'controller' : controllers[2].eid})
+            params.update({'controller' : controllers[1].eid})
         #print(params)
         agents += mas.MosaikAgents.create(num=n, **params)
     print('agents:', agents)

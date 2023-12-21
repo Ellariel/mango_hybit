@@ -38,20 +38,20 @@ class UpdateConfirmMessage:
     """
     Agent -> Mosaik
     """
-
+'''
 @dataclass
-class TriggerControlActions:
+class TriggerCommunications:
     """
     Mosaik -> Controller
     """
 
 @dataclass
-class ControlActionsDone:
+class CommunicationsDone:
     """
     Controller -> Mosaik
     """
-    info: Dict
-
+    state: Dict
+'''
 @dataclass
 class RequestStateMessage:
     """
