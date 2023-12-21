@@ -19,6 +19,8 @@ pandapower.auxiliary._check_if_numba_is_installed = lambda x: x
 
 from mosaik_agents import *
 
+from utils import *
+
 SIM_CONFIG = {
     'Grid': {
          'python': 'mosaik_components.pandapower:Simulator'
@@ -42,6 +44,8 @@ DB_PATH = 'data/mosaik_results.hdf5'
 
 MAS_CONFIG = {
     'verbose': 1,
+    'input_method': input_to_state,
+    'output_method': state_to_output,
 }
 
 WECS_CONFIG = [

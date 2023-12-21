@@ -53,18 +53,18 @@ class ControlActionsDone:
     info: Dict
 
 @dataclass
-class RequestInformationMessage:
+class RequestStateMessage:
     """
     Controller -> Agents
     """
-    info: Dict
+    state: Dict
 
 @dataclass
-class AnswerInformationMessage:
+class AnswerStateMessage:
     """
     Agents -> Controller
     """
-    info: Dict
+    state: Dict
 
 @dataclass
 class BroadcastInstructionsMessage:

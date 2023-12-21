@@ -41,9 +41,12 @@ class Agent(mango.Agent):
         self.connected_agents = []
         self._registration_confirmed = asyncio.Future()
         self._instructions_confirmed = {}
-        self._requested_info = {}
+        self._requested_states = {}
         self._aggregated_state = {}
+
         self.verbose = kwargs.get('verbose', 2)
+        self.input_method = kwargs.get('input_method', None)
+        self.output_method = kwargs.get('output_method', None)
         if self.verbose >= 2:
             print(f"Hello world! I am a mango agent. My aid is {self.aid}")
 
@@ -64,10 +67,10 @@ class Agent(mango.Agent):
             self._registration_confirmed.set_result(True)
         elif isinstance(content, UpdateStateMessage):
             self.update_state(content, meta)
-        elif isinstance(content, RequestInformationMessage):
-            self.schedule_instant_task(self.send_info(content, meta))
-        elif isinstance(content, AnswerInformationMessage):
-            self._requested_info[meta['conversation_id']].set_result(content.info)
+        elif isinstance(content, RequestStateMessage):
+            self.schedule_instant_task(self.send_state(content, meta))
+        elif isinstance(content, AnswerStateMessage):
+            self._requested_states[meta['conversation_id']].set_result(content.state)
         elif isinstance(content, TriggerControlActions):
             self.schedule_instant_task(self.perform_control_actions(meta))
         elif isinstance(content, BroadcastInstructionsMessage):
@@ -119,7 +122,13 @@ class Agent(mango.Agent):
         :param meta: the meta information dict
         """
 
+        if callable(self.input_method):
+            self.state = self.input_method(content.state, self.state)
+        else:
+            self.state = copy.deepcopy(content.state)
+
         # state={'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0}}
+        '''
         for eid, value in content.state['current'].items():
             if 'Load' in eid: # check consumtion/production
                 self.state['consumption']['current'] = abs(value)
@@ -132,6 +141,7 @@ class Agent(mango.Agent):
                 else:
                     self.state['production']['current'] = 0
                     self.state['consumption']['current'] = value
+        '''
 
         msg_content = create_msg_content(UpdateConfirmMessage)
         if 'sender_id' in meta.keys():
@@ -143,7 +153,7 @@ class Agent(mango.Agent):
                 acl_metadata={'conversation_id': conv_id},
             ))
 
-    async def send_info(self, content, meta):
+    async def send_state(self, content, meta):
         """
         Send requested information (e.g. of the current state or any calculated data of connected Entity)
         :param content: The content including the information requested
@@ -155,23 +165,23 @@ class Agent(mango.Agent):
         # Request information
         if len(self.connected_agents):
             if self.verbose >= 1:
-                print(f"REQUEST INFO: {self.aid} <- {', '.join([i[1] for i in self.connected_agents])}")
-            self._requested_info = {aid: asyncio.Future() for _, aid in self.connected_agents}
+                print(f"REQUEST STATES: {self.aid} <- {', '.join([i[1] for i in self.connected_agents])}")
+            self._requested_states = {aid: asyncio.Future() for _, aid in self.connected_agents}
             futs = [self.schedule_instant_task(self.container.send_acl_message(
                             receiver_addr=addr,
                             receiver_id=aid,
-                            content=create_msg_content(RequestInformationMessage, info={}),
+                            content=create_msg_content(RequestStateMessage, state={}),
                             acl_metadata={'conversation_id': aid,
                                         'sender_id': self.aid},
                     ))
                     for addr, aid in self.connected_agents]
             await asyncio.gather(*futs)
-            self._requested_info = await asyncio.gather(*[fut for fut in self._requested_info.values()])
-            self._requested_info = {k : v for i in self._requested_info for k, v in i.items()}
+            self._requested_states = await asyncio.gather(*[fut for fut in self._requested_states.values()])
+            self._requested_states = {k : v for i in self._requested_states for k, v in i.items()}
             # {'agent4': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 1.0}}})
-            self._aggregated_state = self.get_aggregated_state(self._requested_info, self.state)
+            self._aggregated_state = self.get_aggregated_state(self._requested_states, self.state)
 
-        msg_content = create_msg_content(AnswerInformationMessage, info={self.aid : self._aggregated_state})
+        msg_content = create_msg_content(AnswerStateMessage, state={self.aid : self._aggregated_state})
         if 'sender_id' in meta.keys():
             conv_id = meta.get('conversation_id', None)
             self.schedule_instant_task(self.container.send_acl_message(
@@ -196,10 +206,10 @@ class Agent(mango.Agent):
             print(f"{highlight(self.aid)} <- {highlight('current_state')}: {self._aggregated_state}, {highlight('new_state')}: {reduce_equal_dicts(instruction, self._aggregated_state)}")
         if len(self.connected_agents):
             delta = self.calc_delta(self._aggregated_state, instruction)
-            additional_instructions, delta_remained = self.compose_instructions(self._requested_info, delta)
+            additional_instructions, delta_remained = self.compose_instructions(self._requested_states, delta)
             instructions.update(additional_instructions)
             if self.verbose >= 1:
-                print(f"{highlight('delta for')} {', '.join(self._requested_info.keys())}: {reduce_zero_dict(delta)}")
+                print(f"{highlight('delta for')} {', '.join(self._requested_states.keys())}: {reduce_zero_dict(delta)}")
             # Broadcast instructions
             self._instructions_confirmed = {aid: asyncio.Future() for _, aid in self.connected_agents}
             futs = [self.schedule_instant_task(self.container.send_acl_message(
@@ -230,20 +240,20 @@ class Agent(mango.Agent):
         # Request information if there are connected agents
         if len(self.connected_agents):
             if self.verbose >= 1:
-                print(f"REQUEST INFO: {self.aid} <- {', '.join([i[1] for i in self.connected_agents])}")
-            self._requested_info = {aid: asyncio.Future() for _, aid in self.connected_agents}
+                print(f"REQUEST STATES: {self.aid} <- {', '.join([i[1] for i in self.connected_agents])}")
+            self._requested_states = {aid: asyncio.Future() for _, aid in self.connected_agents}
             futs = [self.schedule_instant_task(self.container.send_acl_message(
                             receiver_addr=addr,
                             receiver_id=aid,
-                            content=create_msg_content(RequestInformationMessage, info={}),
+                            content=create_msg_content(RequestStateMessage, state={}),
                             acl_metadata={'conversation_id': aid,
                                         'sender_id': self.aid},
                     ))
                     for addr, aid in self.connected_agents]
             await asyncio.gather(*futs)
-            self._requested_info = await asyncio.gather(*[fut for fut in self._requested_info.values()])
-            self._requested_info = {k : v for i in self._requested_info for k, v in i.items()}
-            agg_data = self.get_aggregated_state(self._requested_info)
+            self._requested_states = await asyncio.gather(*[fut for fut in self._requested_states.values()])
+            self._requested_states = {k : v for i in self._requested_states for k, v in i.items()}
+            agg_data = self.get_aggregated_state(self._requested_states)
             if self.verbose >= 1:
                 print(f"ALL REQUESTS ARE COMPLETED")
 
@@ -256,7 +266,7 @@ class Agent(mango.Agent):
 
             grid_delta, cell_delta = self.compute_delta_state(self.state, agg_data)
             new_grid_state = self.add_delta(self.state, grid_delta)
-            instructions, feedback = self.compose_instructions(self._requested_info, cell_delta)
+            instructions, feedback = self.compose_instructions(self._requested_states, cell_delta)
             instructions.update({self.aid : new_grid_state, 'delta' : cell_delta})
 
             # Send instructions
@@ -534,6 +544,8 @@ class MosaikAgent(mango.Agent):
         self._all_agents = {}
         self._controllers = {}
         self.verbose = kwargs.get('verbose', 2)
+        self.input_method = kwargs.get('input_method', None)
+        self.output_method = kwargs.get('output_method', None)
         if self.verbose >= 2:
             print(f"Hello world! I am MosaikAgent. My aid is {self.aid}")
 
@@ -574,7 +586,7 @@ class MosaikAgent(mango.Agent):
         if self.verbose >= 1:
             print("UPDATES ARE CONFIRMED")
 
-    async def trigger_control_cycle(self):
+    async def trigger_communication_cycle(self):
         """
         Trigger control cycle after all the agents got their updates from Mosaik.
         """
@@ -593,9 +605,13 @@ class MosaikAgent(mango.Agent):
         self._controllers_done = await asyncio.gather(*[fut for fut in self._controllers_done.values()])
         if self.verbose >= 1:
             print('STOP COMMUNICATION CYCLE')
-        return {eid : info['instructions'] for eid, a in self._all_agents.items() 
+
+        output_state =  {eid : info['instructions'] for eid, a in self._all_agents.items() 
                                                 for info in self._controllers_done[0] 
                                                     if a[1] == info['aid']}
+        if callable(self.output_method):
+            return self.output_method(output_state)
+        return copy.deepcopy(output_state)        
 
     async def loop_step(self, inputs):
             """
@@ -607,7 +623,7 @@ class MosaikAgent(mango.Agent):
             # 1. update state of agents
             await self.update_agents(inputs)
             # 2. trigger control actions
-            return await self.trigger_control_cycle()
+            return await self.trigger_communication_cycle()
 
 #logger = logging.getLogger('mosaik_agents')
 def main():
@@ -646,19 +662,25 @@ class MosaikAgents(mosaik_api.Simulator):
         self.loop = None  # Mango agents loop
         self.main_container = None # Mango container
         self.mosaik_agent = None # Mosaik Mango Agent
-        self.verbose = 0
         # Updated in "create()"
         #self.cell_agents = {}  # eid : ((host,port), aid)
         self.controllers = {}  # eid : ((host,port), aid)
         # Set/updated in "setup_done()"
         self.all_agents = {} # contains agents + controllers for technical tasks
         self.entities = {}  # agent_id: unit_id
-        #self.loop = asyncio.get_running_loop()
+
+        self.verbose = 2
+        self.input_method = None
+        self.output_method = None
 
     def init(self, sid, time_resolution=1., **sim_params):
         self.sid = sid
-        self.verbose = sim_params.get('verbose', 2)
         self.loop = asyncio.get_event_loop()
+
+        self.verbose = sim_params.get('verbose', self.verbose)
+        self.input_method = sim_params.get('input_method', self.input_method)
+        self.output_method = sim_params.get('output_method', self.output_method)
+
         self.main_container = self.loop.run_until_complete(self._create_container(self.host, self.port))
         self.mosaik_agent = self.loop.run_until_complete(self._create_mosaik_agent(self.main_container))
         return META
@@ -671,9 +693,15 @@ class MosaikAgents(mosaik_api.Simulator):
 
     async def _create_agent(self, container, controller, initial_state):
         if controller == None:
-            agent = Agent(container, None, copy.deepcopy(initial_state), verbose=self.verbose)
+            agent = Agent(container, None, copy.deepcopy(initial_state), 
+                          verbose=self.verbose, 
+                          input_method=self.input_method,
+                          output_method=self.output_method)
         else:
-            agent = Agent(container, self.all_agents[controller], copy.deepcopy(initial_state), verbose=self.verbose)
+            agent = Agent(container, self.all_agents[controller], copy.deepcopy(initial_state), 
+                          verbose=self.verbose, 
+                          input_method=self.input_method,
+                          output_method=self.output_method)
             await agent.register()
         return agent
 
