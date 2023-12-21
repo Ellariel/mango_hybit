@@ -40,18 +40,22 @@ GRID_FILE = 'data/pandapower_example.json'
 WIND_FILE = 'data/wind_speed_m-s_15min.csv'
 DB_PATH = 'data/mosaik_results.hdf5'
 
+MAS_CONFIG = {
+    'verbose': 1,
+}
+
 WECS_CONFIG = [
     #(1, {'P_rated': 2000, 'v_rated': 12, 'v_min': 2.0, 'v_max': 25,  'controller': None}),
     (1, {'P_rated': 5000, 'v_rated': 13, 'v_min': 3.5, 'v_max': 25, 'controller': None}),
 ]
 
 AGENTS_CONFIG = [
-    (2, {'controller': None, 'initial_state': STATE_DICT}),
-    (2, {'controller': None, 'initial_state': STATE_DICT}),
+    (2, {'controller': None, 'initial_state': None}),
+    (2, {'controller': None, 'initial_state': None}),
 ]
 CONTROLLERS_CONFIG = [
-    (1, {'controller': None, 'initial_state': STATE_DICT}),
-    (2, {'controller': None, 'initial_state': STATE_DICT}),
+    (1, {'controller': None, 'initial_state': None}),
+    (2, {'controller': None, 'initial_state': None}),
 ]
 
 def main():
@@ -59,7 +63,7 @@ def main():
     world = mosaik.World(SIM_CONFIG)
     wecssim = world.start('WecsSim', step_size=60*15, wind_file=WIND_FILE)
     gridsim = world.start('Grid', step_size=60*15)
-    mas = world.start('MAS')
+    mas = world.start('MAS', **MAS_CONFIG)
     #db = world.start('DB', step_size=60*60, duration=DURATION)
 
     grid = gridsim.Grid(json=GRID_FILE)
