@@ -16,6 +16,7 @@ MAS_DEFAULT_STATE = {
 }
 
 def state_to_output(output_state):
+    return {}
     return output_state
         #print(self.all_agents)
 

@@ -328,6 +328,7 @@ class MosaikAgent(mango.Agent):
             instructions, info = self.compute_instructions(current_state=self._aggregated_state,
                                                            requested_states=self._requested_states,
                                                            grid_state=self.state)
+            print('instructions', instructions)
             # Send instructions
             if self.params['verbose'] >= 1:
                 print(f'BROADCAST REDISPATCH INSTRUCTIONS: {info}')
@@ -342,16 +343,12 @@ class MosaikAgent(mango.Agent):
                     for addr, aid in self.connected_agents]
             await asyncio.gather(*futs)
             self._instructions_confirmed = await asyncio.gather(*[fut for fut in self._instructions_confirmed.values()])
+            self._instructions_confirmed = {k : v for i in self._instructions_confirmed for k, v in i['instructions'].items()}
             if self.params['verbose'] >= 1:
                 print('INSTRUCTIONS ARE CONFIRMED')
+            #print('instructions_confirmed', self._instructions_confirmed)
 
-        output_state =  {}#{eid : info['instructions'] for eid, a in self._all_agents.items() 
-                           #                     for info in self._instructions_confirmed[0] 
-                           #                         if a[1] == info['aid']}
-        return output_state
-        #if callable(self.params['output_method']):
-        #    return self.params['output_method'](output_state)
-        #return copy.deepcopy(output_state)        
+            return self._instructions_confirmed   
 
     async def run_loop(self, inputs):
             """
@@ -408,6 +405,7 @@ class MosaikAgents(mosaik_api.Simulator):
         #self.controllers = {}  # eid : ((host,port), aid)
         # Set/updated in "setup_done()"
         self.all_agents = {} # contains agents + controllers for technical tasks
+        self.aid_to_eid = {}
         self.entities = {}  # agent_id: unit_id
 
     def init(self, sid, time_resolution=1., **sim_params):
@@ -466,6 +464,8 @@ class MosaikAgents(mosaik_api.Simulator):
         setup is done.
         """
         self.mosaik_agent._all_agents = self.all_agents
+        self.aid_to_eid = {v[1] : k for k, v in self.all_agents.items()}
+        self.aid_to_eid[self.mosaik_agent.aid] = 'MosaikAgent'
         full_ids = ['%s.%s' % (self.sid, eid) for eid in self.all_agents.keys()] + [f"{self.sid}.MosaikAgent"]
         relations = yield self.mosaik.get_related_entities(full_ids)
         print('relations:', relations)
@@ -504,12 +504,6 @@ class MosaikAgents(mosaik_api.Simulator):
         print('\ninputs:', inputs)
         # trigger the loop to enable agents to send / receive messages via run_until_complete
 
-        #if callable(self.params['input_method']):
-        #    self.state = self.params['input_method'](content.state, self.state)
-        #else:
-        #    self.state = copy.deepcopy(content.state)
-
-
         new_state = inputs.pop('MosaikAgent', {})
         if callable(self.params['input_method']):
             self.mosaik_agent.state = self.params['input_method'](new_state, self.mosaik_agent.state)
@@ -517,12 +511,14 @@ class MosaikAgents(mosaik_api.Simulator):
             self.mosaik_agent.state = copy.deepcopy(new_state)
 
         output_dict = self.loop.run_until_complete(self.mosaik_agent.run_loop(inputs=inputs))
-        if callable(self.params['output_method']):
-            output_dict = self.params['output_method'](output_dict)
+        output_dict = {self.aid_to_eid[k]: v for k, v in output_dict.items()}
 
         print('\noutput', output_dict)
+
+        if callable(self.params['output_method']):
+            output_dict = self.params['output_method'](output_dict)
         
-        yield self.mosaik.set_data(output_dict)#inputs)
+        yield self.mosaik.set_data(output_dict)
 
         return time + self.step_size
     
