@@ -238,8 +238,8 @@ class MosaikAgent(mango.Agent):
             print(f"{self.aid} received: {content}")
         if isinstance(content, RegisterRequestMessage):
             self.register_agent(content, meta)
-        elif isinstance(content, UpdateStateMessage):
-            self.update_state(content, meta)
+        #elif isinstance(content, UpdateStateMessage):
+        #    self.update_state(content, meta)
         elif isinstance(content, UpdateConfirmMessage):
             self._updates_received[meta['conversation_id']].set_result(True)
         elif isinstance(content, AnswerStateMessage):
@@ -266,28 +266,6 @@ class MosaikAgent(mango.Agent):
             content=msg_content,
             acl_metadata={},
         ))
-
-    def update_state(self, content, meta):
-        """
-        Update the current state of connected Entity
-        :param content: The state content including the current state coming from mosaik
-        :param meta: the meta information dict
-        """
-
-        if callable(self.params['input_method']):
-            self.state = self.params['input_method'](content.state, self.state)
-        else:
-            self.state = copy.deepcopy(content.state)
-
-        msg_content = create_msg_content(UpdateConfirmMessage)
-        if 'sender_id' in meta.keys():
-            conv_id = meta.get('conversation_id', None)
-            self.schedule_instant_task(self.container.send_acl_message(
-                content=msg_content,
-                receiver_addr=meta['sender_addr'],
-                receiver_id=meta['sender_id'],
-                acl_metadata={'conversation_id': conv_id},
-            ))
 
     async def update_agents(self, data):
         """
@@ -442,7 +420,7 @@ class MosaikAgents(mosaik_api.Simulator):
         #self.redispatch_method = sim_params.get('redispatch_method', self.redispatch_method)
 
         self.main_container = self.loop.run_until_complete(self._create_container(self.host, self.port))
-        self.mosaik_agent = self.loop.run_until_complete(self._create_mosaik_agent(self.main_container, **self.params))
+        #self.mosaik_agent = self.loop.run_until_complete(self._create_mosaik_agent(self.main_container, **self.params))
         return META
 
     async def _create_container(self, host, port):
@@ -468,6 +446,10 @@ class MosaikAgents(mosaik_api.Simulator):
         # Get the number of agents created so far and count from this number
         # when creating new entity IDs:
         entities = []
+        if self.mosaik_agent == None:
+            self.mosaik_agent = self.loop.run_until_complete(self._create_mosaik_agent(self.main_container, **self.params))
+            #entities.append({'eid': 'MosaikAgent', 'type': model})
+
         self.params.update(model_conf)
         n_agents = len(self.all_agents) + 1
         
