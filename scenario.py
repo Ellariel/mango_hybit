@@ -10,7 +10,7 @@ Python will find these modules.
 
 
 """
-import copy
+#import copy
 import mosaik
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -42,13 +42,13 @@ GRID_FILE = 'data/pandapower_example.json'
 WIND_FILE = 'data/wind_speed_m-s_15min.csv'
 DB_PATH = 'data/mosaik_results.hdf5'
 
-MAS_CONFIG = {
-    'verbose': 1,
-    'input_method': input_to_state,
-    'output_method': state_to_output,
-    'states_agg_method': None,
-    'redispatch_method': None,
-}
+#MAS_CONFIG = {
+#    'verbose': 1,
+#    'input_method': input_to_state,
+#    'output_method': state_to_output,
+#    'states_agg_method': None,
+#    'redispatch_method': None,
+#}
 
 WECS_CONFIG = [
     #(1, {'P_rated': 2000, 'v_rated': 12, 'v_min': 2.0, 'v_max': 25,  'controller': None}),
@@ -69,7 +69,7 @@ def main():
     world = mosaik.World(SIM_CONFIG)
     wecssim = world.start('WecsSim', step_size=60*15, wind_file=WIND_FILE)
     gridsim = world.start('Grid', step_size=60*15)
-    mas = world.start('MAS', **MAS_CONFIG)
+    mas = world.start('MAS', **MAS_DEFAULT_CONFIG)
     #db = world.start('DB', step_size=60*60, duration=DURATION)
 
     grid = gridsim.Grid(json=GRID_FILE)

@@ -20,35 +20,19 @@ nest_asyncio.apply()
 from utils import highlight, reduce_zero_dict, reduce_equal_dicts
 from utils import *
 
-STATE_DICT = {
-    'production' : {
-        'min' : 0,
-        'max' : 0,
-        'current' : 0,
-    },
-    'consumption' : {
-        'min' : 0,
-        'max' : 0,
-        'current' : 0,
-    },    
-}
-
 class Agent(mango.Agent):
-    def __init__(self, container, **kwargs):
+    def __init__(self, container, **params):
         super().__init__(container)
         self.container = container
-        self.controller = kwargs.get('controller', None)
-        self.state = kwargs.get('initial_state', copy.deepcopy(STATE_DICT))
+        self.params = params
+        self.state = self.params.get('initial_state', copy.deepcopy(self.params['state_dict']))
+        self.controller = self.params.get('controller', None)
         self.connected_agents = []
         self._registration_confirmed = asyncio.Future()
         self._instructions_confirmed = {}
         self._requested_states = {}
         self._aggregated_state = {}
-
-        self.verbose = kwargs.get('verbose', 2)
-        self.input_method = kwargs.get('input_method', None)
-        self.output_method = kwargs.get('output_method', None)
-        if self.verbose >= 2:
+        if self.params['verbose'] >= 2:
             print(f"Hello world! I am a mango agent. My aid is {self.aid}")
 
     def handle_message(self, content, meta):
@@ -60,7 +44,7 @@ class Agent(mango.Agent):
         """
 
         content = read_msg_content(content)
-        if self.verbose >= 2:
+        if self.params['verbose'] >= 2:
             print(f"{self.aid} received: {content}")
         if isinstance(content, RegisterRequestMessage):
             self.register_agent(content, meta)
@@ -122,26 +106,10 @@ class Agent(mango.Agent):
         :param meta: the meta information dict
         """
 
-        if callable(self.input_method):
-            self.state = self.input_method(content.state, self.state)
+        if callable(self.params['input_method']):
+            self.state = self.params['input_method'](content.state, self.state)
         else:
             self.state = copy.deepcopy(content.state)
-
-        # state={'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0}}
-        '''
-        for eid, value in content.state['current'].items():
-            if 'Load' in eid: # check consumtion/production
-                self.state['consumption']['current'] = abs(value)
-            elif 'Gen' in eid or 'Wecs' in eid:
-                self.state['production']['current'] = abs(value)
-            elif 'Grid' in eid:
-                if value >= 0:
-                    self.state['production']['current'] = value
-                    self.state['consumption']['current'] = 0
-                else:
-                    self.state['production']['current'] = 0
-                    self.state['consumption']['current'] = value
-        '''
 
         msg_content = create_msg_content(UpdateConfirmMessage)
         if 'sender_id' in meta.keys():
@@ -152,6 +120,14 @@ class Agent(mango.Agent):
                 receiver_id=meta['sender_id'],
                 acl_metadata={'conversation_id': conv_id},
             ))
+
+    def aggregate_states(self, requested_states, current_state=None):
+        if callable(self.params['states_agg_method']):
+            return self.params['states_agg_method'](requested_states, current_state)
+
+    def compute_instructions(self, current_state, **kwargs):
+        if callable(self.params['redispatch_method']):
+            return self.params['redispatch_method'](current_state, **kwargs)
 
     async def send_state(self, content, meta):
         """
@@ -164,7 +140,7 @@ class Agent(mango.Agent):
                
         # Request information
         if len(self.connected_agents):
-            if self.verbose >= 1:
+            if self.params['verbose'] >= 1:
                 print(f"REQUEST STATES: {self.aid} <- {', '.join([i[1] for i in self.connected_agents])}")
             self._requested_states = {aid: asyncio.Future() for _, aid in self.connected_agents}
             futs = [self.schedule_instant_task(self.container.send_acl_message(
@@ -179,7 +155,7 @@ class Agent(mango.Agent):
             self._requested_states = await asyncio.gather(*[fut for fut in self._requested_states.values()])
             self._requested_states = {k : v for i in self._requested_states for k, v in i.items()}
             # {'agent4': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 1.0}}})
-            self._aggregated_state = get_aggregated_state(self._requested_states, self._aggregated_state)
+            self._aggregated_state = self.aggregate_states(self._requested_states, self._aggregated_state)
 
         msg_content = create_msg_content(AnswerStateMessage, state={self.aid : self._aggregated_state})
         if 'sender_id' in meta.keys():
@@ -202,14 +178,15 @@ class Agent(mango.Agent):
 
         # Do execute instruction
         
-        if self.verbose >= 1:
+        if self.params['verbose'] >= 1:
             print(f"{highlight(self.aid)} <- {highlight('current_state')}: {self._aggregated_state}, {highlight('new_state')}: {reduce_equal_dicts(instruction, self._aggregated_state)}")
         if len(self.connected_agents):
-            delta = calc_delta(self._aggregated_state, instruction)
-            additional_instructions, delta_remained = compose_instructions(self._requested_states, delta)
-            instructions.update(additional_instructions)
-            if self.verbose >= 1:
-                print(f"{highlight('delta for')} {', '.join(self._requested_states.keys())}: {reduce_zero_dict(delta)}")
+            add_instructions, info = self.compute_instructions(current_state=self._aggregated_state,
+                                                           requested_states=self._requested_states, 
+                                                           instruction=instruction)
+            instructions.update(add_instructions)
+            if self.params['verbose'] >= 1:
+                print(f"{highlight('info for')} {', '.join(self._requested_states.keys())}: {reduce_zero_dict(info)}")
             # Broadcast instructions
             self._instructions_confirmed = {aid: asyncio.Future() for _, aid in self.connected_agents}
             futs = [self.schedule_instant_task(self.container.send_acl_message(
@@ -235,23 +212,18 @@ class Agent(mango.Agent):
             )) 
 
 class MosaikAgent(mango.Agent):
-    def __init__(self, container, **kwargs):
+    def __init__(self, container, **params):
         super().__init__(container)
         self.container = container
+        self.params = params
+        self.state = self.params.get('initial_state', copy.deepcopy(self.params['state_dict']))
         self.connected_agents = []
-        self.state = kwargs.get('initial_state', copy.deepcopy(STATE_DICT))
-
         self._updates_received = {}
-        #self._communications_done = {}
         self._instructions_confirmed = {}
         self._requested_states = {}
         self._aggregated_state = {}
         self._all_agents = {}
-        #self._controllers = {}
-        self.verbose = kwargs.get('verbose', 2)
-        self.input_method = kwargs.get('input_method', None)
-        self.output_method = kwargs.get('output_method', None)
-        if self.verbose >= 2:
+        if self.params['verbose'] >= 2:
             print(f"Hello world! I am MosaikAgent. My aid is {self.aid}")
 
     def handle_message(self, content, meta):
@@ -262,10 +234,12 @@ class MosaikAgent(mango.Agent):
         Possible keys are e.g. sender_addr, sender_id, conversation_id...
         """
         content = read_msg_content(content)
-        if self.verbose >= 2:
+        if self.params['verbose'] >= 2:
             print(f"{self.aid} received: {content}")
         if isinstance(content, RegisterRequestMessage):
             self.register_agent(content, meta)
+        elif isinstance(content, UpdateStateMessage):
+            self.update_state(content, meta)
         elif isinstance(content, UpdateConfirmMessage):
             self._updates_received[meta['conversation_id']].set_result(True)
         elif isinstance(content, AnswerStateMessage):
@@ -293,11 +267,33 @@ class MosaikAgent(mango.Agent):
             acl_metadata={},
         ))
 
+    def update_state(self, content, meta):
+        """
+        Update the current state of connected Entity
+        :param content: The state content including the current state coming from mosaik
+        :param meta: the meta information dict
+        """
+
+        if callable(self.params['input_method']):
+            self.state = self.params['input_method'](content.state, self.state)
+        else:
+            self.state = copy.deepcopy(content.state)
+
+        msg_content = create_msg_content(UpdateConfirmMessage)
+        if 'sender_id' in meta.keys():
+            conv_id = meta.get('conversation_id', None)
+            self.schedule_instant_task(self.container.send_acl_message(
+                content=msg_content,
+                receiver_addr=meta['sender_addr'],
+                receiver_id=meta['sender_id'],
+                acl_metadata={'conversation_id': conv_id},
+            ))
+
     async def update_agents(self, data):
         """
         Update the agents with new data from mosaik.
         """
-        if self.verbose >= 1:
+        if self.params['verbose'] >= 1:
             print(f"BROADCAST UPDATES: {', '.join([f'{eid}->{self._all_agents[eid][1]}' for eid in data.keys()])}")
         self._updates_received = {eid: asyncio.Future() for eid in data.keys()}
         futs = [self.schedule_instant_task(self.container.send_acl_message(
@@ -310,8 +306,16 @@ class MosaikAgent(mango.Agent):
             for mosaik_eid, input_data in data.items()]
         await asyncio.gather(*futs)
         await asyncio.gather(*[fut for fut in self._updates_received.values()])
-        if self.verbose >= 1:
+        if self.params['verbose'] >= 1:
             print("UPDATES ARE CONFIRMED")
+
+    def aggregate_states(self, requested_states, current_state=None):
+        if callable(self.params['states_agg_method']):
+            return self.params['states_agg_method'](requested_states, current_state)
+
+    def compute_instructions(self, current_state, **kwargs):
+        if callable(self.params['redispatch_method']):
+            return self.params['redispatch_method'](current_state, **kwargs)
 
     async def trigger_communication_cycle(self):
         """
@@ -322,7 +326,7 @@ class MosaikAgent(mango.Agent):
 
         # Request information if there are connected agents
         if len(self.connected_agents):
-            if self.verbose >= 1:
+            if self.params['verbose'] >= 1:
                 print(f"START COMMUNICATION CYCLE: {', '.join([aid for _, aid in self.connected_agents])}")
             self._requested_states = {aid: asyncio.Future() for _, aid in self.connected_agents}
             futs = [self.schedule_instant_task(self.container.send_acl_message(
@@ -336,25 +340,17 @@ class MosaikAgent(mango.Agent):
             await asyncio.gather(*futs)
             self._requested_states = await asyncio.gather(*[fut for fut in self._requested_states.values()])
             self._requested_states = {k : v for i in self._requested_states for k, v in i.items()}
-            self._aggregated_state = get_aggregated_state(self._requested_states, self._aggregated_state)
-            if self.verbose >= 1:
+            self._aggregated_state = self.aggregate_states(self._requested_states, self._aggregated_state)
+            if self.params['verbose'] >= 1:
                 print(f"STOP COMMUNICATION CYCLE: {', '.join([k for k in self._requested_states.keys()])}")
                 print('EXECUTE REDISPATCH ALGORITHM')
-        # grid state: {'production': {'min': 0, 'max': 0, 'current': 1.0040492208704848}, 'consumption': {'min': 0, 'max': 0, 'current': 0}}
-        # requested_info: {'agent2': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 1.0}}, 
-        #                  'agent3': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 1.0}}}
-        # aggregated data: {'production': {'min': 0, 'max': 0, 'current': 2.0}, 'consumption': {'min': 0, 'max': 0, 'current': 2.0}}
 
-
-            print(self.state)
-            grid_delta, cell_delta = compute_delta_state(self.state, self._aggregated_state)
-            #new_grid_state = add_delta(self.state, grid_delta)
-            instructions, feedback = compose_instructions(self._requested_states, cell_delta)
-            #instructions.update({self.aid : new_grid_state, 'delta' : cell_delta})
-
+            instructions, info = self.compute_instructions(current_state=self._aggregated_state,
+                                                           requested_states=self._requested_states,
+                                                           grid_state=self.state)
             # Send instructions
-            if self.verbose >= 1:
-                print('BROADCAST REDISPATCH INSTRUCTIONS')
+            if self.params['verbose'] >= 1:
+                print(f'BROADCAST REDISPATCH INSTRUCTIONS: {info}')
             self._instructions_confirmed = {aid: asyncio.Future() for _, aid in self.connected_agents}
             futs = [self.schedule_instant_task(self.container.send_acl_message(
                             receiver_addr=addr,
@@ -366,15 +362,14 @@ class MosaikAgent(mango.Agent):
                     for addr, aid in self.connected_agents]
             await asyncio.gather(*futs)
             self._instructions_confirmed = await asyncio.gather(*[fut for fut in self._instructions_confirmed.values()])
-            if self.verbose >= 1:
+            if self.params['verbose'] >= 1:
                 print('INSTRUCTIONS ARE CONFIRMED')
-
 
         output_state =  {}#{eid : info['instructions'] for eid, a in self._all_agents.items() 
                            #                     for info in self._instructions_confirmed[0] 
                            #                         if a[1] == info['aid']}
-        if callable(self.output_method):
-            return self.output_method(output_state)
+        if callable(self.params['output_method']):
+            return self.params['output_method'](output_state)
         return copy.deepcopy(output_state)        
 
     async def run_loop(self, inputs):
@@ -419,6 +414,7 @@ class MosaikAgents(mosaik_api.Simulator):
         self.step_size = 60 * 15  # We have a step size of 15 minutes specified in seconds:
         self.host = 'localhost'
         self.port = 5678
+        self.params = {}
         # Set by "run()":
         self.mosaik = None  # Proxy object for mosaik
         # Set in "init()"
@@ -428,44 +424,42 @@ class MosaikAgents(mosaik_api.Simulator):
         self.mosaik_agent = None # Mosaik Mango Agent
         # Updated in "create()"
         #self.cell_agents = {}  # eid : ((host,port), aid)
-        self.controllers = {}  # eid : ((host,port), aid)
+        #self.controllers = {}  # eid : ((host,port), aid)
         # Set/updated in "setup_done()"
         self.all_agents = {} # contains agents + controllers for technical tasks
         self.entities = {}  # agent_id: unit_id
 
-        self.verbose = 2
-        self.input_method = None
-        self.output_method = None
-
     def init(self, sid, time_resolution=1., **sim_params):
         self.sid = sid
         self.loop = asyncio.get_event_loop()
-
-        self.verbose = sim_params.get('verbose', self.verbose)
-        self.input_method = sim_params.get('input_method', self.input_method)
-        self.output_method = sim_params.get('output_method', self.output_method)
+        self.params = sim_params
+        #print(self.params)
+        #self.verbose = sim_params.get('verbose', self.verbose)
+        #self.state_dict = sim_params.get('state_dict', self.state_dict)
+        #self.input_method = sim_params.get('input_method', self.input_method)
+        #self.output_method = sim_params.get('output_method', self.output_method)
+        #self.states_agg_method = sim_params.get('states_agg_method', self.states_agg_method)
+        #self.redispatch_method = sim_params.get('redispatch_method', self.redispatch_method)
 
         self.main_container = self.loop.run_until_complete(self._create_container(self.host, self.port))
-        self.mosaik_agent = self.loop.run_until_complete(self._create_mosaik_agent(self.main_container))
+        self.mosaik_agent = self.loop.run_until_complete(self._create_mosaik_agent(self.main_container, **self.params))
         return META
 
     async def _create_container(self, host, port):
         return await mango.create_container(addr=(host, port))
     
-    async def _create_mosaik_agent(self, container):
-        return MosaikAgent(container, verbose=self.verbose)
+    async def _create_mosaik_agent(self, container, **params):
+        return MosaikAgent(container, **params)
 
-    async def _create_agent(self, container, **kwargs):
-        controller = kwargs.get('controller', None)
+    async def _create_agent(self, container, **params):
+        controller = params.pop('controller', None)
         agent = Agent(container, 
-                      controller=(self.mosaik_agent.container.addr, self.mosaik_agent.aid) if controller == None else self.all_agents[controller], 
-                      verbose=self.verbose, 
-                      input_method=self.input_method,
-                      output_method=self.output_method)
+                      controller=(self.mosaik_agent.container.addr, self.mosaik_agent.aid) if controller == None else self.all_agents[controller],
+                      **params)
         await agent.register()
         return agent
 
-    def create(self, num, model, **model_conf):
+    def create(self, num, model, **model_conf): #**self.params
         """
         Create *num* instances of *model* and return a list of entity dicts
         to mosaik.
@@ -474,14 +468,13 @@ class MosaikAgents(mosaik_api.Simulator):
         # Get the number of agents created so far and count from this number
         # when creating new entity IDs:
         entities = []
+        self.params.update(model_conf)
         n_agents = len(self.all_agents) + 1
         
         for i in range(n_agents, n_agents + num):
                 eid = 'Agent_%s' % i
-                agent = self.loop.run_until_complete(self._create_agent(self.main_container, **model_conf))
+                agent = self.loop.run_until_complete(self._create_agent(self.main_container, **self.params))
                 self.all_agents[eid] = (self.main_container.addr, agent.aid)
-                #if controller == None:
-                #    self.controllers[eid] = (self.main_container.addr, agent.aid)
                 entities.append({'eid': eid, 'type': model})                  
             # as the event loop is not running here, we have to create the agents via loop.run_unti_complete.
             # That means however, that the agents are not able to receive or send messages unless the loop is

@@ -2,6 +2,19 @@ import copy
 from pandas.io.json._normalize import nested_to_record    
 from termcolor import colored
 
+MAS_DEFAULT_STATE = {
+    'production' : {
+        'min' : 0,
+        'max' : 0,
+        'current' : 0,
+    },
+    'consumption' : {
+        'min' : 0,
+        'max' : 0,
+        'current' : 0,
+    },    
+}
+
 def state_to_output(output_state):
     return output_state
 
@@ -22,48 +35,28 @@ def input_to_state(input_dict, current_state):
                     _updated_state['consumption']['current'] = value
     return _updated_state
 
+def aggregate_states(requested_states, current_state=None):
+    current_state = copy.deepcopy(current_state)
+    for aid, state in requested_states.items():
+        for i in current_state.keys():
+            for j in current_state[i].keys():
+                current_state[i][j] += state[i][j]
+    return current_state
 
-
-
-STATE_DICT = {
-    'production' : {
-        'min' : 0,
-        'max' : 0,
-        'current' : 0,
-    },
-    'consumption' : {
-        'min' : 0,
-        'max' : 0,
-        'current' : 0,
-    },    
-}
-
-def get_aggregated_state(agents_info, current_state=None):
-        if current_state == None:
-            current_state = copy.deepcopy(STATE_DICT)
-        else:
-            current_state = copy.deepcopy(current_state)
-        for aid, state in agents_info.items():
-            for i in current_state.keys():
-                for j in current_state[i].keys():
-                    current_state[i][j] += state[i][j]
-        return current_state
-
-def add_delta(current_state, delta):
-        new_state = copy.deepcopy(current_state)
-        for i in delta.keys():
-            for j in delta[i].keys():
-                new_state[i][j] += delta[i][j]
-        return new_state
-
-def calc_delta(current_state, new_state):
-        _new_state = copy.deepcopy(new_state)
-        for i in new_state.keys():
-            for j in new_state[i].keys():
-                _new_state[i][j] -= current_state[i][j]
-        return _new_state
-    
-def compose_instructions(agents_info, delta):
+def compute_instructions(current_state, **kwargs):
+    def calc_delta(current_state, new_state):
+            _new_state = copy.deepcopy(new_state)
+            for i in new_state.keys():
+                for j in new_state[i].keys():
+                    _new_state[i][j] -= current_state[i][j]
+            return _new_state
+    def add_delta(current_state, delta):
+            new_state = copy.deepcopy(current_state)
+            for i in delta.keys():
+                for j in delta[i].keys():
+                    new_state[i][j] += delta[i][j]
+            return new_state
+    def compose_instructions(agents_info, delta):
         _delta = copy.deepcopy(delta)
         _agents_info = copy.deepcopy(agents_info)
         for aid, state in _agents_info.items():
@@ -85,201 +78,221 @@ def compose_instructions(agents_info, delta):
                        state[i]['current'] -= max_dec
                        _delta[i]['current'] += max_dec
         return _agents_info, _delta
+    def compute_delta_state(grid_state=None, cell_flexibility=None):
+                if grid_state == None:
+                    grid_state = copy.deepcopy(MAS_DEFAULT_STATE)
+                if cell_flexibility == None:
+                    cell_flexibility = copy.deepcopy(MAS_DEFAULT_STATE)
 
-def compute_delta_state(grid_state=None, cell_flexibility=None):
-            if grid_state == None:
-                grid_state = copy.deepcopy(STATE_DICT)
-            if cell_flexibility == None:
-                cell_flexibility = copy.deepcopy(STATE_DICT)
-
-            cell_balance = cell_flexibility['production']['current'] - cell_flexibility['consumption']['current']
-            print('cell_balance', cell_balance)
-            cell_inc_production = cell_flexibility['production']['max'] - cell_flexibility['production']['current']
-            if cell_inc_production < 0:
-                cell_inc_production = 0
-            cell_dec_production = cell_flexibility['production']['current'] - cell_flexibility['production']['min']
-            if cell_dec_production < 0:
-                cell_dec_production = 0
-
-            cell_dec_consumption = cell_flexibility['consumption']['current'] - cell_flexibility['consumption']['min']
-            if cell_dec_consumption < 0:
-                cell_dec_consumption = 0
-            cell_inc_consumption = cell_flexibility['consumption']['max'] - cell_flexibility['consumption']['current']
-            if cell_inc_consumption < 0:
-                cell_inc_consumption = 0
-
-            grid_inc_production = grid_state['production']['max'] - grid_state['production']['current']
-            if grid_inc_production < 0:
-                grid_inc_production = 0
-            grid_dec_production = grid_state['production']['current'] - grid_state['production']['min']
-            if grid_dec_production < 0:
-                grid_dec_production = 0
-
-            grid_dec_consumption = grid_state['consumption']['current'] - grid_state['consumption']['min']
-            if grid_dec_consumption < 0:
-                grid_dec_consumption = 0
-            grid_inc_consumption = grid_state['consumption']['max'] - grid_state['consumption']['current']
-            if grid_inc_consumption < 0:
-                grid_inc_consumption = 0
-
-            if cell_balance < 0:
-                if abs(cell_balance) <= cell_inc_production:
-                    cell_inc_production = abs(cell_balance)
-                    #cell_inc_production = 0
+                cell_balance = cell_flexibility['production']['current'] - cell_flexibility['consumption']['current']
+                print('cell_balance', cell_balance)
+                cell_inc_production = cell_flexibility['production']['max'] - cell_flexibility['production']['current']
+                if cell_inc_production < 0:
+                    cell_inc_production = 0
+                cell_dec_production = cell_flexibility['production']['current'] - cell_flexibility['production']['min']
+                if cell_dec_production < 0:
                     cell_dec_production = 0
-                    
-                    cell_inc_consumption = 0
+
+                cell_dec_consumption = cell_flexibility['consumption']['current'] - cell_flexibility['consumption']['min']
+                if cell_dec_consumption < 0:
                     cell_dec_consumption = 0
+                cell_inc_consumption = cell_flexibility['consumption']['max'] - cell_flexibility['consumption']['current']
+                if cell_inc_consumption < 0:
+                    cell_inc_consumption = 0
 
+                grid_inc_production = grid_state['production']['max'] - grid_state['production']['current']
+                if grid_inc_production < 0:
                     grid_inc_production = 0
+                grid_dec_production = grid_state['production']['current'] - grid_state['production']['min']
+                if grid_dec_production < 0:
                     grid_dec_production = 0
-                    
-                    grid_inc_consumption = 0
-                    grid_dec_consumption = 0
-                elif abs(cell_balance) <= cell_inc_production + cell_dec_consumption:
-                    cell_dec_consumption = abs(cell_balance) - cell_inc_production
-                    #cell_inc_production = 0
-                    cell_dec_production = 0
-                    
-                    cell_inc_consumption = 0
-                    #cell_dec_consumption = 0
 
-                    grid_inc_production = 0
-                    grid_dec_production = 0
-                    
-                    grid_inc_consumption = 0
+                grid_dec_consumption = grid_state['consumption']['current'] - grid_state['consumption']['min']
+                if grid_dec_consumption < 0:
                     grid_dec_consumption = 0
-                elif abs(cell_balance) <= cell_inc_production + cell_dec_consumption + grid_inc_production:
-                    grid_inc_production = abs(cell_balance) - cell_inc_production - cell_dec_consumption
-                    #cell_inc_production = 0
-                    cell_dec_production = 0
-                    
-                    cell_inc_consumption = 0
-                    #cell_dec_consumption = 0
-
-                    #grid_inc_production = 0
-                    grid_dec_production = 0
-                    
+                grid_inc_consumption = grid_state['consumption']['max'] - grid_state['consumption']['current']
+                if grid_inc_consumption < 0:
                     grid_inc_consumption = 0
-                    grid_dec_consumption = 0
-                elif abs(cell_balance) <= cell_inc_production + cell_dec_consumption + grid_inc_production + grid_dec_consumption:
-                    grid_dec_consumption = abs(cell_balance) - cell_inc_production - cell_dec_consumption - grid_inc_production
-                    #cell_inc_production = 0
-                    cell_dec_production = 0
-                    
-                    cell_inc_consumption = 0
-                    #cell_dec_consumption = 0
 
-                    #grid_inc_production = 0
-                    grid_dec_production = 0
-                    
-                    grid_inc_consumption = 0
-                    #grid_dec_consumption = 0
+                if cell_balance < 0:
+                    if abs(cell_balance) <= cell_inc_production:
+                        cell_inc_production = abs(cell_balance)
+                        #cell_inc_production = 0
+                        cell_dec_production = 0
+                        
+                        cell_inc_consumption = 0
+                        cell_dec_consumption = 0
+
+                        grid_inc_production = 0
+                        grid_dec_production = 0
+                        
+                        grid_inc_consumption = 0
+                        grid_dec_consumption = 0
+                    elif abs(cell_balance) <= cell_inc_production + cell_dec_consumption:
+                        cell_dec_consumption = abs(cell_balance) - cell_inc_production
+                        #cell_inc_production = 0
+                        cell_dec_production = 0
+                        
+                        cell_inc_consumption = 0
+                        #cell_dec_consumption = 0
+
+                        grid_inc_production = 0
+                        grid_dec_production = 0
+                        
+                        grid_inc_consumption = 0
+                        grid_dec_consumption = 0
+                    elif abs(cell_balance) <= cell_inc_production + cell_dec_consumption + grid_inc_production:
+                        grid_inc_production = abs(cell_balance) - cell_inc_production - cell_dec_consumption
+                        #cell_inc_production = 0
+                        cell_dec_production = 0
+                        
+                        cell_inc_consumption = 0
+                        #cell_dec_consumption = 0
+
+                        #grid_inc_production = 0
+                        grid_dec_production = 0
+                        
+                        grid_inc_consumption = 0
+                        grid_dec_consumption = 0
+                    elif abs(cell_balance) <= cell_inc_production + cell_dec_consumption + grid_inc_production + grid_dec_consumption:
+                        grid_dec_consumption = abs(cell_balance) - cell_inc_production - cell_dec_consumption - grid_inc_production
+                        #cell_inc_production = 0
+                        cell_dec_production = 0
+                        
+                        cell_inc_consumption = 0
+                        #cell_dec_consumption = 0
+
+                        #grid_inc_production = 0
+                        grid_dec_production = 0
+                        
+                        grid_inc_consumption = 0
+                        #grid_dec_consumption = 0
+                    else:
+                        pass
+                        print('balance mismatch!')
+                        cell_inc_production = 0
+                        cell_dec_production = 0
+                        
+                        cell_inc_consumption = 0
+                        cell_dec_consumption = 0
+
+                        grid_inc_production = 0
+                        grid_dec_production = 0
+                        
+                        grid_inc_consumption = 0
+                        grid_dec_consumption = 0 
+                elif cell_balance > 0:
+                    if abs(cell_balance) <= cell_dec_production:
+                        cell_dec_production = abs(cell_balance)
+                        cell_inc_production = 0
+                        #cell_dec_production = 0
+                        
+                        cell_inc_consumption = 0
+                        cell_dec_consumption = 0
+
+                        grid_inc_production = 0
+                        grid_dec_production = 0
+                        
+                        grid_inc_consumption = 0
+                        grid_dec_consumption = 0
+                    elif abs(cell_balance) <= cell_dec_production + cell_inc_consumption:
+                        cell_inc_consumption = abs(cell_balance) - cell_dec_production
+                        cell_inc_production = 0
+                        #cell_dec_production = 0
+                        
+                        #cell_inc_consumption = 0
+                        cell_dec_consumption = 0
+
+                        grid_inc_production = 0
+                        grid_dec_production = 0
+                        
+                        grid_inc_consumption = 0
+                        grid_dec_consumption = 0
+                    elif abs(cell_balance) <= cell_dec_production + cell_inc_consumption + grid_dec_production:
+                        grid_dec_production = abs(cell_balance) - cell_dec_production - cell_inc_consumption
+                        cell_inc_production = 0
+                        #cell_dec_production = 0
+                        
+                        #cell_inc_consumption = 0
+                        cell_dec_consumption = 0
+
+                        grid_inc_production = 0
+                        #grid_dec_production = 0
+                        
+                        grid_inc_consumption = 0
+                        grid_dec_consumption = 0
+                    elif abs(cell_balance) <= cell_dec_production + cell_inc_consumption + grid_dec_production + grid_inc_consumption:
+                        grid_inc_consumption = abs(cell_balance) - cell_dec_production - cell_inc_consumption - grid_dec_production
+                    else:
+                        pass
+                        print('balance mismatch!')
+                        cell_inc_production = 0
+                        cell_dec_production = 0
+                        
+                        cell_inc_consumption = 0
+                        cell_dec_consumption = 0
+
+                        grid_inc_production = 0
+                        grid_dec_production = 0
+                        
+                        grid_inc_consumption = 0
+                        grid_dec_consumption = 0 
                 else:
-                    pass
-                    print('balance mismatch!')
-                    cell_inc_production = 0
-                    cell_dec_production = 0
-                    
-                    cell_inc_consumption = 0
-                    cell_dec_consumption = 0
+                        cell_inc_production = 0
+                        cell_dec_production = 0
+                        
+                        cell_inc_consumption = 0
+                        cell_dec_consumption = 0
 
-                    grid_inc_production = 0
-                    grid_dec_production = 0
-                    
-                    grid_inc_consumption = 0
-                    grid_dec_consumption = 0 
-            elif cell_balance > 0:
-                if abs(cell_balance) <= cell_dec_production:
-                    cell_dec_production = abs(cell_balance)
-                    cell_inc_production = 0
-                    #cell_dec_production = 0
-                    
-                    cell_inc_consumption = 0
-                    cell_dec_consumption = 0
+                        grid_inc_production = 0
+                        grid_dec_production = 0
+                        
+                        grid_inc_consumption = 0
+                        grid_dec_consumption = 0  
+                        print('perfect balance!')             
+                        
+                
+                #print('cell_inc_production', cell_inc_production) 
+                #print('cell_dec_production', cell_dec_production) 
+                #print('cell_dec_consumption', cell_dec_consumption) 
+                #print('cell_inc_consumption', cell_inc_consumption) 
+                #print('grid_inc_production', grid_inc_production)
+                #print('grid_dec_production', grid_dec_production)
+                #print('grid_dec_consumption', grid_dec_consumption) 
+                #print('grid_inc_consumption', grid_inc_consumption) 
+                cell_delta = copy.deepcopy(MAS_DEFAULT_STATE)
+                cell_delta['production']['current'] = cell_inc_production - cell_dec_production
+                cell_delta['consumption']['current'] = cell_inc_consumption - cell_dec_consumption     
+                grid_delta = copy.deepcopy(MAS_DEFAULT_STATE)
+                grid_delta['production']['current'] = grid_inc_production - grid_dec_production
+                grid_delta['consumption']['current'] = grid_inc_consumption - grid_dec_consumption 
+                return grid_delta, cell_delta 
 
-                    grid_inc_production = 0
-                    grid_dec_production = 0
-                    
-                    grid_inc_consumption = 0
-                    grid_dec_consumption = 0
-                elif abs(cell_balance) <= cell_dec_production + cell_inc_consumption:
-                    cell_inc_consumption = abs(cell_balance) - cell_dec_production
-                    cell_inc_production = 0
-                    #cell_dec_production = 0
-                    
-                    #cell_inc_consumption = 0
-                    cell_dec_consumption = 0
+    requested_states = kwargs.get('requested_states', None)
+    instruction = kwargs.get('instruction', None)
+    grid_state = kwargs.get('grid_state', None)
 
-                    grid_inc_production = 0
-                    grid_dec_production = 0
-                    
-                    grid_inc_consumption = 0
-                    grid_dec_consumption = 0
-                elif abs(cell_balance) <= cell_dec_production + cell_inc_consumption + grid_dec_production:
-                    grid_dec_production = abs(cell_balance) - cell_dec_production - cell_inc_consumption
-                    cell_inc_production = 0
-                    #cell_dec_production = 0
-                    
-                    #cell_inc_consumption = 0
-                    cell_dec_consumption = 0
+    if instruction != None:
+        delta = calc_delta(current_state, instruction)
+        instructions, delta_remained = compose_instructions(requested_states, delta)
+    elif grid_state != None:
+        print('grid_state', grid_state)
+        grid_delta, delta = compute_delta_state(grid_state, current_state)
+        instructions, delta_remained = compose_instructions(requested_states, delta)
+    else:
+        instructions = {}
+        delta = {}
 
-                    grid_inc_production = 0
-                    #grid_dec_production = 0
-                    
-                    grid_inc_consumption = 0
-                    grid_dec_consumption = 0
-                elif abs(cell_balance) <= cell_dec_production + cell_inc_consumption + grid_dec_production + grid_inc_consumption:
-                    grid_inc_consumption = abs(cell_balance) - cell_dec_production - cell_inc_consumption - grid_dec_production
-                else:
-                    pass
-                    print('balance mismatch!')
-                    cell_inc_production = 0
-                    cell_dec_production = 0
-                    
-                    cell_inc_consumption = 0
-                    cell_dec_consumption = 0
+    return instructions, delta
 
-                    grid_inc_production = 0
-                    grid_dec_production = 0
-                    
-                    grid_inc_consumption = 0
-                    grid_dec_consumption = 0 
-            else:
-                    cell_inc_production = 0
-                    cell_dec_production = 0
-                    
-                    cell_inc_consumption = 0
-                    cell_dec_consumption = 0
-
-                    grid_inc_production = 0
-                    grid_dec_production = 0
-                    
-                    grid_inc_consumption = 0
-                    grid_dec_consumption = 0  
-                    print('perfect balance!')             
-                    
-             
-            #print('cell_inc_production', cell_inc_production) 
-            #print('cell_dec_production', cell_dec_production) 
-            #print('cell_dec_consumption', cell_dec_consumption) 
-            #print('cell_inc_consumption', cell_inc_consumption) 
-            #print('grid_inc_production', grid_inc_production)
-            #print('grid_dec_production', grid_dec_production)
-            #print('grid_dec_consumption', grid_dec_consumption) 
-            #print('grid_inc_consumption', grid_inc_consumption) 
-            cell_delta = copy.deepcopy(STATE_DICT)
-            cell_delta['production']['current'] = cell_inc_production - cell_dec_production
-            cell_delta['consumption']['current'] = cell_inc_consumption - cell_dec_consumption     
-            grid_delta = copy.deepcopy(STATE_DICT)
-            grid_delta['production']['current'] = grid_inc_production - grid_dec_production
-            grid_delta['consumption']['current'] = grid_inc_consumption - grid_dec_consumption 
-            return grid_delta, cell_delta        
-
-
-
-
-
+MAS_DEFAULT_CONFIG = {
+    'verbose': 1,
+    'state_dict': MAS_DEFAULT_STATE,
+    'input_method': input_to_state,
+    'output_method': state_to_output,
+    'states_agg_method': aggregate_states,
+    'redispatch_method': compute_instructions,
+}
 
 def highlight(s):
     return colored(s, 'green')
