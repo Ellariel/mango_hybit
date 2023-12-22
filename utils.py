@@ -17,6 +17,13 @@ MAS_DEFAULT_STATE = {
 
 def state_to_output(output_state):
     return output_state
+        #print(self.all_agents)
+
+        # Make "set_data()" call back to mosaik to send the set-points:
+        #inputs = {aid: {self.entities[aid]: v}
+        #          for aid, v in output_dict.items()}
+        
+        #inputs = {}
 
 def input_to_state(input_dict, current_state):
     # state={'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0}}

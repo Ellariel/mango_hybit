@@ -80,6 +80,9 @@ def main():
     loads = [e for e in grid.children if e.type in ['Load']]
     #hdf5 = db.Database(filename=DB_PATH)  
 
+    magent = mas.MosaikAgents()
+    #print(magent)
+
     controllers = []
     for n, params in CONTROLLERS_CONFIG:  # Iterate over the config sets
         #if len(controllers) > 0:
@@ -109,7 +112,7 @@ def main():
     world.connect(loads[0], agents[1], ('P[MW]', 'current'), async_requests=True)
     world.connect(gens[1], agents[2], ('P[MW]', 'current'), async_requests=True)
     world.connect(loads[1], agents[3], ('P[MW]', 'current'), async_requests=True)
-    world.connect(ext_grids[0], controllers[0], ('P[MW]', 'current'), async_requests=True)
+    world.connect(ext_grids[0], magent, ('P[MW]', 'current'), async_requests=True)
 
     #world.connect(wecs[0], controllers[0], 'P', async_requests=True)
     #world.connect(controllers[0], hdf5, 'P', async_requests=True)

@@ -17,7 +17,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 import nest_asyncio
 nest_asyncio.apply()
 
-from utils import highlight, reduce_zero_dict, reduce_equal_dicts
+#from utils import highlight, reduce_zero_dict, reduce_equal_dicts
 from utils import *
 
 class Agent(mango.Agent):
@@ -110,6 +110,8 @@ class Agent(mango.Agent):
             self.state = self.params['input_method'](content.state, self.state)
         else:
             self.state = copy.deepcopy(content.state)
+
+        #self.state = copy.deepcopy(content.state)
 
         msg_content = create_msg_content(UpdateConfirmMessage)
         if 'sender_id' in meta.keys():
@@ -346,9 +348,10 @@ class MosaikAgent(mango.Agent):
         output_state =  {}#{eid : info['instructions'] for eid, a in self._all_agents.items() 
                            #                     for info in self._instructions_confirmed[0] 
                            #                         if a[1] == info['aid']}
-        if callable(self.params['output_method']):
-            return self.params['output_method'](output_state)
-        return copy.deepcopy(output_state)        
+        return output_state
+        #if callable(self.params['output_method']):
+        #    return self.params['output_method'](output_state)
+        #return copy.deepcopy(output_state)        
 
     async def run_loop(self, inputs):
             """
@@ -411,15 +414,7 @@ class MosaikAgents(mosaik_api.Simulator):
         self.sid = sid
         self.loop = asyncio.get_event_loop()
         self.params = sim_params
-        #print(self.params)
-        #self.verbose = sim_params.get('verbose', self.verbose)
-        #self.state_dict = sim_params.get('state_dict', self.state_dict)
-        #self.input_method = sim_params.get('input_method', self.input_method)
-        #self.output_method = sim_params.get('output_method', self.output_method)
-        #self.states_agg_method = sim_params.get('states_agg_method', self.states_agg_method)
-        #self.redispatch_method = sim_params.get('redispatch_method', self.redispatch_method)
-
-        self.main_container = self.loop.run_until_complete(self._create_container(self.host, self.port))
+        #self.main_container = self.loop.run_until_complete(self._create_container(self.host, self.port))
         #self.mosaik_agent = self.loop.run_until_complete(self._create_mosaik_agent(self.main_container, **self.params))
         return META
 
@@ -445,11 +440,13 @@ class MosaikAgents(mosaik_api.Simulator):
         assert model in META['models']
         # Get the number of agents created so far and count from this number
         # when creating new entity IDs:
-        entities = []
-        if self.mosaik_agent == None:
-            self.mosaik_agent = self.loop.run_until_complete(self._create_mosaik_agent(self.main_container, **self.params))
-            #entities.append({'eid': 'MosaikAgent', 'type': model})
 
+        if model == 'MosaikAgents' and self.main_container == None and self.mosaik_agent == None:
+            self.main_container = self.loop.run_until_complete(self._create_container(self.host, self.port))
+            self.mosaik_agent = self.loop.run_until_complete(self._create_mosaik_agent(self.main_container, **self.params))
+            return [{'eid': 'MosaikAgent', 'type': model}]
+
+        entities = []
         self.params.update(model_conf)
         n_agents = len(self.all_agents) + 1
         
@@ -469,8 +466,7 @@ class MosaikAgents(mosaik_api.Simulator):
         setup is done.
         """
         self.mosaik_agent._all_agents = self.all_agents
-        #self.mosaik_agent._controllers = self.controllers
-        full_ids = ['%s.%s' % (self.sid, eid) for eid in self.all_agents.keys()]
+        full_ids = ['%s.%s' % (self.sid, eid) for eid in self.all_agents.keys()] + [f"{self.sid}.MosaikAgent"]
         relations = yield self.mosaik.get_related_entities(full_ids)
         print('relations:', relations)
         for full_aid, units in relations.items():
@@ -507,19 +503,26 @@ class MosaikAgents(mosaik_api.Simulator):
         """
         print('\ninputs:', inputs)
         # trigger the loop to enable agents to send / receive messages via run_until_complete
-        output_dict = self.loop.run_until_complete(self.mosaik_agent.run_loop(inputs=inputs))
 
+        #if callable(self.params['input_method']):
+        #    self.state = self.params['input_method'](content.state, self.state)
+        #else:
+        #    self.state = copy.deepcopy(content.state)
+
+
+        new_state = inputs.pop('MosaikAgent', {})
+        if callable(self.params['input_method']):
+            self.mosaik_agent.state = self.params['input_method'](new_state, self.mosaik_agent.state)
+        else:
+            self.mosaik_agent.state = copy.deepcopy(new_state)
+
+        output_dict = self.loop.run_until_complete(self.mosaik_agent.run_loop(inputs=inputs))
+        if callable(self.params['output_method']):
+            output_dict = self.params['output_method'](output_dict)
 
         print('\noutput', output_dict)
-        #print(self.all_agents)
-
-        # Make "set_data()" call back to mosaik to send the set-points:
-        #inputs = {aid: {self.entities[aid]: v}
-        #          for aid, v in output_dict.items()}
         
-        inputs = {}
-        
-        yield self.mosaik.set_data(inputs)
+        yield self.mosaik.set_data(output_dict)#inputs)
 
         return time + self.step_size
     
