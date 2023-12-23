@@ -107,12 +107,14 @@ def main():
             wecs.append(w)
     #print('wecs:', wecs)
 
-    world.connect(wecs[0], agents[0], ('P', 'current'), async_requests=True)
-    world.connect(gens[0], agents[1], ('P[MW]', 'current'), async_requests=True)
-    world.connect(loads[0], agents[1], ('P[MW]', 'current'), async_requests=True)
-    world.connect(gens[1], agents[2], ('P[MW]', 'current'), async_requests=True)
-    world.connect(loads[1], agents[3], ('P[MW]', 'current'), async_requests=True)
-    world.connect(ext_grids[0], magent, ('P[MW]', 'current'), async_requests=True)
+    world.connect(wecs[0], agents[0], ('P', 'current'))#, async_requests=True)
+    world.connect(agents[0], wecs[0], ('current', 'P'), weak=True, initial_data={'current' : 0})#, async_requests=True)
+
+    world.connect(gens[0], agents[1], ('P[MW]', 'current'))#, async_requests=True)
+    world.connect(loads[0], agents[1], ('P[MW]', 'current'))#, async_requests=True)
+    world.connect(gens[1], agents[2], ('P[MW]', 'current'))#, async_requests=True)
+    world.connect(loads[1], agents[3], ('P[MW]', 'current'))#, async_requests=True)
+    world.connect(ext_grids[0], magent, ('P[MW]', 'current'))#, async_requests=True)
 
     #world.connect(wecs[0], controllers[0], 'P', async_requests=True)
     #world.connect(controllers[0], hdf5, 'P', async_requests=True)

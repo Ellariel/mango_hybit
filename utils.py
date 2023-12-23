@@ -15,23 +15,29 @@ MAS_DEFAULT_STATE = {
     },    
 }
 
-def state_to_output(output_state):
+def state_to_output(output_request, output_data):
 # inputs {'Agent_3': {'current': {'WecsSim-0.wecs-0': 147.26366926766127}},
 # output_state: {'Agent_1': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 0.0}},
 # entities: {'Agent_3': 'WecsSim-0.wecs-0', 'Agent_4': 'Grid-0.Load-0',
     #print(entities)
-    data = {}
-    for k, v in output_state.items():
-        current = output_state[k]['production']['current'] - output_state[k]['consumption']['current']
-        data[k] = {'current' : current}
-    #print()
-   # print(data)
-    return data
+    #data = {}
+    return {eid: {attr: output_data[eid]['production'][attr] - output_data[eid]['consumption'][attr] 
+                           for attr in attrs
+                                } for eid, attrs in output_request.items()}
 
-def input_to_state(input_dict, current_state):
+
+
+    #for k, v in output_state.items():
+    #    current = output_state[k]['production']['current'] - output_state[k]['consumption']['current']
+    #    data[k] = {'current' : current}
+    #print()
+    #print(data)
+    #return data
+
+def input_to_state(input_data, current_state):
     # state={'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0}}
     _updated_state = copy.deepcopy(current_state)
-    for eid, value in input_dict['current'].items():
+    for eid, value in input_data['current'].items():
             if 'Load' in eid: # check consumtion/production
                 _updated_state['consumption']['current'] = abs(value)
             elif 'Gen' in eid or 'Wecs' in eid:

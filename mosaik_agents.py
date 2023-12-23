@@ -376,7 +376,7 @@ META = {
             'public': True,
             'any_inputs': True,
             'params': ['controller', 'initial_state'],
-            'attrs': [],
+            'attrs': ['current'],
         },
     },
 }
@@ -406,7 +406,7 @@ class MosaikAgents(mosaik_api.Simulator):
         self.all_agents = {} # contains agents + controllers for technical tasks
         self.aid_to_eid = {}
         self.entities = {}  # agent_id: unit_id
-        self.relations = {}
+        self.output_data = {}
 
     def init(self, sid, time_resolution=1., **sim_params):
         self.sid = sid
@@ -467,9 +467,9 @@ class MosaikAgents(mosaik_api.Simulator):
         self.aid_to_eid = {v[1] : k for k, v in self.all_agents.items()}
         self.aid_to_eid[self.mosaik_agent.aid] = 'MosaikAgent'
         full_ids = ['%s.%s' % (self.sid, eid) for eid in self.all_agents.keys()] + [f"{self.sid}.MosaikAgent"]
-        self.relations = yield self.mosaik.get_related_entities(full_ids)
-        print('relations:', self.relations)
-        for full_aid, units in self.relations.items():
+        relations = yield self.mosaik.get_related_entities(full_ids)
+        print('relations:', relations)
+        for full_aid, units in relations.items():
             if len(units):
                 # We should be connected to at least one entity
                 #assert len(units) >= 1
@@ -510,27 +510,36 @@ class MosaikAgents(mosaik_api.Simulator):
         else:
             self.mosaik_agent.state = copy.deepcopy(new_state)
 
-        output_dict = self.loop.run_until_complete(self.mosaik_agent.run_loop(inputs=inputs))
+        self.output_data = self.loop.run_until_complete(self.mosaik_agent.run_loop(inputs=inputs))
         #output_dict = {f"{self.sid}.{self.aid_to_eid[k]}": v for k, v in output_dict.items()}
         #output_dict[f"{self.sid}.MosaikAgent"] = self.mosaik_agent.state
         
-        output_dict = {self.aid_to_eid[k]: v for k, v in output_dict.items()}
-        output_dict["MosaikAgent"] = self.mosaik_agent.state
+        self.output_data = {self.aid_to_eid[k]: v for k, v in self.output_data.items()}
+        self.output_data["MosaikAgent"] = self.mosaik_agent.state
         
         #print('\noutput', output_dict)
         
         #print(self.aid_to_eid)
-        if callable(self.params['output_method']):
-            output_dict = self.params['output_method'](output_dict)
+        #if callable(self.params['output_method']):
+        #    self.output_dict = self.params['output_method'](self.output_dict)
         #{f"{self.sid}.{k}" : v for k, v in self.entities.items()}
-        print('\noutput', output_dict)
-        yield self.mosaik.set_data(output_dict)
+        #print('\noutput', self.output_dict)
+        # yield self.mosaik.set_data(output_dict)
 
         return time + self.step_size
-    
+
     def get_data(self, outputs):
-        # we are going to send the data asynchronously via set_data, hence we do not need to implement get_data()
-        pass
+        if callable(self.params['output_method']):
+            self.output_data = self.params['output_method'](outputs, self.output_data)
+        #{f"{self.sid}.{k}" : v for k, v in self.entities.items()}
+        print('\noutput', self.output_data)
+        return self.output_data
+
+
+        #return {eid: {attr: self.output_dict[eid][attr] 
+        #                    for attr in attrs
+        #                        } for eid, attrs in outputs.items()}
+
 
 if __name__ == '__main__':
     main()
