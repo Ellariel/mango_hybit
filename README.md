@@ -9,12 +9,12 @@ It is a prototype of multi-agent system simulator (MASS) combining [mango](https
 * The power cell concept
 
 ## The Scenario
-The simulation scenario consists of four components:
+The simulation scenario consists of two components:
 
 * A power grid that is modeled with pandapower, and a wind power simulator
-* A multi-agent system with one agent for each simulated entity and one central controller agent
+* A multi-agent system with one agent for each simulated entity, two agents representing the aggregate (cellular) level, and one core agent serving the mosaik interface.
 
-In this scenario the cell agents observe the power output of their entities such as generator, load, external grid etc. A controller agent regularly collects the recent feed-in from the cell agents and make instructions.The instructions are then passed back to the cell agents. For simplicity, mosaik synchronously updates the agents with data from their associated entities.
+In this scenario agents observe the power output and flexibility provided by associated entities such as generator, load etc. Cell agents aggregate the output from connected agents and then pass it among themselves to develop internal instructions. The mosaik agent provides updates from entities to its associated agents, triggers a communication cycle, and broadcasts instructions. For simplicity, mosaik synchronously updates the agents with data from associated entities.
 
 ## Installation and execution
 Install all requirements:
@@ -36,7 +36,7 @@ Simulation finished successfully.
 ## The multi-agent system explained
 The multi-agent system (MAS) is located in `mosaik_agents.py`. It contains the entry point for starting the MAS. Apart from the class `MosaikAgents` which implements [mosaik-high-level-api](https://mosaik.readthedocs.io/en/latest/mosaik-api/high-level.html), there is also a class `MosaikAgent` which supports the communication between mosaik and MAS itself.
 
-The MAS consists of multiple `CellAgent`'s (one for each simulated entity) and a central `ControllerAgent`. For simplicity, all agents run in the same mango container. 
+MAS consists of several `Agent`'s, one for each modeled entity and one for each modeled power cell. For simplicity, all agents run in the same mango container. 
 
 The following diagram describes the message exchange between the agents during every mosaik step.
 
