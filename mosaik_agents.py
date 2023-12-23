@@ -127,7 +127,7 @@ class Agent(mango.Agent):
         if callable(self.params['states_agg_method']):
             return self.params['states_agg_method'](requested_states, current_state)
 
-    def compute_instructions(self, current_state, **kwargs):
+    def get_instructions(self, current_state, **kwargs):
         if callable(self.params['redispatch_method']):
             return self.params['redispatch_method'](current_state, **kwargs)
 
@@ -183,7 +183,7 @@ class Agent(mango.Agent):
         if self.params['verbose'] >= 1:
             print(f"{highlight(self.aid)} <- {highlight('current_state')}: {self._aggregated_state}, {highlight('new_state')}: {reduce_equal_dicts(instruction, self._aggregated_state)}")
         if len(self.connected_agents):
-            add_instructions, info = self.compute_instructions(current_state=self._aggregated_state,
+            add_instructions, info = self.get_instructions(current_state=self._aggregated_state,
                                                            requested_states=self._requested_states, 
                                                            instruction=instruction)
             instructions.update(add_instructions)
@@ -293,7 +293,7 @@ class MosaikAgent(mango.Agent):
         if callable(self.params['states_agg_method']):
             return self.params['states_agg_method'](requested_states, current_state)
 
-    def compute_instructions(self, current_state, **kwargs):
+    def get_instructions(self, current_state, **kwargs):
         if callable(self.params['redispatch_method']):
             return self.params['redispatch_method'](current_state, **kwargs)
 
@@ -302,7 +302,7 @@ class MosaikAgent(mango.Agent):
         Trigger control cycle after all the agents got their updates from Mosaik.
         """
 
-        self._aggregated_state = copy.deepcopy(self.state)
+        #self._aggregated_state = copy.deepcopy(self.state)
 
         # Request information if there are connected agents
         if len(self.connected_agents):
@@ -320,14 +320,13 @@ class MosaikAgent(mango.Agent):
             await asyncio.gather(*futs)
             self._requested_states = await asyncio.gather(*[fut for fut in self._requested_states.values()])
             self._requested_states = {k : v for i in self._requested_states for k, v in i.items()}
-            self._aggregated_state = self.aggregate_states(self._requested_states, self._aggregated_state)
+            #self._aggregated_state = self.aggregate_states(self._requested_states, self._aggregated_state)
             if self.params['verbose'] >= 1:
                 print(f"STOP COMMUNICATION CYCLE: {', '.join([k for k in self._requested_states.keys()])}")
                 print('EXECUTE REDISPATCH ALGORITHM')
 
-            instructions, info = self.compute_instructions(current_state=self._aggregated_state,
-                                                           requested_states=self._requested_states,
-                                                           grid_state=self.state)
+            instructions, info = self.get_instructions(current_state=self.state,
+                                                        requested_states=self._requested_states)
             print('instructions', instructions)
             # Send instructions
             if self.params['verbose'] >= 1:
@@ -407,6 +406,7 @@ class MosaikAgents(mosaik_api.Simulator):
         self.all_agents = {} # contains agents + controllers for technical tasks
         self.aid_to_eid = {}
         self.entities = {}  # agent_id: unit_id
+        self.relations = {}
 
     def init(self, sid, time_resolution=1., **sim_params):
         self.sid = sid
@@ -467,9 +467,9 @@ class MosaikAgents(mosaik_api.Simulator):
         self.aid_to_eid = {v[1] : k for k, v in self.all_agents.items()}
         self.aid_to_eid[self.mosaik_agent.aid] = 'MosaikAgent'
         full_ids = ['%s.%s' % (self.sid, eid) for eid in self.all_agents.keys()] + [f"{self.sid}.MosaikAgent"]
-        relations = yield self.mosaik.get_related_entities(full_ids)
-        print('relations:', relations)
-        for full_aid, units in relations.items():
+        self.relations = yield self.mosaik.get_related_entities(full_ids)
+        print('relations:', self.relations)
+        for full_aid, units in self.relations.items():
             if len(units):
                 # We should be connected to at least one entity
                 #assert len(units) >= 1
@@ -511,13 +511,19 @@ class MosaikAgents(mosaik_api.Simulator):
             self.mosaik_agent.state = copy.deepcopy(new_state)
 
         output_dict = self.loop.run_until_complete(self.mosaik_agent.run_loop(inputs=inputs))
+        #output_dict = {f"{self.sid}.{self.aid_to_eid[k]}": v for k, v in output_dict.items()}
+        #output_dict[f"{self.sid}.MosaikAgent"] = self.mosaik_agent.state
+        
         output_dict = {self.aid_to_eid[k]: v for k, v in output_dict.items()}
-
-        print('\noutput', output_dict)
-
+        output_dict["MosaikAgent"] = self.mosaik_agent.state
+        
+        #print('\noutput', output_dict)
+        
+        #print(self.aid_to_eid)
         if callable(self.params['output_method']):
             output_dict = self.params['output_method'](output_dict)
-        
+        #{f"{self.sid}.{k}" : v for k, v in self.entities.items()}
+        print('\noutput', output_dict)
         yield self.mosaik.set_data(output_dict)
 
         return time + self.step_size

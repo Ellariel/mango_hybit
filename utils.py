@@ -16,15 +16,17 @@ MAS_DEFAULT_STATE = {
 }
 
 def state_to_output(output_state):
-    return {}
-    return output_state
-        #print(self.all_agents)
-
-        # Make "set_data()" call back to mosaik to send the set-points:
-        #inputs = {aid: {self.entities[aid]: v}
-        #          for aid, v in output_dict.items()}
-        
-        #inputs = {}
+# inputs {'Agent_3': {'current': {'WecsSim-0.wecs-0': 147.26366926766127}},
+# output_state: {'Agent_1': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 0.0}},
+# entities: {'Agent_3': 'WecsSim-0.wecs-0', 'Agent_4': 'Grid-0.Load-0',
+    #print(entities)
+    data = {}
+    for k, v in output_state.items():
+        current = output_state[k]['production']['current'] - output_state[k]['consumption']['current']
+        data[k] = {'current' : current}
+    #print()
+   # print(data)
+    return data
 
 def input_to_state(input_dict, current_state):
     # state={'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0}}
@@ -43,7 +45,7 @@ def input_to_state(input_dict, current_state):
                     _updated_state['consumption']['current'] = value
     return _updated_state
 
-def aggregate_states(requested_states, current_state=None):
+def aggregate_states(requested_states, current_state=MAS_DEFAULT_STATE):
     current_state = copy.deepcopy(current_state)
     for aid, state in requested_states.items():
         for i in current_state.keys():
@@ -278,18 +280,16 @@ def compute_instructions(current_state, **kwargs):
 
     requested_states = kwargs.get('requested_states', None)
     instruction = kwargs.get('instruction', None)
-    grid_state = kwargs.get('grid_state', None)
 
     if instruction != None:
         delta = calc_delta(current_state, instruction)
         instructions, delta_remained = compose_instructions(requested_states, delta)
-    elif grid_state != None:
-        print('grid_state', grid_state)
-        grid_delta, delta = compute_delta_state(grid_state, current_state)
-        instructions, delta_remained = compose_instructions(requested_states, delta)
     else:
-        instructions = {}
-        delta = {}
+        aggregated_state = aggregate_states(requested_states)
+        print('grid_state:', current_state)
+        print('aggregated_cell_state:', aggregated_state)
+        grid_delta, delta = compute_delta_state(current_state, aggregated_state)
+        instructions, delta_remained = compose_instructions(requested_states, delta)
 
     return instructions, delta
 
