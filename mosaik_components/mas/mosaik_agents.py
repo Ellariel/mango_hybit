@@ -295,7 +295,7 @@ class MosaikAgent(mango.Agent):
 
     async def trigger_communication_cycle(self):
         """
-        Trigger control cycle after all the agents got their updates from Mosaik.
+        Trigger communication/control cycle after all the agents got their updates from Mosaik.
         """
 
         #self._aggregated_state = copy.deepcopy(self.state)
