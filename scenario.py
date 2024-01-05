@@ -2,75 +2,78 @@
 This file contains the mosaik scenario.  To start the simulation, just run this
 script from the command line::
 
-    $ python scenario.py
+    $ python example.py
 
-Since neither the simulator in ``src/wecssim`` nor the MAS in ``src/mas`` are
-installed correctly, we add the ``src/`` directory to the PYTHONPATH so that
+Since neither the simulator in ``mosaik_components/wecssim`` nor the MAS in ``mosaik_components/mas`` are
+installed correctly, we add the ``mosaik_components/`` directory to the PYTHONPATH so that
 Python will find these modules.
 
-
 """
-#import copy
-import mosaik
+import sys
+from os.path import abspath
+from pathlib import Path
+# Add the "src/" dir to the PYTHONPATH to make its packages available for import:
+MODULES_DIR = Path(abspath(__file__)).parent / 'mosaik_components/'
+print(MODULES_DIR)
+sys.path.insert(0, MODULES_DIR)
+
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 import pandapower.auxiliary
 pandapower.auxiliary._check_if_numba_is_installed = lambda x: x
 
-from mosaik_agents import *
-
-from utils import *
+import mosaik
+from mosaik_components.mas.mosaik_agents import *
+from mosaik_components.mas.utils import *
 
 SIM_CONFIG = {
     'Grid': {
          'python': 'mosaik_components.pandapower:Simulator'
     },
     'WecsSim': {
-        'python': 'wecssim.mosaik:WecsSim',
+        'python': 'mosaik_components.wecssim.mosaik:WecsSim',
     },
     'MAS': {
-        'python': 'mosaik_agents:MosaikAgents'
+        'python': 'mosaik_components.mas.mosaik_agents:MosaikAgents'
     },
-    #'DB': {
-    #    'cmd': 'mosaik-hdf5 %(addr)s',
-    #},
 }
 
-DURATION = 3600 #* 24 * 1  # 1 day
-START_DATE = '2014-01-01T00:00:00+01:00'  # CET
-GRID_FILE = 'data/pandapower_example.json' 
-WIND_FILE = 'data/wind_speed_m-s_15min.csv'
-DB_PATH = 'data/mosaik_results.hdf5'
+END = 3600 #* 24 * 1  # 1 day
+START_DATE = '2014-01-01T00:00:00+01:00'
+GRID_FILE = 'demo/pandapower_example.json' 
+WIND_FILE = 'demo/wind_speed_m-s_15min.csv'
+STEP_SIZE = 60 * 15
 
-#MAS_CONFIG = {
-#    'verbose': 1,
-#    'input_method': input_to_state,
-#    'output_method': state_to_output,
-#    'states_agg_method': None,
-#    'redispatch_method': None,
-#}
+'''
+MAS_DEFAULT_CONFIG = {
+    'verbose': 1, # 0 - no messages, 1 - basic agent comminication, 2 - full
+    'state_dict': MAS_DEFAULT_STATE, # how an agent state that are gathered and comunicated should look like
+    'input_method': input_to_state, # method that transforms mosaik inputs dict to the agent state (default: copy dict)
+    'output_method': state_to_output, # method that transforms the agent state to mosaik outputs dict (default: copy dict)
+    'states_agg_method': aggregate_states, # method that aggregates gathered states to one top-level state
+    'redispatch_method': compute_instructions, # method that computes and decomposes the redispatch instructions 
+                                               # that will be hierarchically transmitted from each agent to its connected peers
+}
+'''
 
 WECS_CONFIG = [
-    #(1, {'P_rated': 2000, 'v_rated': 12, 'v_min': 2.0, 'v_max': 25,  'controller': None}),
     (1, {'P_rated': 5000, 'v_rated': 13, 'v_min': 3.5, 'v_max': 25, 'controller': None}),
 ]
 
 AGENTS_CONFIG = [
-    (2, {}),#, 'initial_state': None}),
-    (2, {}),#, 'initial_state': None}),
+    (2, {}), # here we configure two agents with empty parameters
+    (2, {}), # other two
 ]
 CONTROLLERS_CONFIG = [
-    #(1, {'controller': None, 'initial_state': None}),
-    (2, {}),#, 'initial_state': None}),
+    (2, {}), # and also two top-level agents that are named as controllers
 ]
 
 def main():
     """Compose the mosaik scenario and run the simulation."""
     world = mosaik.World(SIM_CONFIG)
-    wecssim = world.start('WecsSim', step_size=60*15, wind_file=WIND_FILE)
-    gridsim = world.start('Grid', step_size=60*15)
+    wecssim = world.start('WecsSim', step_size=STEP_SIZE, wind_file=WIND_FILE)
+    gridsim = world.start('Grid', step_size=STEP_SIZE)
     mas = world.start('MAS', **MAS_DEFAULT_CONFIG)
-    #db = world.start('DB', step_size=60*60, duration=DURATION)
 
     grid = gridsim.Grid(json=GRID_FILE)
     #print(grid.children)
@@ -78,50 +81,41 @@ def main():
     gens = [e for e in grid.children if e.type in ['Gen', 'ControlledGen']]
     ext_grids = [e for e in grid.children if e.type in ['ExternalGrid']]
     loads = [e for e in grid.children if e.type in ['Load']]
-    #hdf5 = db.Database(filename=DB_PATH)  
 
-    magent = mas.MosaikAgents()
-    #print(magent)
+    mosaik_agent = mas.MosaikAgents() # core agent for the mosaik communication 
 
     controllers = []
-    for n, params in CONTROLLERS_CONFIG:  # Iterate over the config sets
-        #if len(controllers) > 0:
-        #    params.update({'controller' : controllers[0].eid})
+    for n, params in CONTROLLERS_CONFIG:  # iterate over the config sets
         controllers += mas.MosaikAgents.create(num=n, **params)
     print('controllers:', controllers)
 
     agents = []
-    for n, params in AGENTS_CONFIG:  # Iterate over the config sets
-        if len(agents) == 0:
+    for n, params in AGENTS_CONFIG:  
+        if len(agents) == 0: # connect the first couple of agents to the first controller
             params.update({'controller' : controllers[0].eid})
         else:
             params.update({'controller' : controllers[1].eid})
-        #print(params)
         agents += mas.MosaikAgents.create(num=n, **params)
     print('agents:', agents)
 
     wecs = []
-    for n_wecs, params in WECS_CONFIG:  # Iterate over the config sets
+    for n_wecs, params in WECS_CONFIG:
         for _ in range(n_wecs):
             w = wecssim.WECS(**params)
             wecs.append(w)
-    #print('wecs:', wecs)
 
-    world.connect(wecs[0], agents[0], ('P', 'current'))#, async_requests=True)
-    world.connect(agents[0], wecs[0], ('current', 'P'), weak=True, initial_data={'current' : 0})#, async_requests=True)
+    world.connect(wecs[0], agents[0], ('P', 'current'))
+    world.connect(agents[0], wecs[0], ('current', 'P'), weak=True, initial_data={'current' : 0})
 
-    world.connect(gens[0], agents[1], ('P[MW]', 'current'))#, async_requests=True)
-    world.connect(loads[0], agents[1], ('P[MW]', 'current'))#, async_requests=True)
-    world.connect(gens[1], agents[2], ('P[MW]', 'current'))#, async_requests=True)
-    world.connect(loads[1], agents[3], ('P[MW]', 'current'))#, async_requests=True)
-    world.connect(ext_grids[0], magent, ('P[MW]', 'current'))#, async_requests=True)
+    world.connect(gens[0], agents[1], ('P[MW]', 'current'))
+    world.connect(loads[0], agents[1], ('P[MW]', 'current'))
+    world.connect(gens[1], agents[2], ('P[MW]', 'current'))
+    world.connect(loads[1], agents[3], ('P[MW]', 'current'))
+    world.connect(ext_grids[0], mosaik_agent, ('P[MW]', 'current')) # connect the external network to the core agent
+                                                                    # to execute the default redispatch algorithm
+                                                                    # which is based on the core agent state
 
-    #world.connect(wecs[0], controllers[0], 'P', async_requests=True)
-    #world.connect(controllers[0], hdf5, 'P', async_requests=True)
-    #mosaik.util.connect_many_to_one(world, wecs, hdf5, 'v', 'P', 'P_max')
-
-    world.run(DURATION)
-
+    world.run(END)
 
 if __name__ == '__main__':
     main()

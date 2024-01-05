@@ -5,20 +5,16 @@
 """
 
 import asyncio
-#import logging
-import mosaik_api
-#import mosaik_api_v3 as mosaik_api
 import mango
 import copy
-from agent_messages import *
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
+import mosaik_api_v3 as mosaik_api
+from mosaik_components.mas.agent_messages import *
+from mosaik_components.mas.utils import *
 
 # to run asyncio loop with updated mosaik
 import nest_asyncio
 nest_asyncio.apply()
-
-#from utils import highlight, reduce_zero_dict, reduce_equal_dicts
-from utils import *
 
 class Agent(mango.Agent):
     def __init__(self, container, **params):

@@ -3,12 +3,13 @@
 It is a prototype of multi-agent system simulator (MASS) combining [mango](https://mango-agents.readthedocs.io/en/latest/) agents and [mosaik](https://mosaik.readthedocs.io/en/latest/) co-simulaion platform for the sake of implementing the power cell model. It was inspired by [mosaik-mango-demo](https://gitlab.com/mosaik/examples/mosaik-mango-demo), we also integrated a wind power simulator.
 
 ## Content
-* The mosaik scenario explained
+* The example scenario explained
 * Installation and execution
+* How to use
 * The multi-agent system explained
 * The power cell concept
 
-## The Scenario
+## The example scenario
 The simulation scenario consists of two components:
 
 * A power grid that is modeled with pandapower, and a wind power simulator
@@ -21,7 +22,7 @@ Install all requirements:
 
 `$ pip install -r requirements.txt`
 
-Run the simulation by executing:
+Run an example scenario by executing:
 
 `$ python scenario.py`
 
@@ -32,6 +33,77 @@ Starting "MAS" as "MAS-0" ...
 ...
 Starting simulation.  
 Simulation finished successfully.  
+
+## How to use
+
+Import modules and specify simulators configurations within your scenario script:
+```
+from mosaik_agents import *
+from utils import *
+
+SIM_CONFIG = {
+    'Grid': {
+         'python': 'mosaik_components.pandapower:Simulator'
+    },
+    'MAS': {
+        'python': 'mosaik_agents:MosaikAgents'
+    },
+...
+}
+```
+
+We recommend one to configure top-level agents (cell agents) and regular agents separately:
+```
+AGENTS_CONFIG = [
+    (2, {}), # here we configure two agents with empty parameters
+    (2, {}), # other two
+]
+
+CONTROLLERS_CONFIG = [
+    (2, {}), # and also two top-level agents that are named as controllers
+]
+```
+
+Initialize the pandapower grid and MAS simulator:
+```
+    world = mosaik.World(SIM_CONFIG)
+    gridsim = world.start('Grid', step_size=STEP_SIZE)
+    mas = world.start('MAS', **MAS_DEFAULT_CONFIG)
+```
+
+Instantiate model entities and agents:
+```
+    grid = gridsim.Grid(json=GRID_FILE)
+    mosaik_agent = mas.MosaikAgents()   # core agent for the mosaik communication 
+
+    controllers = []
+    for n, params in CONTROLLERS_CONFIG:  # iterate over the config sets
+        controllers += mas.MosaikAgents.create(num=n, **params)
+
+    agents = []
+    for n, params in AGENTS_CONFIG:
+        if len(agents) == 0: # connect the first couple of agents to the first controller
+            params.update({'controller' : controllers[0].eid})
+        else:
+            params.update({'controller' : controllers[1].eid})
+        agents += mas.MosaikAgents.create(num=n, **params)
+```
+
+Connect and run:
+```
+    gens = [e for e in grid.children if e.type in ['Gen', 'ControlledGen']]
+    ext_grids = [e for e in grid.children if e.type in ['ExternalGrid']]
+    loads = [e for e in grid.children if e.type in ['Load']]
+
+    world.connect(gens[0], agents[0], ('P[MW]', 'current'))
+    world.connect(loads[0], agents[1], ('P[MW]', 'current'))
+    world.connect(gens[1], agents[2], ('P[MW]', 'current'))
+    world.connect(loads[1], agents[3], ('P[MW]', 'current'))
+    world.connect(ext_grids[0], mosaik_agent, ('P[MW]', 'current')) # connect the external network to the core agent
+                                                                    # to execute the default redispatch algorithm
+                                                                    # which is based on the core agent state
+    world.run(until=END)
+```
 
 ## The multi-agent system explained
 The multi-agent system (MAS) is located in `mosaik_agents.py`. It contains the entry point for starting the MAS. Apart from the class `MosaikAgents` which implements [mosaik-high-level-api](https://mosaik.readthedocs.io/en/latest/mosaik-api/high-level.html), there is also a class `MosaikAgent` which supports the communication between mosaik and MAS itself.

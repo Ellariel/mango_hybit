@@ -300,12 +300,13 @@ def compute_instructions(current_state, **kwargs):
     return instructions, delta
 
 MAS_DEFAULT_CONFIG = {
-    'verbose': 1,
-    'state_dict': MAS_DEFAULT_STATE,
-    'input_method': input_to_state,
-    'output_method': state_to_output,
-    'states_agg_method': aggregate_states,
-    'redispatch_method': compute_instructions,
+    'verbose': 1, # 0 - no messages, 1 - basic agent comminication, 2 - full
+    'state_dict': MAS_DEFAULT_STATE, # how an agent state that are gathered and comunicated should look like
+    'input_method': input_to_state, # method that transforms mosaik inputs dict to the agent state (default: copy dict)
+    'output_method': state_to_output, # method that transforms the agent state to mosaik outputs dict (default: copy dict)
+    'states_agg_method': aggregate_states, # method that aggregates gathered states to one top-level state
+    'redispatch_method': compute_instructions, # method that computes and decomposes the redispatch instructions 
+                                               # that will be hierarchically transmitted from each agent to its connected peers
 }
 
 def highlight(s):
