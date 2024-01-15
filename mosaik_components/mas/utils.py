@@ -25,15 +25,6 @@ def state_to_output(output_request, output_data):
                            for attr in attrs
                                 } for eid, attrs in output_request.items()}
 
-
-
-    #for k, v in output_state.items():
-    #    current = output_state[k]['production']['current'] - output_state[k]['consumption']['current']
-    #    data[k] = {'current' : current}
-    #print()
-    #print(data)
-    #return data
-
 def input_to_state(input_data, current_state):
     # state={'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0}}
     _updated_state = copy.deepcopy(current_state)

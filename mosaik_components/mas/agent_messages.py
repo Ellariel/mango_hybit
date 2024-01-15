@@ -38,20 +38,7 @@ class UpdateConfirmMessage:
     """
     Agent -> Mosaik
     """
-'''
-@dataclass
-class TriggerCommunications:
-    """
-    Mosaik -> Controller
-    """
 
-@dataclass
-class CommunicationsDone:
-    """
-    Controller -> Mosaik
-    """
-    state: Dict
-'''
 @dataclass
 class RequestStateMessage:
     """
@@ -86,13 +73,11 @@ def get_class(msg_id: int):
     else:
         return CLSMEMBERS[msg_id]
 
-
 def get_msg_id(msg_cls):
     if msg_cls not in CLSMEMBERS:
         return None
     else:
         return CLSMEMBERS.index(msg_cls)
-
 
 def create_msg_content(cls_name, *args, **kwargs):
     # get id
@@ -105,7 +90,6 @@ def create_msg_content(cls_name, *args, **kwargs):
             converted_dict=asdict(cls_name(*args, **kwargs))
         ))
 
-
 def read_msg_content(msg_dict: dict):
     if not isinstance(msg_dict, dict):
         return msg_dict
@@ -115,6 +99,5 @@ def read_msg_content(msg_dict: dict):
         else:
             msg_cls = get_class(msg_dict['message_id'])
             return msg_cls(**msg_dict['converted_dict'])
-
 
 CLSMEMBERS = [c for _, c in inspect.getmembers(sys.modules[__name__], inspect.isclass)]

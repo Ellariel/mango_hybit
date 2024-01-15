@@ -36,13 +36,21 @@ SIM_CONFIG = {
     'MAS': {
         'python': 'mosaik_components.mas.mosaik_agents:MosaikAgents'
     },
+    'CSV_writer': {
+        'python': 'mosaik_csv_writer:CSVWriter',
+    },
 }
 
-END = 3600 #* 24 * 1  # 1 day
+MAS_CONFIG = MAS_DEFAULT_CONFIG.copy()
+MAS_CONFIG['verbose'] = 0
+
+END = 3600 * 6# 24 * 1  # 1 day
 START_DATE = '2014-01-01T00:00:00+01:00'
-GRID_FILE = 'demo/pandapower_example.json' 
+START_DATE = '2014-01-01 00:00:00'
+#GRID_FILE = 'demo/pandapower_example.json' 
+GRID_FILE = 'demo/cells_example.json' 
 WIND_FILE = 'demo/wind_speed_m-s_15min.csv'
-STEP_SIZE = 60 * 15
+STEP_SIZE = 60 * 5
 
 '''
 MAS_DEFAULT_CONFIG = {
@@ -73,12 +81,16 @@ def main():
     world = mosaik.World(SIM_CONFIG)
     wecssim = world.start('WecsSim', step_size=STEP_SIZE, wind_file=WIND_FILE)
     gridsim = world.start('Grid', step_size=STEP_SIZE)
-    mas = world.start('MAS', **MAS_DEFAULT_CONFIG)
+    mas = world.start('MAS', step_size=STEP_SIZE, **MAS_CONFIG)
+
+    csv_sim_writer = world.start('CSV_writer', start_date = START_DATE,
+                                           output_file='results.csv')
+    csv_writer = csv_sim_writer.CSVWriter(buff_size = STEP_SIZE)
 
     grid = gridsim.Grid(json=GRID_FILE)
-    #print(grid.children)
+    # print(grid.children)
     buses = [e for e in grid.children if e.type in ['Bus']]
-    gens = [e for e in grid.children if e.type in ['Gen', 'ControlledGen']]
+    gens = [e for e in grid.children if e.type in ['Gen', 'StaticGen', 'ControlledGen']]
     ext_grids = [e for e in grid.children if e.type in ['ExternalGrid']]
     loads = [e for e in grid.children if e.type in ['Load']]
 
@@ -87,7 +99,7 @@ def main():
     controllers = []
     for n, params in CONTROLLERS_CONFIG:  # iterate over the config sets
         controllers += mas.MosaikAgents.create(num=n, **params)
-    print('controllers:', controllers)
+    # print('controllers:', controllers)
 
     agents = []
     for n, params in AGENTS_CONFIG:  
@@ -96,7 +108,7 @@ def main():
         else:
             params.update({'controller' : controllers[1].eid})
         agents += mas.MosaikAgents.create(num=n, **params)
-    print('agents:', agents)
+    # print('agents:', agents)
 
     wecs = []
     for n_wecs, params in WECS_CONFIG:
@@ -114,6 +126,16 @@ def main():
     world.connect(ext_grids[0], mosaik_agent, ('P[MW]', 'current')) # connect the external network to the core agent
                                                                     # to execute the default redispatch algorithm
                                                                     # which is based on the core agent state
+
+    
+    #world.connect(ext_grids[0], csv_writer, 'P[MW]')
+
+    world.connect(controllers[0], csv_writer, 'current')
+    world.connect(controllers[1], csv_writer, 'current')    
+    world.connect(agents[0], csv_writer, 'current')
+    world.connect(agents[1], csv_writer, 'current')
+    world.connect(agents[2], csv_writer, 'current')
+    world.connect(agents[3], csv_writer, 'current')
 
     world.run(END)
 
