@@ -9,8 +9,8 @@ import mango
 import copy
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 import mosaik_api_v3 as mosaik_api
-from mosaik_components.mas.agent_messages import *
-from mosaik_components.mas.utils import *
+from _mosaik_components.mas.agent_messages import *
+from _mosaik_components.mas.utils import *
 
 # to run asyncio loop with updated mosaik
 import nest_asyncio
@@ -366,7 +366,7 @@ META = {
             'public': True,
             'any_inputs': True,
             'params': ['controller', 'initial_state'],
-            'attrs': ['current'],
+            'attrs': ['current', 'scale_factor'],
         },
     },
 }
@@ -393,6 +393,7 @@ class MosaikAgents(mosaik_api.Simulator):
         self.aid_to_eid = {}
         self.entities = {}  # agent_id: unit_id
         self.output_data = {}
+        self.input_data = {}
 
     def init(self, sid, time_resolution=1., step_size=60*15, **sim_params):
         self.sid = sid
@@ -489,7 +490,9 @@ class MosaikAgents(mosaik_api.Simulator):
 
         """
         if self.params['verbose'] >= 2:
-            print('\ninputs:', inputs)
+            print(highlight('\ninputs:'), inputs)
+
+        self.input_data = copy.deepcopy(inputs)
 
         new_state = inputs.pop('MosaikAgent', {})
         if callable(self.params['input_method']):
@@ -505,10 +508,10 @@ class MosaikAgents(mosaik_api.Simulator):
 
     def get_data(self, outputs):
         if callable(self.params['output_method']):
-            self.output_data = self.params['output_method'](outputs, self.output_data)
+            self.output_data = self.params['output_method'](outputs, self.output_data, self.input_data)
 
         if self.params['verbose'] >= 2:
-            print('\noutput', self.output_data)
+            print(highlight('\noutput'), self.output_data)
 
         return self.output_data
 

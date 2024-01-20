@@ -7,39 +7,73 @@ MAS_DEFAULT_STATE = {
         'min' : 0,
         'max' : 0,
         'current' : 0,
+        'scale_factor' : 1,
     },
     'consumption' : {
         'min' : 0,
         'max' : 0,
         'current' : 0,
+        'scale_factor' : 1,
     },    
 }
 
-def state_to_output(output_request, output_data):
+def state_to_output(output_request, output_data, input_data):
 # inputs {'Agent_3': {'current': {'WecsSim-0.wecs-0': 147.26366926766127}},
 # output_state: {'Agent_1': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 0.0}},
 # entities: {'Agent_3': 'WecsSim-0.wecs-0', 'Agent_4': 'Grid-0.Load-0',
     #print(entities)
     #data = {}
-    return {eid: {attr: output_data[eid]['production'][attr] - output_data[eid]['consumption'][attr] 
-                           for attr in attrs
-                                } for eid, attrs in output_request.items()}
+    #print(input_data)
+    #print(output_data)
+    #print(output_request)
+
+    data = {}
+    for eid, attrs in output_request.items():
+        data[eid] = {}
+        for attr in attrs:
+            if attr == 'current':
+                data[eid].update({'current' : max(output_data[eid]['production'][attr], output_data[eid]['consumption'][attr])})
+            elif attr == 'scale_factor':
+                if eid in input_data:
+                    scale_factor = max(output_data[eid]['production']['current'], output_data[eid]['consumption']['current']) / list(input_data[eid]['current'].values())[0]
+                    print(eid, scale_factor)
+                    data[eid].update({'scale_factor' : scale_factor})
+            else:
+                pass
+    #print(data)
+    return data
+
+    #return {eid: {attr: max(output_data[eid]['production'][attr], output_data[eid]['consumption'][attr]) 
+    #                       for attr in attrs
+    #                            } for eid, attrs in output_request.items()}
 
 def input_to_state(input_data, current_state):
     # state={'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0}}
     _updated_state = copy.deepcopy(current_state)
-    for eid, value in input_data['current'].items():
-            if 'Load' in eid: # check consumtion/production
+    if 'current' in input_data:
+        for eid, value in input_data['current'].items():
+            #print(eid)
+            if 'Load' in eid or 'load' in eid: # check consumtion/production
                 _updated_state['consumption']['current'] = abs(value)
-            elif 'Gen' in eid or 'Wecs' in eid:
+                _updated_state['consumption']['min'] = abs(value) * 0.5
+                _updated_state['consumption']['max'] = abs(value) * 3
+            elif 'Gen' in eid or 'Wecs' in eid or 'PV' in eid:
                 _updated_state['production']['current'] = abs(value)
-            elif 'Grid' in eid:
+                _updated_state['production']['max'] = abs(value) * 3
+                _updated_state['production']['min'] = 0
+
+            elif 'Grid-0.0-Bus 0' in eid:
                 if value >= 0:
                     _updated_state['production']['current'] = value
+                    _updated_state['production']['max'] = value * 3
                     _updated_state['consumption']['current'] = 0
+                    _updated_state['consumption']['max'] = 0
+                    
                 else:
                     _updated_state['production']['current'] = 0
+                    _updated_state['production']['max'] = 0
                     _updated_state['consumption']['current'] = value
+                    _updated_state['consumption']['max'] = value * 3
     return _updated_state
 
 def aggregate_states(requested_states, current_state=MAS_DEFAULT_STATE):
@@ -47,7 +81,10 @@ def aggregate_states(requested_states, current_state=MAS_DEFAULT_STATE):
     for aid, state in requested_states.items():
         for i in current_state.keys():
             for j in current_state[i].keys():
-                current_state[i][j] += state[i][j]
+                if j == 'scale_factor':
+                    current_state[i][j] *= state[i][j]
+                else:
+                    current_state[i][j] += state[i][j]
     return current_state
 
 def compute_instructions(current_state, **kwargs):
@@ -92,7 +129,7 @@ def compute_instructions(current_state, **kwargs):
                     cell_flexibility = copy.deepcopy(MAS_DEFAULT_STATE)
 
                 cell_balance = cell_flexibility['production']['current'] - cell_flexibility['consumption']['current']
-                print('cell_balance', cell_balance)
+                print(highlight('cell balance:'), cell_balance)
                 cell_inc_production = cell_flexibility['production']['max'] - cell_flexibility['production']['current']
                 if cell_inc_production < 0:
                     cell_inc_production = 0
@@ -273,6 +310,11 @@ def compute_instructions(current_state, **kwargs):
                 grid_delta = copy.deepcopy(MAS_DEFAULT_STATE)
                 grid_delta['production']['current'] = grid_inc_production - grid_dec_production
                 grid_delta['consumption']['current'] = grid_inc_consumption - grid_dec_consumption 
+
+                cell_balance = cell_flexibility['production']['current'] + cell_delta['production']['current'] - cell_flexibility['consumption']['current'] - cell_delta['consumption']['current']
+                print(highlight('new cell balance:'), cell_balance)
+                print('grid delta:', grid_delta)
+
                 return grid_delta, cell_delta 
 
     requested_states = kwargs.get('requested_states', None)

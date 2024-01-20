@@ -206,7 +206,7 @@ class WecsSim(mosaik_api.Simulator):
             for attr in attrs:
                 if attr not in self.meta['models']['WECS']['attrs']:
                     raise AttributeError('Attribute "%s" not available' % attr)
-                data[eid][attr] = float(getattr(self.sim, attr)[idx])
+                data[eid][attr] = float(getattr(self.sim, attr)[idx]) / 10**3
 
         return data
 
