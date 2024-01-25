@@ -30,9 +30,10 @@ pandapower.auxiliary._check_if_numba_is_installed = lambda x: x
 
 import mosaik
 from _mosaik_components.mas.mosaik_agents import *
-from _mosaik_components.mas.utils import *
+#from _mosaik_components.mas.utils import *
 
 from cells import create_cells, generate_profiles
+from methods import *
 
 base_dir = './'
 cells_count = 2
@@ -51,7 +52,7 @@ else:
     with open(prof_file, 'r') as f:
         profiles = json.load(f)
 
-sys.exit()
+#sys.exit()
 SIM_CONFIG = {
     'Grid': {
          #'python': 'mosaik_components.pandapower:Simulator' #2
@@ -99,7 +100,7 @@ PVMODEL_PARAMS = {
     'optimal_both' : True,
 }
 
-MAS_CONFIG = MAS_DEFAULT_CONFIG.copy()
+#MAS_CONFIG = MAS_DEFAULT_CONFIG.copy()
 MAS_CONFIG['verbose'] = 1
 
 WECS_CONFIG = [
