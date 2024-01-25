@@ -10,13 +10,16 @@ Python will find these modules.
 
 """
 import sys
-from os.path import abspath
-from pathlib import Path
+import os
+import json
+#from os.path import abspath
+#from pathlib import Path
 # Add the "src/" dir to the PYTHONPATH to make its packages available for import:
 #MODULES_DIR = Path(abspath(__file__)).parent / 'mosaik_components/'
 #print(MODULES_DIR)
 #sys.path.insert(0, MODULES_DIR)
 
+from pprint import pprint
 import pandapower as pp
 import pandapower.networks as pn
 
@@ -29,6 +32,26 @@ import mosaik
 from _mosaik_components.mas.mosaik_agents import *
 from _mosaik_components.mas.utils import *
 
+from cells import create_cells, generate_profiles
+
+base_dir = './'
+cells_count = 2
+
+# loading network and flexibility profiles
+net_file = os.path.join(base_dir, 'cells.json')
+if not os.path.exists(net_file):
+    net, net_file = create_cells(cells_count=cells_count)
+else:
+    net = pp.from_json(net_file)
+
+prof_file = os.path.join(base_dir, 'profiles.json')
+if not os.path.exists(prof_file):
+    profiles, prof_file = generate_profiles(net)
+else:
+    with open(prof_file, 'r') as f:
+        profiles = json.load(f)
+
+sys.exit()
 SIM_CONFIG = {
     'Grid': {
          #'python': 'mosaik_components.pandapower:Simulator' #2
@@ -36,6 +59,12 @@ SIM_CONFIG = {
     },
     'PVSim': {
         'python': '_mosaik_components.pv.pvgis_simulator:PVGISSimulator',
+    },
+    'FLSim': {
+        'python': '_mosaik_components.flexible.flexiload_simulator:FLSimulator',
+    },
+    'CSV': {
+        'python': 'mosaik_csv:CSV',
     },
     'WecsSim': {
         'python': '_mosaik_components.wecssim.mosaik:WecsSim',
@@ -52,7 +81,7 @@ END = 3600 * 1# 24 * 1  # 1 day
 #START_DATE = '2014-01-01T00:00:00+01:00'
 START_DATE = '2014-01-01 12:00:00'
 #GRID_FILE = 'demo/pandapower_example.json' 
-GRID_FILE = 'demo/cells_example.json' 
+GRID_FILE = 'demo/cells_net.json' 
 WIND_FILE = 'demo/wind_speed_m-s_15min.csv'
 STEP_SIZE = 60 * 5
 
@@ -60,6 +89,7 @@ PVSIM_PARAMS = {
     'start_date' : START_DATE,
     'cache_dir' : './', # it caches PVGIS API requests
     'verbose' : False, # print PVGIS parameters and requests
+    'gen_neg' : False,
 }
 
 PVMODEL_PARAMS = {
@@ -92,13 +122,28 @@ def main():
                                            output_file='results.csv')
     csv_writer = csv_sim_writer.CSVWriter(buff_size = STEP_SIZE)
 
-    gridsim = world.start('Grid', step_size=STEP_SIZE)
+    csv_sim = world.start('CSV', 
+                        sim_start=START_DATE,
+                        datafile='fl.csv',
+                        delimiter=',')
+    csv = csv_sim.FL.create(1)
 
+
+    gridsim = world.start('Grid', step_size=STEP_SIZE)
+    ##pprint(gridsim.meta)
     mas = world.start('MAS', step_size=STEP_SIZE, **MAS_CONFIG)
+    #pprint(mas.meta)
     mosaik_agent = mas.MosaikAgents() # core agent for the mosaik communication 
 
     pv_sim = world.start(
                     "PVSim",
+                    step_size=STEP_SIZE,
+                    sim_params=PVSIM_PARAMS,
+                )
+    #pprint(pv_sim.meta)
+    
+    fl_sim = world.start(
+                    "FLSim",
                     step_size=STEP_SIZE,
                     sim_params=PVSIM_PARAMS,
                 )
@@ -122,14 +167,14 @@ def main():
     ext_grids = [e for e in grid.children if e.type in ['ExternalGrid', 'Ext_grid']]
     world.connect(ext_grids[0], mosaik_agent, ('p_mw', 'current'))
 
-
     cell_loads = {int(e.eid.split('Load R')[1]) : e for e in loads if 'Load R' in e.eid}
 
     pv_gens = {int(e.eid.split('PV ')[1]) : e for e in gens if 'PV' in e.eid}
     pv_loads = {k : v for k, v in cell_loads.items() if k in pv_gens}
     pv_models = {list(pv_gens.keys())[idx] : e for idx, e in enumerate(pv_sim.PVSim.create(len(pv_gens), **PVMODEL_PARAMS))}
+    fl_models = {list(pv_loads.keys())[idx] : e for idx, e in enumerate(fl_sim.FLSim.create(len(pv_loads)))}
 
-
+    #print(fl_models)
     #print(pv_gens)
     #print(pv_loads)
     #print(loads)
@@ -147,36 +192,24 @@ def main():
     for idx in pv_gens.keys():
         world.connect(pv_models[idx], pv_gens[idx], ('P[MW]', 'p_mw'))
         world.connect(pv_models[idx], pv_gens_agents[idx], ('P[MW]', 'current')) 
-        world.connect(pv_gens_agents[idx], pv_models[idx], 'scale_factor', weak=True, initial_data={'scale_factor' : 1})
-        #world.connect(pv_gens_agents[idx], pv_models[idx], ('current', 'P[MW]'), weak=True, initial_data={'current' : 1})
+        world.connect(pv_gens_agents[idx], pv_models[idx], 'scale_factor', time_shifted=True, initial_data={'scale_factor' : 1})
 
-        world.connect(pv_models[idx], csv_writer, 'P[MW]')
+        world.connect(pv_models[3], csv_writer, 'P[MW]')
         #world.connect(pv_gens[idx], csv_writer, 'p_mw')
-        world.connect(pv_gens_agents[idx], csv_writer, 'current')
+        #world.connect(pv_gens_agents[idx], csv_writer, 'current')
         world.connect(pv_gens_agents[idx], csv_writer, 'scale_factor')
-        
-
-        
-        
-
-        #world.connect(pv_gens_agents[idx], csv_writer, 'scale_factor')
-
-        #world.connect(pv_gens_agents[idx], pv_gens[idx], ('current', 'p_mw'), weak=True, initial_data={'current' : 0})
-        
-
-        
-
+    
     for idx in pv_loads.keys():
+        world.connect(csv[0], fl_models[idx], ('Load', 'P[MW]'))
+        world.connect(fl_models[idx], pv_loads[idx], ('P[MW]', 'p_mw'))
+        world.connect(fl_models[idx], pv_loads_agents[idx], ('P[MW]', 'current')) 
+        world.connect(pv_loads_agents[idx], fl_models[idx], 'scale_factor', time_shifted=True, initial_data={'scale_factor' : 1})
+
+        world.connect(fl_models[idx], csv_writer, 'P[MW]')
         #world.connect(pv_loads[idx], csv_writer, 'p_mw')
-        world.connect(pv_loads[idx], pv_loads_agents[idx], ('p_mw', 'current')) 
         #world.connect(pv_loads_agents[idx], csv_writer, 'current')
-        #world.connect(pv_loads_agents[idx], csv_writer, 'scale_factor')
+        world.connect(pv_loads_agents[idx], csv_writer, 'scale_factor')
         
-
-        #world.connect(pv_loads_agents[idx], pv_loads[idx], ('current', 'p_mw'), weak=True, initial_data={'current' : 0})
-        #world.connect(pv_loads_agents[idx], pv_loads[idx], 'scale_factor', weak=True, initial_data={'scale_factor' : 3})
-
-
 
     #for idx in list(pv_gens.keys()) :
         #world.connect(pv_models[idx], csv_writer, 'P[MW]'),
@@ -236,8 +269,8 @@ def main():
     
     #world.connect(ext_grids[0], csv_writer, 'P[MW]')
 
-    world.connect(controllers[0], csv_writer, 'current')
-    world.connect(controllers[1], csv_writer, 'current')    
+    #world.connect(controllers[0], csv_writer, 'current')
+    #world.connect(controllers[1], csv_writer, 'current')    
     #world.connect(agents[0], csv_writer, 'current')
     #world.connect(agents[1], csv_writer, 'current')
     #world.connect(agents[2], csv_writer, 'current')

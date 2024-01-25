@@ -35,7 +35,10 @@ def state_to_output(output_request, output_data, input_data):
                 data[eid].update({'current' : max(output_data[eid]['production'][attr], output_data[eid]['consumption'][attr])})
             elif attr == 'scale_factor':
                 if eid in input_data:
-                    scale_factor = max(output_data[eid]['production']['current'], output_data[eid]['consumption']['current']) / list(input_data[eid]['current'].values())[0]
+                    scale_factor = 1
+                    input_value = list(input_data[eid]['current'].values())[0]
+                    if input_value != 0:
+                        scale_factor = max(output_data[eid]['production']['current'], output_data[eid]['consumption']['current']) / input_value
                     print(eid, scale_factor)
                     data[eid].update({'scale_factor' : scale_factor})
             else:
@@ -49,31 +52,35 @@ def state_to_output(output_request, output_data, input_data):
 
 def input_to_state(input_data, current_state):
     # state={'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0}}
+    #print('QQQQQQQQQQQQQQ', input_data)
     _updated_state = copy.deepcopy(current_state)
     if 'current' in input_data:
         for eid, value in input_data['current'].items():
             #print(eid)
-            if 'Load' in eid or 'load' in eid: # check consumtion/production
+            if 'Load' in eid or 'load' in eid or 'FL' in eid: # check consumtion/production
+                print('QQQQQQQQQQQQQQ', input_data, value)
                 _updated_state['consumption']['current'] = abs(value)
-                _updated_state['consumption']['min'] = abs(value) * 0.5
-                _updated_state['consumption']['max'] = abs(value) * 3
+                _updated_state['consumption']['min'] = (int(eid.split('-')[-1])/1000 + 0.001) #abs(value) * 0.5
+                _updated_state['consumption']['max'] = (int(eid.split('-')[-1])/1000 + 0.003) #abs(value) * 1.5
             elif 'Gen' in eid or 'Wecs' in eid or 'PV' in eid:
                 _updated_state['production']['current'] = abs(value)
-                _updated_state['production']['max'] = abs(value) * 3
                 _updated_state['production']['min'] = 0
-
+                _updated_state['production']['max'] = abs(value)
             elif 'Grid-0.0-Bus 0' in eid:
                 if value >= 0:
                     _updated_state['production']['current'] = value
+                    _updated_state['production']['min'] = value * -3
                     _updated_state['production']['max'] = value * 3
                     _updated_state['consumption']['current'] = 0
+                    _updated_state['consumption']['min'] = 0
                     _updated_state['consumption']['max'] = 0
-                    
                 else:
                     _updated_state['production']['current'] = 0
+                    _updated_state['production']['min'] = 0
                     _updated_state['production']['max'] = 0
-                    _updated_state['consumption']['current'] = value
-                    _updated_state['consumption']['max'] = value * 3
+                    _updated_state['consumption']['current'] = abs(value)
+                    _updated_state['consumption']['min'] = abs(value) * -3
+                    _updated_state['consumption']['max'] = abs(value) * 3
     return _updated_state
 
 def aggregate_states(requested_states, current_state=MAS_DEFAULT_STATE):

@@ -360,7 +360,7 @@ def main():
 # The simulator meta data that we return in "init()":
 META = {
     'api_version': '3.0',
-    'type': 'time-based',
+    'type': 'hybrid',
     'models': {
         'MosaikAgents': {
             'public': True,
@@ -392,8 +392,8 @@ class MosaikAgents(mosaik_api.Simulator):
         self.all_agents = {} # contains agents + controllers for technical tasks
         self.aid_to_eid = {}
         self.entities = {}  # agent_id: unit_id
-        self.output_data = {}
-        self.input_data = {}
+        self.output_cache = {}
+        self.input_cache = {}
 
     def init(self, sid, time_resolution=1., step_size=60*15, **sim_params):
         self.sid = sid
@@ -492,7 +492,7 @@ class MosaikAgents(mosaik_api.Simulator):
         if self.params['verbose'] >= 2:
             print(highlight('\ninputs:'), inputs)
 
-        self.input_data = copy.deepcopy(inputs)
+        self.input_cache = copy.deepcopy(inputs)
 
         new_state = inputs.pop('MosaikAgent', {})
         if callable(self.params['input_method']):
@@ -500,20 +500,23 @@ class MosaikAgents(mosaik_api.Simulator):
         else:
             self.mosaik_agent.state = copy.deepcopy(new_state)
 
-        self.output_data = self.loop.run_until_complete(self.mosaik_agent.run_loop(inputs=inputs))       
-        self.output_data = {self.aid_to_eid[k]: v for k, v in self.output_data.items()}
-        self.output_data["MosaikAgent"] = self.mosaik_agent.state
+        print('INPUT', inputs)
+        print('OUTPUT', self.output_cache)
+
+        self.output_cache = self.loop.run_until_complete(self.mosaik_agent.run_loop(inputs=inputs))       
+        self.output_cache = {self.aid_to_eid[k]: v for k, v in self.output_cache.items()}
+        self.output_cache["MosaikAgent"] = self.mosaik_agent.state
 
         return time + self.step_size
 
     def get_data(self, outputs):
         if callable(self.params['output_method']):
-            self.output_data = self.params['output_method'](outputs, self.output_data, self.input_data)
+            self.output_cache = self.params['output_method'](outputs, self.output_cache, self.input_cache)
 
         if self.params['verbose'] >= 2:
-            print(highlight('\noutput'), self.output_data)
+            print(highlight('\noutput'), self.output_cache)
 
-        return self.output_data
+        return self.output_cache
 
 
 if __name__ == '__main__':
