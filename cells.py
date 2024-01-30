@@ -1,6 +1,7 @@
 import os
 import json
 import random
+import pandas as pd
 import numpy as np
 import networkx as nx
 import pandapower as pp
@@ -16,13 +17,13 @@ import pandapower.auxiliary
 pandapower.auxiliary._check_if_numba_is_installed = lambda x: x
 
 '''
-Cells based grid generation
+Cell based grid generating script
 
 '''
 
 def get_cell():
-    # https://pandapower.readthedocs.io/en/v2.10.0/networks/cigre.html#medium-voltage-distribution-network-with-pv-and-wind-der
     '''
+    https://pandapower.readthedocs.io/en/v2.10.0/networks/cigre.html#medium-voltage-distribution-network-with-pv-and-wind-der
     This pandapower network includes the following parameter tables:
     - switch (8 elements)
     - load (18 elements)
@@ -33,10 +34,22 @@ def get_cell():
     - bus (15 elements)
     - bus_geodata (15 elements)
     '''
-    return pn.create_cigre_network_mv(with_der="pv_wind")
+    def _switch(net, type='CB', et='t', element=1, bus=0, closed=False): 
+        net.switch.loc[(net.switch['type'] == type) &
+                       (net.switch['et'] == et) &
+                       (net.switch['element'] == element) &
+                       (net.switch['bus'] == bus), 'closed']  = closed
+    
+    net = pn.create_cigre_network_mv(with_der="pv_wind") # gets a cell subnetwork
+    _switch(net, closed=False) # switching off the right part (trafo 1, see the scheme) of the subnetwork
+    return net
 
 def create_cells(cells_count=2, dir='./', validation=False):
-    def rename(elements, cutoff_index, ren_type=None): # create new name for each unit 'type-index-bus-cell'
+    '''
+    Creates a network that consists of ´cells_count´ connected CIGRE subnetworks.
+    Saves the network json file `cells.json` to `dir`.
+    '''
+    def _rename(elements, cutoff_index, ren_type=None): # create new name for each unit 'type-index-bus-cell'
         for idx, g in elements.iterrows():
             new_type = g.type.lower() if not ren_type else ren_type
             elements.loc[elements.index == idx, 'type'] = new_type
@@ -51,8 +64,10 @@ def create_cells(cells_count=2, dir='./', validation=False):
         pp.create_line(net, from_bus=0, to_bus=idx['bus'][0], length_km=5, std_type="NAYY 4x50 SE") # connect merged cells
         net.ext_grid.drop(1, inplace=True) # drop excessive external grid
         net.res_ext_grid.drop(1, inplace=True)
-    rename(net.sgen, cell_cutoff)
-    rename(net.load, cell_cutoff, ren_type='load')
+    _rename(net.sgen, cell_cutoff, ren_type='StaticGen')#, ren_type='load')
+    _rename(net.load, cell_cutoff, ren_type='Load')#, ren_type='load')
+    _rename(net.ext_grid, cell_cutoff, ren_type='ExternalGrid')#, ren_type='Ext_grid')
+    #print(net.switch)
     if validation:
         pp.runpp(net, numba=False) # to test
     if dir:

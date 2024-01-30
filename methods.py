@@ -1,49 +1,50 @@
 import copy
+import pandas as pd
 from _mosaik_components.mas.utils import *
 
 MAS_STATE = MAS_DEFAULT_STATE.copy()
 
-def state_to_output(output_request, output_data, input_data):
-# inputs {'Agent_3': {'current': {'WecsSim-0.wecs-0': 147.26366926766127}},
-# output_state: {'Agent_1': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 0.0}},
-# entities: {'Agent_3': 'WecsSim-0.wecs-0', 'Agent_4': 'Grid-0.Load-0',
-    #print(entities)
-    #data = {}
-    #print(input_data)
-    #print(output_data)
-    #print(output_request)
+def get_cells_data(grid, grid_extra_info, profiles):
+    cells = {}
+    for e in grid.children:
+        if e.eid in grid_extra_info and\
+           'name' in grid_extra_info[e.eid] and\
+           pd.notna(grid_extra_info[e.eid]['name']):
+                name = grid_extra_info[e.eid]['name']
+                id = name.split('-')
+                if len(id) == 4: # type-index-bus-cell
+                    cells.setdefault(id[3], {})
+                    cells.setdefault('match_cell', {})
+                    cells['match_cell'].update({e.eid : id[3]})
+                    cells[id[3]].setdefault(id[0], {})
+                    cells[id[3]][id[0]].update({e.eid : {
+                        'unit' : e,
+                        'type' : id[0],
+                        'index' : id[1],
+                        'bus' : id[2],
+                        'cell' : id[3],
+                        'profile' : profiles[name] if name in profiles else {},
+                    }})
+    return cells
 
-    data = {}
-    for eid, attrs in output_request.items():
-        data[eid] = {}
-        for attr in attrs:
-            if attr == 'current':
-                data[eid].update({'current' : max(output_data[eid]['production'][attr], output_data[eid]['consumption'][attr])})
-            elif attr == 'scale_factor':
-                if eid in input_data:
-                    scale_factor = 1
-                    input_value = list(input_data[eid]['current'].values())[0]
-                    if input_value != 0:
-                        scale_factor = max(output_data[eid]['production']['current'], output_data[eid]['consumption']['current']) / input_value
-                    print(eid, scale_factor)
-                    data[eid].update({'scale_factor' : scale_factor})
-            else:
-                pass
-    #print(data)
-    return data
-
-    #return {eid: {attr: max(output_data[eid]['production'][attr], output_data[eid]['consumption'][attr]) 
-    #                       for attr in attrs
-    #                            } for eid, attrs in output_request.items()}
-
+def get_unit_profile(eid, cells_data):
+    eid = eid.split('.')[1]
+    if eid in cells_data['match_unit']:
+        unit_eid = cells_data['match_unit'][eid]
+        unit_type = unit_eid.split('-')[0]
+        if unit_eid in cells_data['match_cell']:
+            return cells_data[cells_data['match_cell'][unit_eid]][unit_type][unit_eid]['profile']
+'''
 def input_to_state(input_data, current_state):
     # state={'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0}}
     #print('QQQQQQQQQQQQQQ', input_data)
+
     _updated_state = copy.deepcopy(current_state)
     if 'current' in input_data:
         for eid, value in input_data['current'].items():
+            print(get_unit_profile(eid, scenario.cells))
             #print(eid)
-            if 'Load' in eid or 'load' in eid or 'FL' in eid: # check consumtion/production
+            if 'Load' in eid: # or 'load' in eid or 'FL' in eid: # check consumtion/production
                 print('QQQQQQQQQQQQQQ', input_data, value)
                 _updated_state['consumption']['current'] = abs(value)
                 _updated_state['consumption']['min'] = (int(eid.split('-')[-1])/1000 + 0.001) #abs(value) * 0.5
@@ -68,6 +69,39 @@ def input_to_state(input_data, current_state):
                     _updated_state['consumption']['min'] = abs(value) * -3
                     _updated_state['consumption']['max'] = abs(value) * 3
     return _updated_state
+'''
+def state_to_output(output_request, output_data, input_data):
+# inputs {'Agent_3': {'current': {'WecsSim-0.wecs-0': 147.26366926766127}},
+# output_state: {'Agent_1': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 0.0}},
+# entities: {'Agent_3': 'WecsSim-0.wecs-0', 'Agent_4': 'Grid-0.Load-0',
+    #print(entities)
+    #data = {}
+    #print(input_data)
+    #print(output_data)
+    #print(output_request)
+
+    data = {}
+    for eid, attrs in output_request.items():
+        data.setdefault(eid, {})
+        for attr in attrs:
+            if attr == 'current':
+                data[eid].update({'current' : max(output_data[eid]['production'][attr], output_data[eid]['consumption'][attr])})
+            elif attr == 'scale_factor':
+                if eid in input_data:
+                    scale_factor = 1
+                    input_value = list(input_data[eid]['current'].values())[0]
+                    if input_value != 0:
+                        scale_factor = max(output_data[eid]['production']['current'], output_data[eid]['consumption']['current']) / input_value
+                    print(eid, scale_factor)
+                    data[eid].update({'scale_factor' : scale_factor})
+            else:
+                pass
+    #print(data)
+    return data
+
+    #return {eid: {attr: max(output_data[eid]['production'][attr], output_data[eid]['consumption'][attr]) 
+    #                       for attr in attrs
+    #                            } for eid, attrs in output_request.items()}
 
 def aggregate_states(requested_states, current_state=MAS_STATE):
     current_state = copy.deepcopy(current_state)
@@ -324,7 +358,7 @@ def compute_instructions(current_state, **kwargs):
         instructions, delta_remained = compose_instructions(requested_states, delta)
 
     return instructions, delta
-
+'''
 MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py 
     'verbose': 1, # 0 - no messages, 1 - basic agent comminication, 2 - full
     'state_dict': MAS_STATE, # how an agent state that are gathered and comunicated should look like
@@ -334,3 +368,4 @@ MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py
     'redispatch_method': compute_instructions, # method that computes and decomposes the redispatch instructions 
                                                # that will be hierarchically transmitted from each agent to its connected peers
 }
+'''

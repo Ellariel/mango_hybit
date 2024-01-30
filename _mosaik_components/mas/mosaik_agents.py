@@ -7,6 +7,7 @@
 import asyncio
 import mango
 import copy
+import sys
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 import mosaik_api_v3 as mosaik_api
 from _mosaik_components.mas.agent_messages import *
@@ -29,7 +30,7 @@ class Agent(mango.Agent):
         self._requested_states = {}
         self._aggregated_state = {}
         if self.params['verbose'] >= 2:
-            print(f"Hello world! I am a mango agent. My aid is {self.aid}")
+            print(f"Hello world! I am a mango agent. My aid is {self.aid}.{' I am a Controller!' if self.controller[1] == 'agent0' else ''}")
 
     def handle_message(self, content, meta):
         """
@@ -312,6 +313,7 @@ class MosaikAgent(mango.Agent):
             if self.params['verbose'] >= 1:
                 print(f"STOP COMMUNICATION CYCLE: {', '.join([k for k in self._requested_states.keys()])}")
                 print('EXECUTE REDISPATCH ALGORITHM')
+                #sys.exit()
 
             instructions, info = self.get_instructions(current_state=self.state,
                                                         requested_states=self._requested_states)

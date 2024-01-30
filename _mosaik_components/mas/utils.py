@@ -1,3 +1,5 @@
+import random
+import numpy as np
 from pandas.io.json._normalize import nested_to_record    
 from termcolor import colored
 
@@ -25,6 +27,10 @@ MAS_DEFAULT_CONFIG = {
     'redispatch_method': None, # method that computes and decomposes the redispatch instructions 
                                # that will be hierarchically transmitted from each agent to its connected peers
 }
+
+def set_seed(seed=13):
+    random.seed(seed)
+    np.random.seed(seed)
 
 def highlight(s):
     return colored(s, 'green')
