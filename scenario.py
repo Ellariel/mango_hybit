@@ -2,25 +2,13 @@
 This file contains the mosaik scenario.  To start the simulation, just run this
 script from the command line::
 
-    $ python example.py
-
-Since neither the simulator in ``mosaik_components/wecssim`` nor the MAS in ``mosaik_components/mas`` are
-installed correctly, we add the ``mosaik_components/`` directory to the PYTHONPATH so that
-Python will find these modules.
+    $ python scenario.py
 
 """
 import sys
 import os
 import json
 import random
-#from os.path import abspath
-#from pathlib import Path
-# Add the "src/" dir to the PYTHONPATH to make its packages available for import:
-#MODULES_DIR = Path(abspath(__file__)).parent / 'mosaik_components/'
-#print(MODULES_DIR)
-#sys.path.insert(0, MODULES_DIR)
-
-from pprint import pprint
 import pandas as pd
 import pandapower as pp
 import pandapower.networks as pn
@@ -33,9 +21,6 @@ pandapower.auxiliary._check_if_numba_is_installed = lambda x: x
 
 import mosaik
 from _mosaik_components.mas.mosaik_agents import *
-#from _mosaik_components.mas.utils import *
-
-import mosaik_components.pandapower
 from _mosaik_components.mas.utils import set_seed
 
 from cells import create_cells, generate_profiles
@@ -60,9 +45,13 @@ else:
     with open(prof_file, 'r') as f:
         profiles = json.load(f)
 
-#print(net.load)
+END = 3600 * 1# 24 * 1  # 1 day
+START_DATE = '2014-01-01 12:00:00'
+GRID_FILE = net_file #'demo/cells_net.json' 
+WIND_FILE = 'demo/wind_speed_m-s_15min.csv'
+STEP_SIZE = 60 * 5
 
-#sys.exit()
+# simulators
 SIM_CONFIG = {
     'Grid': {
          'python': 'mosaik_components.pandapower:Simulator' #2
@@ -86,22 +75,20 @@ SIM_CONFIG = {
     'CSV_writer': {
         'python': 'mosaik_csv_writer:CSVWriter',
     },
+    'InputSim': {
+        'python': '_mosaik_components.basic_simulators.input_simulator:InputSimulator',
+    },
 }
 
-END = 3600 * 1# 24 * 1  # 1 day
-START_DATE = '2014-01-01 12:00:00'
-#GRID_FILE = 'demo/pandapower_example.json' 
-GRID_FILE = net_file #'demo/cells_net.json' 
-WIND_FILE = 'demo/wind_speed_m-s_15min.csv'
-STEP_SIZE = 60 * 5
-
+# PV simulator
 PVSIM_PARAMS = {
     'start_date' : START_DATE,
     'cache_dir' : './', # it caches PVGIS API requests
     'verbose' : False, # print PVGIS parameters and requests
-    'gen_neg' : False,
+    'gen_neg' : False, # return negative P
 }
 
+# For each PV
 PVMODEL_PARAMS = {
     'scale_factor' : 100,
     'lat' : 52.373,
@@ -109,45 +96,34 @@ PVMODEL_PARAMS = {
     'optimal_both' : True,
 }
 
-#MAS_CONFIG = MAS_DEFAULT_CONFIG.copy()
-#MAS_CONFIG['verbose'] = 1
-
+# Wind power
 WECS_CONFIG = [
     (1, {'P_rated': 5000, 'v_rated': 13, 'v_min': 3.5, 'v_max': 25, 'controller': None}),
 ]
 
-#AGENTS_CONFIG = [
-#    (8, {}), # PVs
-#    #(2, {}), # other two
-#]
-#CONTROLLERS_CONFIG = [
-#    (cells_count, {}), # top-level agents that are named as controllers
-#]
-
+# method that transforms mosaik inputs dict to the agent state (colled for each agent/connected unit, default: copy dict)
 def input_to_state(input_data, current_state):
     # state={'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0}}
-    #print('QQQQQQQQQQQQQQ', input_data)
     global cells
     state = copy.deepcopy(current_state)
     if 'current' in input_data:
         for eid, value in input_data['current'].items():
             profile = get_unit_profile(eid, cells)
             scale_factor = input_data.get('scale_factor', 1)
-            #print(eid, value)
-            if 'Load' in eid or 'FL' in eid: # check consumtion/production
-                state['consumption']['min'] = profile['min']#(int(eid.split('-')[-1])/1000 + 0.001) #abs(value) * 0.5
-                state['consumption']['max'] = profile['max']#(int(eid.split('-')[-1])/1000 + 0.003) #abs(value) * 1.5
+            if 'Load' in eid or 'FL' in eid: # check the type of connected unit and its profile
+                state['consumption']['min'] = profile['min']
+                state['consumption']['max'] = profile['max']
                 if scale_factor == 1 and value == 0:
                     value = random.uniform(profile['min'], profile['max'])
                 state['consumption']['current'] = np.clip(abs(value), profile['min'], profile['max'])
-                print('LoadQQQQQQQQQQQQQQ', input_data, profile, value, scale_factor)
+                #print('LoadQQQQQQQQQQQQQQ', input_data, profile, value, scale_factor)
             elif 'Gen' in eid or 'PV' in eid:
                 state['production']['min'] = profile['min']
                 state['production']['max'] = min(abs(value), profile['max'])
                 state['production']['current'] = np.clip(abs(value), profile['min'], min(abs(value), profile['max']))
-                print('GenQQQQQQQQQQQQQQ', input_data, profile, value, scale_factor)
+                #print('GenQQQQQQQQQQQQQQ', input_data, profile, value, scale_factor)
             elif 'ExternalGrid' in eid:
-                if value >= 0:
+                if value >= 0: # check the convention here!
                     state['production']['current'] = value
                     state['production']['min'] = value * -3
                     state['production']['max'] = value * 3
@@ -163,10 +139,13 @@ def input_to_state(input_data, current_state):
                     state['consumption']['max'] = abs(value) * 3
     return state
 
+# Multi-agent system (MAS) configuration
+# User-defined methods are specified in methods.py to make scenario cleaner, 
+# except `input_method`, since it requieres an access to global variables
 MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py 
     'verbose': 1, # 0 - no messages, 1 - basic agent comminication, 2 - full
     'state_dict': MAS_STATE, # how an agent state that are gathered and comunicated should look like
-    'input_method': input_to_state, # method that transforms mosaik inputs dict to the agent state (default: copy dict)
+    'input_method': input_to_state, # method that transforms mosaik inputs dict to the agent state (see `update_state`, default: copy dict)
     'output_method': state_to_output, # method that transforms the agent state to mosaik outputs dict (default: copy dict)
     'states_agg_method': aggregate_states, # method that aggregates gathered states to one top-level state
     'redispatch_method': compute_instructions, # method that computes and decomposes the redispatch instructions 
@@ -222,8 +201,10 @@ def main():
     #print(cells)
 
 
+    input_sim = world.start("InputSim", step_size=STEP_SIZE)
+    #input_model_func = input_sim.Function.create(1, function=lambda x: x)
 
-
+    #world.connect(input_model_func[0], csv_writer, "value")
 
     #sys.exit()
     #print(grid.children)
@@ -269,7 +250,9 @@ def main():
                         e.update({'agent' : agents[-1], 'sim' : pv[-1]})
                     elif k == 'Load':
                         fl += flsim.FLSim.create(num=1)
+                        fli = input_sim.Function.create(1, function=lambda x: random.uniform(1, 10)*len(fl)/10)
                         e.update({'agent' : agents[-1], 'sim' : fl[-1]})
+                        world.connect(fli[0], e['sim'], ('value', 'P[MW]'))
                     else:
                         pass
                     
@@ -281,6 +264,7 @@ def main():
                     world.connect(e['agent'], e['sim'], 'scale_factor', weak=True, initial_data={'scale_factor' : 1})
                     
                     #world.connect(e['unit'], csv_writer, 'P[MW]')
+                    world.connect(e['unit'], csv_writer, 'P[MW]')
                     world.connect(e['agent'], csv_writer, 'current')
                     world.connect(e['agent'], csv_writer, 'scale_factor')
                     

@@ -80,14 +80,14 @@ class FLSimulator(mosaik_api_v3.Simulator):
             return self.scale_factor[eid]
         result = self.entities[eid] * self.scale_factor[eid]
         if self.gen_neg:
-            result *= (-1)
+            result = abs(result) * (-1)
         return result
 
     def step(self, time, inputs, max_advance):
         if not self._first_step:
             self.date = self.date.shift(seconds=self.step_size)
         self._first_step = False
-        print('FL!!!!!!!', inputs)
+        #print('FL!!!!!!!', inputs)
         for eid, attrs in inputs.items():
             for attr, vals in attrs.items():
                 if attr == 'P[MW]':

@@ -67,7 +67,7 @@ def create_cells(cells_count=2, dir='./', validation=False):
     _rename(net.sgen, cell_cutoff, ren_type='StaticGen')#, ren_type='load')
     _rename(net.load, cell_cutoff, ren_type='Load')#, ren_type='load')
     _rename(net.ext_grid, cell_cutoff, ren_type='ExternalGrid')#, ren_type='Ext_grid')
-    #print(net.switch)
+
     if validation:
         pp.runpp(net, numba=False) # to test
     if dir:
