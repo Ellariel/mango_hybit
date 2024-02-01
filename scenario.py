@@ -150,6 +150,7 @@ MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py
     'states_agg_method': aggregate_states, # method that aggregates gathered states to one top-level state
     'redispatch_method': compute_instructions, # method that computes and decomposes the redispatch instructions 
                                                # that will be hierarchically transmitted from each agent to its connected peers
+    'execute_method': execute_instructions,    # executes the received instructions internally
 }
 
 def main():
@@ -200,40 +201,11 @@ def main():
     #print(profiles)
     #print(cells)
 
-
     input_sim = world.start("InputSim", step_size=STEP_SIZE)
-    #input_model_func = input_sim.Function.create(1, function=lambda x: x)
 
-    #world.connect(input_model_func[0], csv_writer, "value")
-
-    #sys.exit()
-    #print(grid.children)
-    #print([e.type for e in grid.children])
-    #buses = [e for e in grid.children if e.type in ['Bus']]
-    #gens = [e for e in grid.children if e.type in ['Sgen', 'Gen', 'StaticGen', 'ControlledGen']]
-    #loads = [e for e in grid.children if e.type in ['Load']]
     ext_grids = [e for e in grid.children if e.type in ['ExternalGrid', 'Ext_grid']]
     world.connect(ext_grids[0], mosaik_agent, ('P[MW]', 'current'))
-    #world.connect(ext_grids[0], csv_writer, 'P[MW]')
 
-    #world.connect(mosaik_agent, ext_grids[0], ('current', 'P[MW]'), weak=True, initial_data={'P[MW]' : 45})
-    #print(grid_extra_info[loads[0].eid].name)
-    
-
-
-    #print(ext_grids)
-    
-    #cell_loads = {int(e.eid.split('Load R')[1]) : e for e in loads if 'Load R' in e.eid}
-    #pv_gens = {int(e.eid.split('PV ')[1]) : e for e in gens if 'PV' in e.eid}
-    #pv_loads = {k : v for k, v in cell_loads.items() if k in pv_gens}
-    #pv_models = {list(pv_gens.keys())[idx] : e for idx, e in enumerate(pv_sim.PVSim.create(len(pv_gens), **PVMODEL_PARAMS))}
-    #fl_models = {list(pv_loads.keys())[idx] : e for idx, e in enumerate(fl_sim.FLSim.create(len(pv_loads)))}
-
-    #print(fl_models)
-    #print(pv_gens)
-    #print(pv_loads)
-    #print(loads)
-    #sys.exit()
     pv = [] # PV simulators
     wp = [] # Wind power simulators
     fl = [] # Flexible Load simulators
@@ -272,119 +244,6 @@ def main():
     #print(agents)        
     #print(cells)
     #sys.exit()
-
-
-        #sgens_agents = {list(pv_gens.keys())[idx] : a
-        #                  for idx, a in enumerate(mas.MosaikAgents.create(num=len(cells[i]['StaticGen'])))}
-
-
-        
-
-
-
-
-    #sys.exit()
-    #controllers = mas.MosaikAgents.create(num=cells_count)
-    #print(controllers)
-
-    #sys.exit()
-    #for n, params in CONTROLLERS_CONFIG:  # iterate over the config sets
-    #    controllers += mas.MosaikAgents.create(num=n, **params)
-    # print('controllers:', controllers)
-
-
-    #params.update({'controller' : controllers[0].eid})
-    #pv_gens_agents = {list(pv_gens.keys())[idx] : e for idx, e in enumerate(mas.MosaikAgents.create(num=len(pv_gens)))}
-    #pv_loads_agents = {list(pv_loads.keys())[idx] : e for idx, e in enumerate(mas.MosaikAgents.create(num=len(pv_loads)))}
-
-    
-    '''
-    for idx in pv_gens.keys():
-        world.connect(pv_models[idx], pv_gens[idx], ('P[MW]', 'p_mw'))
-        world.connect(pv_models[idx], pv_gens_agents[idx], ('P[MW]', 'current')) 
-        world.connect(pv_gens_agents[idx], pv_models[idx], 'scale_factor', time_shifted=True, initial_data={'scale_factor' : 1})
-
-        world.connect(pv_models[3], csv_writer, 'P[MW]')
-        #world.connect(pv_gens[idx], csv_writer, 'p_mw')
-        #world.connect(pv_gens_agents[idx], csv_writer, 'current')
-        world.connect(pv_gens_agents[idx], csv_writer, 'scale_factor')
-    
-    for idx in pv_loads.keys():
-        world.connect(csv[0], fl_models[idx], ('Load', 'P[MW]'))
-        world.connect(fl_models[idx], pv_loads[idx], ('P[MW]', 'p_mw'))
-        world.connect(fl_models[idx], pv_loads_agents[idx], ('P[MW]', 'current')) 
-        world.connect(pv_loads_agents[idx], fl_models[idx], 'scale_factor', time_shifted=True, initial_data={'scale_factor' : 1})
-
-        world.connect(fl_models[idx], csv_writer, 'P[MW]')
-        #world.connect(pv_loads[idx], csv_writer, 'p_mw')
-        #world.connect(pv_loads_agents[idx], csv_writer, 'current')
-        world.connect(pv_loads_agents[idx], csv_writer, 'scale_factor')
-    '''
-
-    #for idx in list(pv_gens.keys()) :
-        #world.connect(pv_models[idx], csv_writer, 'P[MW]'),
-    #    world.connect(pv_gens[idx], csv_writer, 'p_mw')
-    #    if idx in pv_loads:
-    #        world.connect(pv_loads[idx], csv_writer, 'p_mw')
-    #    world.connect(pv_agents[idx], csv_writer, 'current')
-
-        #world.connect(pv_models[idx], pv_gens[idx], ('P[MW]', 'p_mw')),
-    #    world.connect(pv_gens[idx], pv_agents[idx], ('p_mw', 'current')) 
-    #    if idx in pv_loads:
-    #        world.connect(pv_loads[idx], pv_agents[idx], ('p_mw', 'current'))
-        #world.connect(pv_agents[idx], pv_gens[idx], ('current', 'p_mw'), weak=True, initial_data={'current' : 0})
-        #if idx in pv_loads:
-        #    world.connect(pv_agents[idx], pv_loads[idx], ('current', 'p_mw'), weak=True, initial_data={'current' : 0})    
-
-        #world.connect(pv_agents[idx], pv_models[idx], ('current', 'P[MW]'), weak=True, initial_data={'current' : 0}))
-
-
-    #world.connect(wecs[0], agents[0], ('P', 'current'))
-    #world.connect(agents[0], wecs[0], ('current', 'P'), weak=True, initial_data={'current' : 0})
-
-    #agents = []
-    #for n, params in AGENTS_CONFIG:  
-    #    if len(agents) == 0: # connect the first couple of agents to the first controller
-    #        params.update({'controller' : controllers[0].eid})
-    #    else:
-    #        params.update({'controller' : controllers[1].eid})
-    #    agents += mas.MosaikAgents.create(num=n, **params)
-    # print('agents:', agents)
-
-    #wecs = []
-    #for n_wecs, params in WECS_CONFIG:
-    #    for _ in range(n_wecs):
-    #        w = wecssim.WECS(**params)
-    #        wecs.append(w)
-
-    #world.connect(wecs[0], agents[0], ('P', 'current'))
-    #world.connect(agents[0], wecs[0], ('current', 'P'), weak=True, initial_data={'current' : 0})
-
-    #world.connect(wecs[0], gens[2], ('P', 'p_mw'))
-
-    
-    #world.connect(wecs[0], agents[0], ('P', 'current'))
-    #world.connect(agents[0], wecs[0], ('current', 'P'), weak=True, initial_data={'current' : 0})
-    #world.connect(wecs[0], gens[2], ('P', 'p_mw'))            
-
-
-    #world.connect(gens[0], agents[1], ('p_mw', 'current'))
-    #world.connect(loads[0], agents[1], ('p_mw', 'current'))
-    #world.connect(gens[1], agents[2], ('p_mw', 'current'))
-    #world.connect(loads[1], agents[3], ('p_mw', 'current'))
-     # connect the external network to the core agent
-                                                                    # to execute the default redispatch algorithm
-                                                                    # which is based on the core agent state
-
-    
-    #world.connect(ext_grids[0], csv_writer, 'P[MW]')
-
-    #world.connect(controllers[0], csv_writer, 'current')
-    #world.connect(controllers[1], csv_writer, 'current')    
-    #world.connect(agents[0], csv_writer, 'current')
-    #world.connect(agents[1], csv_writer, 'current')
-    #world.connect(agents[2], csv_writer, 'current')
-    #world.connect(agents[3], csv_writer, 'current')
 
     world.run(END)
 

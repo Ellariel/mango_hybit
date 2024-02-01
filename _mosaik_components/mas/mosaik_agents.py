@@ -172,9 +172,12 @@ class Agent(mango.Agent):
         instruction = instructions[self.aid]
 
         # Do execute instruction
-        
+        if callable(self.params['execute_method']):
+            self.params['execute_method'](instruction, current_state=self._aggregated_state,
+                                                           requested_states=self._requested_states)
         if self.params['verbose'] >= 1:
             print(f"{highlight(self.aid)} <- {highlight('current_state')}: {self._aggregated_state}, {highlight('new_state')}: {reduce_equal_dicts(instruction, self._aggregated_state)}")
+        
         if len(self.connected_agents):
             add_instructions, info = self.get_instructions(current_state=self._aggregated_state,
                                                            requested_states=self._requested_states, 
@@ -284,10 +287,14 @@ class MosaikAgent(mango.Agent):
     def aggregate_states(self, requested_states, current_state=None):
         if callable(self.params['states_agg_method']):
             return self.params['states_agg_method'](requested_states, current_state)
+        else:
+            raise AttributeError('States aggregation method is not defined!')
 
     def get_instructions(self, current_state, **kwargs):
         if callable(self.params['redispatch_method']):
             return self.params['redispatch_method'](current_state, **kwargs)
+        else:
+            raise AttributeError('Redispatch method is not defined!')
 
     async def trigger_communication_cycle(self):
         """

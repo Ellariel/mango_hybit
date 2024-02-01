@@ -26,6 +26,7 @@ MAS_DEFAULT_CONFIG = {
     'states_agg_method': None, # method that aggregates gathered states to one top-level state
     'redispatch_method': None, # method that computes and decomposes the redispatch instructions 
                                # that will be hierarchically transmitted from each agent to its connected peers
+    'execute_method': None,    # executes the received instructions internally
 }
 
 def set_seed(seed=13):

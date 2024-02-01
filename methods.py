@@ -34,42 +34,7 @@ def get_unit_profile(eid, cells_data):
         unit_type = unit_eid.split('-')[0]
         if unit_eid in cells_data['match_cell']:
             return cells_data[cells_data['match_cell'][unit_eid]][unit_type][unit_eid]['profile']
-'''
-def input_to_state(input_data, current_state):
-    # state={'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0}}
-    #print('QQQQQQQQQQQQQQ', input_data)
 
-    _updated_state = copy.deepcopy(current_state)
-    if 'current' in input_data:
-        for eid, value in input_data['current'].items():
-            print(get_unit_profile(eid, scenario.cells))
-            #print(eid)
-            if 'Load' in eid: # or 'load' in eid or 'FL' in eid: # check consumtion/production
-                print('QQQQQQQQQQQQQQ', input_data, value)
-                _updated_state['consumption']['current'] = abs(value)
-                _updated_state['consumption']['min'] = (int(eid.split('-')[-1])/1000 + 0.001) #abs(value) * 0.5
-                _updated_state['consumption']['max'] = (int(eid.split('-')[-1])/1000 + 0.003) #abs(value) * 1.5
-            elif 'Gen' in eid or 'Wecs' in eid or 'PV' in eid:
-                _updated_state['production']['current'] = abs(value)
-                _updated_state['production']['min'] = 0
-                _updated_state['production']['max'] = abs(value)
-            elif 'Grid-0.0-Bus 0' in eid:
-                if value >= 0:
-                    _updated_state['production']['current'] = value
-                    _updated_state['production']['min'] = value * -3
-                    _updated_state['production']['max'] = value * 3
-                    _updated_state['consumption']['current'] = 0
-                    _updated_state['consumption']['min'] = 0
-                    _updated_state['consumption']['max'] = 0
-                else:
-                    _updated_state['production']['current'] = 0
-                    _updated_state['production']['min'] = 0
-                    _updated_state['production']['max'] = 0
-                    _updated_state['consumption']['current'] = abs(value)
-                    _updated_state['consumption']['min'] = abs(value) * -3
-                    _updated_state['consumption']['max'] = abs(value) * 3
-    return _updated_state
-'''
 def state_to_output(output_request, output_data, input_data):
 # inputs {'Agent_3': {'current': {'WecsSim-0.wecs-0': 147.26366926766127}},
 # output_state: {'Agent_1': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 0.0}},
@@ -113,6 +78,10 @@ def aggregate_states(requested_states, current_state=MAS_STATE):
                 else:
                     current_state[i][j] += state[i][j]
     return current_state
+
+def execute_instructions(instruction, current_state, requested_states):
+    #print('EXECUTION')
+    pass
 
 def compute_instructions(current_state, **kwargs):
     def calc_delta(current_state, new_state):
@@ -358,14 +327,3 @@ def compute_instructions(current_state, **kwargs):
         instructions, delta_remained = compose_instructions(requested_states, delta)
 
     return instructions, delta
-'''
-MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py 
-    'verbose': 1, # 0 - no messages, 1 - basic agent comminication, 2 - full
-    'state_dict': MAS_STATE, # how an agent state that are gathered and comunicated should look like
-    'input_method': input_to_state, # method that transforms mosaik inputs dict to the agent state (default: copy dict)
-    'output_method': state_to_output, # method that transforms the agent state to mosaik outputs dict (default: copy dict)
-    'states_agg_method': aggregate_states, # method that aggregates gathered states to one top-level state
-    'redispatch_method': compute_instructions, # method that computes and decomposes the redispatch instructions 
-                                               # that will be hierarchically transmitted from each agent to its connected peers
-}
-'''
