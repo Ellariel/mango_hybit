@@ -92,7 +92,7 @@ def state_to_output(output_request, output_data, input_data):
                     input_value = list(input_data[eid]['current'].values())[0]
                     if input_value != 0:
                         scale_factor = max(output_data[eid]['production']['current'], output_data[eid]['consumption']['current']) / input_value
-                    print(eid, scale_factor)
+                    #print(eid, scale_factor)
                     data[eid].update({'scale_factor' : scale_factor})
             else:
                 pass
@@ -156,7 +156,7 @@ def compute_instructions(current_state, **kwargs):
                     cell_flexibility = copy.deepcopy(MAS_STATE)
 
                 cell_balance = cell_flexibility['production']['current'] - cell_flexibility['consumption']['current']
-                print(highlight('cell balance:'), cell_balance)
+                print(highlight('cell balance:', 'red'), cell_balance)
                 cell_inc_production = cell_flexibility['production']['max'] - cell_flexibility['production']['current']
                 if cell_inc_production < 0:
                     cell_inc_production = 0
@@ -339,7 +339,7 @@ def compute_instructions(current_state, **kwargs):
                 grid_delta['consumption']['current'] = grid_inc_consumption - grid_dec_consumption 
 
                 cell_balance = cell_flexibility['production']['current'] + cell_delta['production']['current'] - cell_flexibility['consumption']['current'] - cell_delta['consumption']['current']
-                print(highlight('new cell balance:'), cell_balance)
+                print(highlight('new cell balance:', 'red'), cell_balance)
                 print('grid delta:', grid_delta)
 
                 return grid_delta, cell_delta 

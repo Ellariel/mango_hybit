@@ -502,8 +502,8 @@ class MosaikAgents(mosaik_api.Simulator):
         else:
             self.mosaik_agent.state = copy.deepcopy(new_state)
 
-        print('INPUT', inputs)
-        print('OUTPUT', self.output_cache)
+        #print('INPUT', inputs)
+        #print('OUTPUT', self.output_cache)
 
         self.output_cache = self.loop.run_until_complete(self.mosaik_agent.run_loop(inputs=inputs))       
         self.output_cache = {self.aid_to_eid[k]: v for k, v in self.output_cache.items()}

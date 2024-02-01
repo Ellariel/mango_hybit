@@ -45,7 +45,7 @@ else:
     with open(prof_file, 'r') as f:
         profiles = json.load(f)
 
-END = 3600 * 1# 24 * 1  # 1 day
+END = 3600 * 1#24 * 1  # 1 day
 START_DATE = '2014-01-01 12:00:00'
 GRID_FILE = net_file #'demo/cells_net.json' 
 WIND_FILE = 'demo/wind_speed_m-s_15min.csv'
@@ -101,7 +101,7 @@ WECS_CONFIG = [
     (1, {'P_rated': 5000, 'v_rated': 13, 'v_min': 3.5, 'v_max': 25, 'controller': None}),
 ]
 
-# method that transforms mosaik inputs dict to the agent state (colled for each agent/connected unit, default: copy dict)
+# method that transforms mosaik inputs dict to the agent state (called for each agent/connected unit, default: copy dict)
 def input_to_state(input_data, current_state):
     # state={'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0}}
     global cells

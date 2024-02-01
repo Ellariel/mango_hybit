@@ -1,7 +1,7 @@
 import random
 import numpy as np
-from pandas.io.json._normalize import nested_to_record    
 from termcolor import colored
+from pandas.io.json._normalize import nested_to_record
 
 MAS_DEFAULT_STATE = {
     'production' : {
@@ -32,14 +32,14 @@ def set_seed(seed=13):
     random.seed(seed)
     np.random.seed(seed)
 
-def highlight(s):
-    return colored(s, 'green')
+def highlight(s, color='green'):
+    return colored(s, color)
 
 def reduce_zero_dict(_dict):
     if isinstance(_dict, dict):
         flattened = nested_to_record(_dict, sep='_')
         if sum(flattened.values()) == 0:
-            return colored('none', 'blue')
+            return colored('none', 'dark_grey')
     return _dict 
 
 def reduce_equal_dicts(a_dict, b_dict):
@@ -47,5 +47,5 @@ def reduce_equal_dicts(a_dict, b_dict):
         a_flattened = nested_to_record(a_dict, sep='_')
         b_flattened = nested_to_record(b_dict, sep='_')
         if a_flattened == b_flattened:
-            return colored('same', 'blue')
+            return colored('same', 'dark_grey')
     return a_dict  

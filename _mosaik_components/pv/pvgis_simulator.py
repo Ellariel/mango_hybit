@@ -108,7 +108,7 @@ class PVGISSimulator(mosaik_api_v3.Simulator):
         if not self._first_step:
             self.date = self.date.shift(seconds=self.step_size)
         self._first_step = False
-        #print('PV!!!!!!!', inputs)
+        print('\n!!PV input!!', inputs)
         for eid, attrs in inputs.items():
             for attr, vals in attrs.items():
                 if attr == 'scale_factor':
