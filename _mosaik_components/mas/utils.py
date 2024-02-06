@@ -20,6 +20,8 @@ MAS_DEFAULT_STATE = {
 
 MAS_DEFAULT_CONFIG = {
     'verbose': 1, # 0 - no messages, 1 - basic agent comminication, 2 - full
+    'performance': True, # returns wall time of each mosaik step / the core loop execution time 
+                         # as a 'steptime' [sec] output attribute of MosaikAgent 
     'state_dict': MAS_DEFAULT_STATE, # how an agent state that are gathered and comunicated should look like
     'input_method': None, # method that transforms mosaik inputs dict to the agent state (see `update_state`, default: copy dict)
     'output_method': None, # method that transforms the agent state to mosaik outputs dict (default: copy dict)

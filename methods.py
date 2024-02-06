@@ -321,7 +321,7 @@ def compute_instructions(current_state, **kwargs):
         instructions, delta_remained = compose_instructions(requested_states, delta)
     else:
         aggregated_state = aggregate_states(requested_states)
-        print('grid_state:', current_state)
+        print('\ngrid_state:', current_state)
         print('aggregated_cell_state:', aggregated_state)
         grid_delta, delta = compute_delta_state(current_state, aggregated_state)
         instructions, delta_remained = compose_instructions(requested_states, delta)

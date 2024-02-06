@@ -9,6 +9,7 @@ import sys
 import os
 import json
 import random
+import argparse
 import pandas as pd
 import pandapower as pp
 import pandapower.networks as pn
@@ -26,30 +27,39 @@ from _mosaik_components.mas.utils import set_seed
 from cells import create_cells, generate_profiles
 from methods import *
 
-base_dir = './'
-cells_count = 2
-cells = {}
-set_seed()
+parser = argparse.ArgumentParser()
+parser.add_argument('--cells', default=2, type=int)
+parser.add_argument('--verbose', default=0, type=int)
+parser.add_argument('--clean', default=False, type=bool)
+parser.add_argument('--performance', default=True, type=bool)
+parser.add_argument('--dir', default='./', type=str)
+parser.add_argument('--output_file', default='results.csv', type=str)
+args = parser.parse_args()
+
+base_dir = args.dir
+cells_count = args.cells
 
 # loading network and flexibility profiles
+cells = {}
+
 net_file = os.path.join(base_dir, 'cells.json')
-if not os.path.exists(net_file):
+if not os.path.exists(net_file) or args.clean:
     net, net_file = create_cells(cells_count=cells_count)
 else:
     net = pp.from_json(net_file)
 
 prof_file = os.path.join(base_dir, 'profiles.json')
-if not os.path.exists(prof_file):
+if not os.path.exists(prof_file) or args.clean:
     profiles, prof_file = generate_profiles(net)
 else:
     with open(prof_file, 'r') as f:
         profiles = json.load(f)
 
-END = 3600 * 1#24 * 1  # 1 day
+END = 3600 * 24 * 1  # 1 day
 START_DATE = '2014-01-01 12:00:00'
 GRID_FILE = net_file #'demo/cells_net.json' 
 WIND_FILE = 'demo/wind_speed_m-s_15min.csv'
-STEP_SIZE = 60 * 5
+STEP_SIZE = 60 * 15
 
 # simulators
 SIM_CONFIG = {
@@ -143,7 +153,9 @@ def input_to_state(input_data, current_state):
 # User-defined methods are specified in methods.py to make scenario cleaner, 
 # except `input_method`, since it requieres an access to global variables
 MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py 
-    'verbose': 1, # 0 - no messages, 1 - basic agent comminication, 2 - full
+    'verbose': args.verbose, # 0 - no messages, 1 - basic agent comminication, 2 - full
+    'performance': args.performance, # returns wall time of each mosaik step / the core loop execution time 
+                         # as a 'steptime' [sec] output attribute of MosaikAgent 
     'state_dict': MAS_STATE, # how an agent state that are gathered and comunicated should look like
     'input_method': input_to_state, # method that transforms mosaik inputs dict to the agent state (see `update_state`, default: copy dict)
     'output_method': state_to_output, # method that transforms the agent state to mosaik outputs dict (default: copy dict)
@@ -159,7 +171,7 @@ def main():
     world = mosaik.World(SIM_CONFIG)
 
     csv_sim_writer = world.start('CSV_writer', start_date = START_DATE,
-                                           output_file='results.csv')
+                                           output_file=os.path.join(base_dir, args.output_file))
     csv_writer = csv_sim_writer.CSVWriter(buff_size = STEP_SIZE)
 
     #csv_sim = world.start('CSV', 
@@ -206,6 +218,8 @@ def main():
     ext_grids = [e for e in grid.children if e.type in ['ExternalGrid', 'Ext_grid']]
     world.connect(ext_grids[0], mosaik_agent, ('P[MW]', 'current'))
 
+    world.connect(mosaik_agent, csv_writer, 'steptime')
+
     pv = [] # PV simulators
     wp = [] # Wind power simulators
     fl = [] # Flexible Load simulators
@@ -244,8 +258,10 @@ def main():
     #print(agents)        
     #print(cells)
     #sys.exit()
-
+    set_seed()
+    print(f"Simulation started at {t.ctime()}")
     world.run(END)
+    print(f"Simulation finished at {t.ctime()}")
 
 if __name__ == '__main__':
     main()

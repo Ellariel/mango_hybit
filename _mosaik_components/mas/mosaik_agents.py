@@ -7,6 +7,7 @@
 import asyncio
 import mango
 import copy
+import time as t
 import sys
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 import mosaik_api_v3 as mosaik_api
@@ -375,7 +376,7 @@ META = {
             'public': True,
             'any_inputs': True,
             'params': ['controller', 'initial_state'],
-            'attrs': ['current', 'scale_factor'],
+            'attrs': ['current', 'scale_factor', 'steptime'],
         },
     },
 }
@@ -404,11 +405,16 @@ class MosaikAgents(mosaik_api.Simulator):
         self.output_cache = {}
         self.input_cache = {}
 
+        self._steptime = 0 # performance
+
     def init(self, sid, time_resolution=1., step_size=60*15, **sim_params):
         self.sid = sid
         self.step_size = step_size
         self.loop = asyncio.get_event_loop()
         self.params = sim_params
+
+        self.params.setdefault('verbose', 1)
+        self.params.setdefault('performance', True)
         return META
 
     async def _create_container(self, host, port):
@@ -511,8 +517,11 @@ class MosaikAgents(mosaik_api.Simulator):
 
         #print('INPUT', inputs)
         #print('OUTPUT', self.output_cache)
+            
+        self._steptime = t.time()
+        self.output_cache = self.loop.run_until_complete(self.mosaik_agent.run_loop(inputs=inputs))   
+        self._steptime = t.time() - self._steptime
 
-        self.output_cache = self.loop.run_until_complete(self.mosaik_agent.run_loop(inputs=inputs))       
         self.output_cache = {self.aid_to_eid[k]: v for k, v in self.output_cache.items()}
         self.output_cache["MosaikAgent"] = self.mosaik_agent.state
 
@@ -521,6 +530,9 @@ class MosaikAgents(mosaik_api.Simulator):
     def get_data(self, outputs):
         if callable(self.params['output_method']):
             self.output_cache = self.params['output_method'](outputs, self.output_cache, self.input_cache)
+
+        if "MosaikAgent" in self.output_cache and self.params['performance']:
+            self.output_cache["MosaikAgent"].update({'steptime' : self._steptime})
 
         if self.params['verbose'] >= 2:
             print(highlight('\noutput'), self.output_cache)

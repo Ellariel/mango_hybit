@@ -1,6 +1,7 @@
 # Pycache
 
 *.hdf5
+*.log
 __pycache__/
 results.csv
 .idea/*
