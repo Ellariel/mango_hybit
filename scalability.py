@@ -11,37 +11,50 @@ import time
 from tqdm import tqdm
 import json
 import pandas as pd
+from cells import create_cells, generate_profiles
+from _mosaik_components.mas.utils import set_random_seed, get_random_seed
 
 base_dir = './'
+attempts = 5
+stdout_logs = True
+set_random_seed(seed=13)
+
 output_filename = 'temp_results.csv'
 scalability_time_filename = 'scalability_time.csv'
 simulation_time_filename = 'simulation_time.csv'
-cells_count = list(range(2, 16+1))
-
-
 logs_dir = os.path.join(base_dir, 'logs')
 os.makedirs(logs_dir, exist_ok=True)
+net_file = os.path.join(base_dir, 'cells.json')
+prof_file = os.path.join(base_dir, 'profiles.json')
 temp_filename = os.path.join(base_dir, output_filename)
 scalability_time_filename = os.path.join(base_dir, scalability_time_filename)
 simulation_time_filename = os.path.join(base_dir, simulation_time_filename)
+
+cells_count = list(range(2, 16+1))
 print(f"cells_count: {', '.join([str(i) for i in cells_count])}")
 
 scalability_time = []
 simulation_time = []
 for i in tqdm(cells_count):
-    start_time = time.time()
-    os.system(f"python scenario.py --dir {base_dir} --output_file {output_filename} --clean True --cells {i} >> {os.path.join(logs_dir, f'stdout_{i}.log')}")
-    simulation_time += [(i, time.time() - start_time)]
+    for _ in range(attempts):
+        seed = get_random_seed()
 
-    r = pd.read_csv(temp_filename)
-    r = r[[c for c in r.columns if 'MosaikAgent-steptime' in c]]
-    scalability_time += [(n+1, i, j) for n, j in enumerate(r.iloc[:,0].values)]
-    os.remove(temp_filename)
+        net, _ = create_cells(cells_count=i, dir=base_dir)
+        generate_profiles(net, dir=base_dir, seed=seed)
+        
+        start_time = time.time()
+        os.system(f"python scenario.py --seed {seed} --dir {base_dir} --output_file {output_filename} --cells {i} >> {'nul' if not stdout_logs else os.path.join(logs_dir, f'stdout_{i}_{seed}.log')}")
+        simulation_time += [(i, time.time() - start_time)]
+
+        r = pd.read_csv(temp_filename)
+        r = r[[c for c in r.columns if 'MosaikAgent-steptime' in c]]
+        scalability_time += [(n+1, i, j) for n, j in enumerate(r.iloc[:,0].values)]
+        os.remove(temp_filename)
 
 scalability_time = pd.DataFrame().from_dict(scalability_time).rename(columns={0: 'step',
                                                             1: 'cells_count',
-                                                            2: 'step_time'})
-scalability_time['per_cell'] = scalability_time['step_time'] / scalability_time['cells_count']
+                                                            2: 'agents_time'})
+scalability_time['per_cell'] = scalability_time['agents_time'] / scalability_time['cells_count']
 scalability_time.to_csv(scalability_time_filename, index=False)
 
 simulation_time = pd.DataFrame().from_dict(simulation_time).rename(columns={0: 'cells_count',

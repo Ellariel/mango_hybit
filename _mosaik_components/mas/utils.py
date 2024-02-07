@@ -31,9 +31,15 @@ MAS_DEFAULT_CONFIG = {
     'execute_method': None,    # executes the received instructions internally
 }
 
-def set_seed(seed=13):
+def set_random_seed(seed=13):
     random.seed(seed)
     np.random.seed(seed)
+    return seed
+
+def get_random_seed(base_seed=None, fixed_range=1000):
+    if base_seed:
+        set_random_seed(base_seed)
+    return random.randint(0, fixed_range)
 
 def highlight(s, color='green'):
     return colored(s, color)

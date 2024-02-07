@@ -22,18 +22,19 @@ pandapower.auxiliary._check_if_numba_is_installed = lambda x: x
 
 import mosaik
 from _mosaik_components.mas.mosaik_agents import *
-from _mosaik_components.mas.utils import set_seed
+from _mosaik_components.mas.utils import set_random_seed
 
-from cells import create_cells, generate_profiles
+#from cells import create_cells, generate_profiles
 from methods import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--cells', default=2, type=int)
 parser.add_argument('--verbose', default=0, type=int)
-parser.add_argument('--clean', default=False, type=bool)
-parser.add_argument('--performance', default=True, type=bool)
+#parser.add_argument('--clean', default=False, type=bool)
 parser.add_argument('--dir', default='./', type=str)
+parser.add_argument('--seed', default=13, type=int)
 parser.add_argument('--output_file', default='results.csv', type=str)
+parser.add_argument('--performance', default=True, type=bool)
 args = parser.parse_args()
 
 base_dir = args.dir
@@ -43,17 +44,25 @@ cells_count = args.cells
 cells = {}
 
 net_file = os.path.join(base_dir, 'cells.json')
-if not os.path.exists(net_file) or args.clean:
-    net, net_file = create_cells(cells_count=cells_count)
-else:
+#if not os.path.exists(net_file) or args.clean:
+#    net, net_file = create_cells(cells_count=cells_count)
+#else:
+if os.path.exists(net_file):
     net = pp.from_json(net_file)
+else:
+    print(f"no file error: {net_file}")
+    sys.exit()
 
 prof_file = os.path.join(base_dir, 'profiles.json')
-if not os.path.exists(prof_file) or args.clean:
-    profiles, prof_file = generate_profiles(net)
-else:
+#if not os.path.exists(prof_file) or args.clean:
+#    profiles, prof_file = generate_profiles(net, seed=args.seed)
+#else:
+if os.path.exists(prof_file):
     with open(prof_file, 'r') as f:
         profiles = json.load(f)
+else:
+    print(f"no file error: {prof_file}")
+    sys.exit()
 
 END = 3600 * 24 * 1  # 1 day
 START_DATE = '2014-01-01 12:00:00'
@@ -65,7 +74,7 @@ STEP_SIZE = 60 * 15
 SIM_CONFIG = {
     'Grid': {
          'python': 'mosaik_components.pandapower:Simulator' #2
-         #'python': 'mosaik_pandapower.simulator:Pandapower'
+         # 'python': 'mosaik_pandapower.simulator:Pandapower'
     },
     'PVSim': {
         'python': '_mosaik_components.pv.pvgis_simulator:PVGISSimulator',
@@ -155,7 +164,7 @@ def input_to_state(input_data, current_state):
 MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py 
     'verbose': args.verbose, # 0 - no messages, 1 - basic agent comminication, 2 - full
     'performance': args.performance, # returns wall time of each mosaik step / the core loop execution time 
-                         # as a 'steptime' [sec] output attribute of MosaikAgent 
+                                     # as a 'steptime' [sec] output attribute of MosaikAgent 
     'state_dict': MAS_STATE, # how an agent state that are gathered and comunicated should look like
     'input_method': input_to_state, # method that transforms mosaik inputs dict to the agent state (see `update_state`, default: copy dict)
     'output_method': state_to_output, # method that transforms the agent state to mosaik outputs dict (default: copy dict)
@@ -258,7 +267,7 @@ def main():
     #print(agents)        
     #print(cells)
     #sys.exit()
-    set_seed()
+    set_random_seed(seed=args.seed)
     print(f"Simulation started at {t.ctime()}")
     world.run(END)
     print(f"Simulation finished at {t.ctime()}")
