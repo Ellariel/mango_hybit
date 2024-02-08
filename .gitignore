@@ -1,10 +1,6 @@
-# Pycache
-
+__pycache__
+.idea/*
 *.hdf5
 *.log
-__pycache__/
 results.csv
-.idea/*
-./data/mosaik_results.hdf5
-temp_results.csv
-#mosaik_components
+temp_*.csv
