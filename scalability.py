@@ -53,12 +53,14 @@ for i in tqdm(cells_count):
         os.system(f"python scenario.py --seed {seed} --dir {base_dir} --output_file {output_filename} --clean False --cells {i} >> {'nul' if not stdout_logs else os.path.join(logs_dir, f'stdout_{i}_{seed}.log')}")
         simulation_time += [(i, time.time() - start_time)]
 
-        time.sleep(1) # wait as we could not be sure that os.system has closed all file descriptors on time
+        time.sleep(1) # wait as we are not sure if os.system closes all the file descriptors before we use it
 
         r = pd.read_csv(temp_filename)
         r = r[[c for c in r.columns if 'MosaikAgent-steptime' in c]]
         scalability_time += [(n+1, i, j) for n, j in enumerate(r.iloc[:,0].values)]
         os.remove(temp_filename)
+
+        time.sleep(1) # wait as we are not sure if os.system deletes files on time
 
 scalability_time = pd.DataFrame().from_dict(scalability_time).rename(columns={0: 'step',
                                                             1: 'cells_count',
