@@ -15,7 +15,7 @@ from cells import create_cells, generate_profiles
 from _mosaik_components.mas.utils import set_random_seed, get_random_seed
 
 base_dir = './'
-attempts = 1
+attempts = 5
 stdout_logs = False
 set_random_seed(seed=13)
 
@@ -33,7 +33,7 @@ temp_filename = os.path.join(base_dir, output_filename)
 scalability_time_filename = os.path.join(results_dir, scalability_time_filename)
 simulation_time_filename = os.path.join(results_dir, simulation_time_filename)
 
-cells_count = [5, 10, 15, 20, 25, 30] #list(range(2, 16+1))
+cells_count = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50] #list(range(2, 16+1))
 print(f"cells_count: {', '.join([str(i) for i in cells_count])}")
 
 scalability_time = []

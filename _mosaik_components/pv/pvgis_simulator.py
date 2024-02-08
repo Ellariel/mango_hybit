@@ -6,7 +6,7 @@ from os.path import abspath
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 import mosaik_api_v3
-from _mosaik_components.pv.pvgis import PVGIS
+from mosaik_components.pv.pvgis import PVGIS
 from mosaik_api_v3.types import (
     CreateResult,
     CreateResultChild,

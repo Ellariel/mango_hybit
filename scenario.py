@@ -69,7 +69,7 @@ SIM_CONFIG = {
          # 'python': 'mosaik_pandapower.simulator:Pandapower'
     },
     'PVSim': {
-        'python': '_mosaik_components.pv.pvgis_simulator:PVGISSimulator',
+        'python': 'mosaik_components.pv.pvgis_simulator:PVGISSimulator',
     },
     'FLSim': {
         'python': '_mosaik_components.flexible.flexiload_simulator:FLSimulator',
