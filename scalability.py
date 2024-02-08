@@ -14,6 +14,10 @@ import pandas as pd
 from cells import create_cells, generate_profiles
 from _mosaik_components.mas.utils import set_random_seed, get_random_seed
 
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 base_dir = './'
 attempts = 5
 stdout_logs = False
