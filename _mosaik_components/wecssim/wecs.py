@@ -55,7 +55,7 @@ v_max = 25  # m/s
 
 
 class WECS:
-    def __init__(self, P_rated, v_rated, v_min, v_max, controller=False):
+    def __init__(self, P_rated, v_rated, v_min, v_max):#, controller=False):
         """Created a number of wind energy conversion systems.
 
         All four arguments need to be NumPy arrays of the same length.  That
@@ -82,7 +82,7 @@ class WECS:
         self.v_rated = v_rated
         self.v_min = v_min
         self.v_max = v_max
-        self.controller = controller
+        #self.controller = controller
 
         # Make prams read-only to prevent accidental change:
         self.P_rated.setflags(write=False)

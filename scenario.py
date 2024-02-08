@@ -24,13 +24,13 @@ import mosaik
 from _mosaik_components.mas.mosaik_agents import *
 from _mosaik_components.mas.utils import set_random_seed
 
-#from cells import create_cells, generate_profiles
+from cells import create_cells, generate_profiles
 from methods import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--cells', default=2, type=int)
 parser.add_argument('--verbose', default=0, type=int)
-#parser.add_argument('--clean', default=False, type=bool)
+parser.add_argument('--clean', default=True, type=bool)
 parser.add_argument('--dir', default='./', type=str)
 parser.add_argument('--seed', default=13, type=int)
 parser.add_argument('--output_file', default='results.csv', type=str)
@@ -44,25 +44,17 @@ cells_count = args.cells
 cells = {}
 
 net_file = os.path.join(base_dir, 'cells.json')
-#if not os.path.exists(net_file) or args.clean:
-#    net, net_file = create_cells(cells_count=cells_count)
-#else:
-if os.path.exists(net_file):
-    net = pp.from_json(net_file)
+if not os.path.exists(net_file) or args.clean:
+    net, net_file = create_cells(cells_count=cells_count)
 else:
-    print(f"no file error: {net_file}")
-    sys.exit()
+    net = pp.from_json(net_file)
 
 prof_file = os.path.join(base_dir, 'profiles.json')
-#if not os.path.exists(prof_file) or args.clean:
-#    profiles, prof_file = generate_profiles(net, seed=args.seed)
-#else:
-if os.path.exists(prof_file):
+if not os.path.exists(prof_file) or args.clean:
+    profiles, prof_file = generate_profiles(net, seed=args.seed)
+else:
     with open(prof_file, 'r') as f:
         profiles = json.load(f)
-else:
-    print(f"no file error: {prof_file}")
-    sys.exit()
 
 END = 3600 * 24 * 1  # 1 day
 START_DATE = '2014-01-01 12:00:00'
@@ -116,9 +108,13 @@ PVMODEL_PARAMS = {
 }
 
 # Wind power
-WECS_CONFIG = [
-    (1, {'P_rated': 5000, 'v_rated': 13, 'v_min': 3.5, 'v_max': 25, 'controller': None}),
-]
+#WECS_CONFIG = [
+#    (1, {'P_rated': 5000, 'v_rated': 13, 'v_min': 3.5, 'v_max': 25, 'controller': None}),
+#]
+WECS_CONFIG = {'P_rated': 7000, 
+               'v_rated': 13, 
+               'v_min': 3.5, 
+               'v_max': 25}
 
 # method that transforms mosaik inputs dict to the agent state (called for each agent/connected unit, default: copy dict)
 def input_to_state(input_data, current_state):
@@ -209,7 +205,9 @@ def main():
                     sim_params=PVSIM_PARAMS,
                 )
     
-    #wecssim = world.start('WecsSim', step_size=STEP_SIZE, wind_file=WIND_FILE)
+    wsim = world.start('WecsSim', 
+                       step_size=STEP_SIZE, 
+                       wind_file=WIND_FILE)
 
     #net = pn.create_cigre_network_mv(with_der="pv_wind")
     #pp.runpp(net, numba=False)
@@ -229,6 +227,10 @@ def main():
 
     world.connect(mosaik_agent, csv_writer, 'steptime')
 
+    #wp = wsim.WECS.create(num=1, **WECS_CONFIG)
+    #print(wp)
+    #sys.exit()
+
     pv = [] # PV simulators
     wp = [] # Wind power simulators
     fl = [] # Flexible Load simulators
@@ -240,25 +242,36 @@ def main():
             if k in cells[i]:
                 for e in cells[i][k].values():
                     agents += masim.MosaikAgents.create(num=1, controller=controllers[-1].eid)
+                    # 'type-index-bus-cell'
                     if k == 'StaticGen':
-                        pv += pvsim.PVSim.create(num=1, **PVMODEL_PARAMS)
-                        e.update({'agent' : agents[-1], 'sim' : pv[-1]})
+                        if e['bus'] == '7': # wind
+                            wp += wsim.WECS.create(num=1, **WECS_CONFIG)
+                            e.update({'agent' : agents[-1], 'sim' : wp[-1]})   
+                            world.connect(e['sim'], e['agent'], ('P', 'current'))
+                            world.connect(e['sim'], csv_writer, 'P') 
+                            #print(wp)                    
+                        else: # PV
+                            pv += pvsim.PVSim.create(num=1, **PVMODEL_PARAMS)
+                            e.update({'agent' : agents[-1], 'sim' : pv[-1]})
+                            world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
+                            world.connect(e['agent'], e['sim'], 'scale_factor', weak=True, initial_data={'scale_factor' : 1})
                     elif k == 'Load':
                         fl += flsim.FLSim.create(num=1)
                         fli = input_sim.Function.create(1, function=lambda x: random.uniform(1, 10)*len(fl)/10)
                         e.update({'agent' : agents[-1], 'sim' : fl[-1]})
                         world.connect(fli[0], e['sim'], ('value', 'P[MW]'))
+                        world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
+                        world.connect(e['agent'], e['sim'], 'scale_factor', weak=True, initial_data={'scale_factor' : 1})
                     else:
                         pass
                     
                     cells.setdefault('match_unit', {})
                     cells['match_unit'].update({e['sim'].eid : e['unit'].eid})
 
-                    world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
+                    #world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
                     #world.connect(e['sim'], e['unit'], ('P[MW]', 'P[MW]'))
-                    world.connect(e['agent'], e['sim'], 'scale_factor', weak=True, initial_data={'scale_factor' : 1})
+                    #world.connect(e['agent'], e['sim'], 'scale_factor', weak=True, initial_data={'scale_factor' : 1})
                     
-                    #world.connect(e['unit'], csv_writer, 'P[MW]')
                     world.connect(e['unit'], csv_writer, 'P[MW]')
                     world.connect(e['agent'], csv_writer, 'current')
                     world.connect(e['agent'], csv_writer, 'scale_factor')

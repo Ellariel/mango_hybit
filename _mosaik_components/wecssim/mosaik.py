@@ -27,7 +27,7 @@ META = {
                 'v_rated',
                 'v_min',
                 'v_max',
-                'controller',
+                #'controller',
             ],
             'attrs': [
                 'P_max',  # output / input, can be set by an agent
@@ -40,7 +40,7 @@ META = {
 STEP_SIZE = 15  # minutes
 
 # Used to store a single WECS' config parameters
-WecsConfig = namedtuple('WecsConfig', 'P_rated, v_rated, v_min, v_max, controller')
+WecsConfig = namedtuple('WecsConfig', 'P_rated, v_rated, v_min, v_max')#, controller')
 
 
 class WecsSim(mosaik_api.Simulator):

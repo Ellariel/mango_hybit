@@ -15,22 +15,25 @@ from cells import create_cells, generate_profiles
 from _mosaik_components.mas.utils import set_random_seed, get_random_seed
 
 base_dir = './'
-attempts = 5
-stdout_logs = True
+attempts = 1
+stdout_logs = False
 set_random_seed(seed=13)
 
 output_filename = 'temp_results.csv'
 scalability_time_filename = 'scalability_time.csv'
 simulation_time_filename = 'simulation_time.csv'
 logs_dir = os.path.join(base_dir, 'logs')
+results_dir = os.path.join(base_dir, 'results')
 os.makedirs(logs_dir, exist_ok=True)
+os.makedirs(results_dir, exist_ok=True)
+
 net_file = os.path.join(base_dir, 'cells.json')
 prof_file = os.path.join(base_dir, 'profiles.json')
 temp_filename = os.path.join(base_dir, output_filename)
-scalability_time_filename = os.path.join(base_dir, scalability_time_filename)
-simulation_time_filename = os.path.join(base_dir, simulation_time_filename)
+scalability_time_filename = os.path.join(results_dir, scalability_time_filename)
+simulation_time_filename = os.path.join(results_dir, simulation_time_filename)
 
-cells_count = list(range(2, 16+1))
+cells_count = [5, 10, 15, 20, 25, 30] #list(range(2, 16+1))
 print(f"cells_count: {', '.join([str(i) for i in cells_count])}")
 
 scalability_time = []
@@ -43,7 +46,7 @@ for i in tqdm(cells_count):
         generate_profiles(net, dir=base_dir, seed=seed)
         
         start_time = time.time()
-        os.system(f"python scenario.py --seed {seed} --dir {base_dir} --output_file {output_filename} --cells {i} >> {'nul' if not stdout_logs else os.path.join(logs_dir, f'stdout_{i}_{seed}.log')}")
+        os.system(f"python scenario.py --seed {seed} --dir {base_dir} --output_file {output_filename} --clean False --cells {i} >> {'nul' if not stdout_logs else os.path.join(logs_dir, f'stdout_{i}_{seed}.log')}")
         simulation_time += [(i, time.time() - start_time)]
 
         r = pd.read_csv(temp_filename)
