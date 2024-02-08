@@ -37,7 +37,7 @@ temp_filename = os.path.join(base_dir, output_filename)
 scalability_time_filename = os.path.join(results_dir, scalability_time_filename)
 simulation_time_filename = os.path.join(results_dir, simulation_time_filename)
 
-cells_count = [2]#[5, 10, 15, 20, 25, 30, 35, 40, 45, 50] #list(range(2, 16+1))
+cells_count = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50] #list(range(2, 16+1))
 print(f"cells_count: {', '.join([str(i) for i in cells_count])}")
 
 scalability_time = []
