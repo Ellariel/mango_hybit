@@ -15,4 +15,5 @@ mosaik==3.1.1
 mosaik_api==3.0.3
 mosaik_api_v3==3.0.7
 mosaik-csv==2.0.0
+mosaik-pandapower-2==0.3.0
 numba==0.58.1
