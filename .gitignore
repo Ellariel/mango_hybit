@@ -4,3 +4,5 @@ __pycache__
 *.log
 results.csv
 temp_*.csv
+cells.json
+profiles.json
