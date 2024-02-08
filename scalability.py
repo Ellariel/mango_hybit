@@ -53,6 +53,8 @@ for i in tqdm(cells_count):
         os.system(f"python scenario.py --seed {seed} --dir {base_dir} --output_file {output_filename} --clean False --cells {i} >> {'nul' if not stdout_logs else os.path.join(logs_dir, f'stdout_{i}_{seed}.log')}")
         simulation_time += [(i, time.time() - start_time)]
 
+        time.sleep(1)
+
         r = pd.read_csv(temp_filename)
         r = r[[c for c in r.columns if 'MosaikAgent-steptime' in c]]
         scalability_time += [(n+1, i, j) for n, j in enumerate(r.iloc[:,0].values)]
