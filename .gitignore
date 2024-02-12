@@ -2,8 +2,10 @@ __pycache__
 .idea/*
 *.hdf5
 *.log
+*.faas
+*.lock
+nul
 results.csv
 temp_*.csv
 cells.json
 profiles.json
-nul
