@@ -44,9 +44,9 @@ The simulation scenario consists of two components:
 
 In this scenario agents observe the power output and flexibility provided by associated entities such as generator, load etc. Cell agents aggregate the output from connected agents and then pass it among themselves to develop internal instructions. The mosaik agent provides updates from entities to its associated agents, triggers a communication cycle, and broadcasts instructions. For simplicity, the mosaik synchronously updates the agents with data from associated entities.
 
-### Complexity
+### Time complexity
 
-Since the aggregation function at each hierarchical level is simply the summation of flexibility measurements that are passed as agent states, and the scenario itself has no recursion (or at least no somehow increasing recursion depending on the number of cells), the complexity must be *O(n)*. According to the hierarchy of a multi-agent system, there is usually one top agent per cell (cell agent) and a number of agents below it, so the complexity is ~ *O(2\*n)* where *n* is the number of agents. In the case of a deep hierarchy, the complexity will be as BFS *O(b^d)*, where *b* is the branching factor and *d* is the depth of the hierarchy.
+Since the aggregation function at each hierarchical level is simply the summation of flexibility measurements that are passed as agent states, and the scenario itself has no recursion (or at least no somehow increasing recursion depending on the number of cells), the time complexity must be *O(n)*. According to the hierarchy of a multi-agent system, there is usually one top agent per cell (cell agent) and a number of agents below it, so the complexity is ~ *O(2\*n)* where *n* is the number of agents. In the case of a deep hierarchy, the complexity will be as BFS *O(b^d)*, where *b* is the branching factor and *d* is the depth of the hierarchy.
 
 ## Installation and execution
 
