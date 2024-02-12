@@ -4,6 +4,7 @@ __pycache__
 *.log
 *.faas
 *.lock
+*.old
 nul
 results.csv
 temp_*.csv
