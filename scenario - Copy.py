@@ -7,10 +7,7 @@ script from the command line::
 """
 import sys
 import os
-import math
 import json
-import itertools
-import more_itertools as mit
 import random
 import argparse
 import pandas as pd
@@ -25,7 +22,7 @@ pandapower.auxiliary._check_if_numba_is_installed = lambda x: x
 
 import mosaik
 from _mosaik_components.mas.mosaik_agents import *
-from _mosaik_components.mas.utils import set_random_seed, chunks
+from _mosaik_components.mas.utils import set_random_seed
 
 from cells import create_cells, generate_profiles
 from methods import *
@@ -38,12 +35,10 @@ parser.add_argument('--dir', default='./', type=str)
 parser.add_argument('--seed', default=13, type=int)
 parser.add_argument('--output_file', default='results.csv', type=str)
 parser.add_argument('--performance', default=True, type=bool)
-parser.add_argument('--hierarchy', default=1, type=int)
 args = parser.parse_args()
 
 base_dir = args.dir
 cells_count = args.cells
-hierarchy = args.hierarchy
 
 # loading network and flexibility profiles
 cells = {}
@@ -61,7 +56,7 @@ else:
     with open(prof_file, 'r') as f:
         profiles = json.load(f)
 
-END = 3600 * 1#24 * 1  # 1 day
+END = 3600 * 24 * 1  # 1 day
 START_DATE = '2014-01-01 12:00:00'
 GRID_FILE = net_file #'demo/cells_net.json' 
 WIND_FILE = 'demo/wind_speed_m-s_15min.csv'
@@ -178,7 +173,6 @@ MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py
 def main():
     """Compose the mosaik scenario and run the simulation."""
     global cells, profiles, net
-    set_random_seed(seed=args.seed)
     world = mosaik.World(SIM_CONFIG)
 
     csv_sim_writer = world.start('CSV_writer', start_date = START_DATE,
@@ -241,19 +235,15 @@ def main():
     wp = [] # Wind power simulators
     fl = [] # Flexible Load simulators
     agents = [] # one simple agent per unit (sgen, load)
-    cell_controllers = [] # top-level agents that are named as cell_controllers, one per cell
-    hierarchical_controllers = []
+    controllers = [] # top-level agents that are named as controllers, one per cell
     for i in [i for i in cells.keys() if 'match' not in i]:
-        cell_controllers += masim.MosaikAgents.create(num=1, controller=None)
-        entities = list(cells[i]['StaticGen'].values()) + list(cells[i]['Load'].values())
-        random.shuffle(entities)
-        hierarchical = [cell_controllers[-1]]
-        for subset in mit.divide(hierarchy, entities):
-            hierarchical += masim.MosaikAgents.create(num=1, controller=hierarchical[-1].eid)
-            for e in subset:
-                    agents += masim.MosaikAgents.create(num=1, controller=hierarchical[-1].eid)
+        controllers += masim.MosaikAgents.create(num=1, controller=None)
+        for k in ['StaticGen', 'Load']:
+            if k in cells[i]:
+                for e in cells[i][k].values():
+                    agents += masim.MosaikAgents.create(num=1, controller=controllers[-1].eid)
                     # 'type-index-bus-cell'
-                    if e['type'] == 'StaticGen':
+                    if k == 'StaticGen':
                         if e['bus'] == '7': # wind
                             wp += wsim.WECS.create(num=1, **WECS_CONFIG)
                             e.update({'agent' : agents[-1], 'sim' : wp[-1]})   
@@ -265,7 +255,7 @@ def main():
                             e.update({'agent' : agents[-1], 'sim' : pv[-1]})
                             world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
                             world.connect(e['agent'], e['sim'], 'scale_factor', weak=True, initial_data={'scale_factor' : 1})
-                    elif e['type'] == 'Load':
+                    elif k == 'Load':
                         fl += flsim.FLSim.create(num=1)
                         fli = input_sim.Function.create(1, function=lambda x: random.uniform(1, 10)*len(fl)/10)
                         e.update({'agent' : agents[-1], 'sim' : fl[-1]})
@@ -285,16 +275,12 @@ def main():
                     world.connect(e['unit'], csv_writer, 'P[MW]')
                     world.connect(e['agent'], csv_writer, 'current')
                     world.connect(e['agent'], csv_writer, 'scale_factor')
-
-            hierarchical_controllers += hierarchical[1:]
-        
-
                     
-    print('cell_controllers:', len(cell_controllers))
-    print('hierarchical_controllers:', len(hierarchical_controllers))
-    print('agents:', len(agents))
+    #print(controllers)
+    #print(agents)        
+    #print(cells)
     #sys.exit()
-    
+    set_random_seed(seed=args.seed)
     print(f"Simulation started at {t.ctime()}")
     world.run(END)
     print(f"Simulation finished at {t.ctime()}")

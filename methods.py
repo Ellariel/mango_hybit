@@ -48,19 +48,20 @@ def state_to_output(output_request, output_data, input_data):
     data = {}
     for eid, attrs in output_request.items():
         data.setdefault(eid, {})
-        for attr in attrs:
-            if attr == 'current':
-                data[eid].update({'current' : max(output_data[eid]['production'][attr], output_data[eid]['consumption'][attr])})
-            elif attr == 'scale_factor':
-                if eid in input_data:
-                    scale_factor = 1
-                    input_value = list(input_data[eid]['current'].values())[0]
-                    if input_value != 0:
-                        scale_factor = max(output_data[eid]['production']['current'], output_data[eid]['consumption']['current']) / input_value
-                    #print(eid, scale_factor)
-                    data[eid].update({'scale_factor' : scale_factor})
-            else:
-                pass
+        if eid in output_data:
+            for attr in attrs:
+                if attr == 'current':
+                    data[eid].update({'current' : max(output_data[eid]['production'][attr], output_data[eid]['consumption'][attr])})
+                elif attr == 'scale_factor':
+                    if eid in input_data:
+                        scale_factor = 1
+                        input_value = list(input_data[eid]['current'].values())[0]
+                        if input_value != 0:
+                            scale_factor = max(output_data[eid]['production']['current'], output_data[eid]['consumption']['current']) / input_value
+                        #print(eid, scale_factor)
+                        data[eid].update({'scale_factor' : scale_factor})
+                else:
+                    pass
     #print(data)
     return data
 

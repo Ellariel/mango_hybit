@@ -19,7 +19,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 base_dir = './'
-attempts = 5
+attempts = 1
 stdout_logs = False
 set_random_seed(seed=13)
 
@@ -37,40 +37,47 @@ temp_filename = os.path.join(base_dir, output_filename)
 scalability_time_filename = os.path.join(results_dir, scalability_time_filename)
 simulation_time_filename = os.path.join(results_dir, simulation_time_filename)
 
-cells_count = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50] #list(range(2, 16+1))
-print(f"cells_count: {', '.join([str(i) for i in cells_count])}")
+cells_count = [5, 10, 15] #list(range(2, 16+1))
+hierarchy = [1, 2, 3, 4, 5]
+
+print(f"cells count: {', '.join([str(i) for i in cells_count])}")
+print(f"hierarchy depth: {', '.join([str(i) for i in hierarchy])}")
 
 scalability_time = []
 simulation_time = []
 for i in tqdm(cells_count):
-    for _ in range(attempts):
-        seed = get_random_seed()
+    net, _ = create_cells(cells_count=i, dir=base_dir)
+    for j in tqdm(hierarchy):
+        for _ in range(attempts):
+            seed = get_random_seed()
+            generate_profiles(net, dir=base_dir, seed=seed)
+            
+            start_time = time.time()
+            os.system(f"python scenario.py --seed {seed} --dir {base_dir} --output_file {output_filename} --clean False --cells {i} --hierarchy {j} >> {'nul' if not stdout_logs else os.path.join(logs_dir, f'stdout_{i}_{seed}.log')}")
+            simulation_time += [(i, j, time.time() - start_time)]
 
-        net, _ = create_cells(cells_count=i, dir=base_dir)
-        generate_profiles(net, dir=base_dir, seed=seed)
-        
-        start_time = time.time()
-        os.system(f"python scenario.py --seed {seed} --dir {base_dir} --output_file {output_filename} --clean False --cells {i} >> {'nul' if not stdout_logs else os.path.join(logs_dir, f'stdout_{i}_{seed}.log')}")
-        simulation_time += [(i, time.time() - start_time)]
+            time.sleep(1) # wait as we are not sure if os.system closes all the file descriptors before we use it
 
-        time.sleep(1) # wait as we are not sure if os.system closes all the file descriptors before we use it
+            r = pd.read_csv(temp_filename)
+            r = r[[c for c in r.columns if 'MosaikAgent-steptime' in c]]
+            scalability_time += [(n+1, i, j, k) for n, k in enumerate(r.iloc[:,0].values)]
+            os.remove(temp_filename)
 
-        r = pd.read_csv(temp_filename)
-        r = r[[c for c in r.columns if 'MosaikAgent-steptime' in c]]
-        scalability_time += [(n+1, i, j) for n, j in enumerate(r.iloc[:,0].values)]
-        os.remove(temp_filename)
-
-        time.sleep(1) # wait as we are not sure if os.system deletes files on time
+            time.sleep(1) # wait as we are not sure if os.system deletes files on time
 
 scalability_time = pd.DataFrame().from_dict(scalability_time).rename(columns={0: 'step',
                                                             1: 'cells_count',
-                                                            2: 'agents_time'})
+                                                            2: 'hierarchy_depth',
+                                                            3: 'agents_time'})
 scalability_time['per_cell'] = scalability_time['agents_time'] / scalability_time['cells_count']
+scalability_time['per_level'] = scalability_time['agents_time'] / scalability_time['hierarchy_depth']
 scalability_time.to_csv(scalability_time_filename, index=False)
 
 simulation_time = pd.DataFrame().from_dict(simulation_time).rename(columns={0: 'cells_count',
-                                                            1: 'sim_time'})
+                                                                            1: 'hierarchy_depth',
+                                                                            2: 'sim_time'})
 simulation_time['per_cell'] = simulation_time['sim_time'] / simulation_time['cells_count']
+simulation_time['per_level'] = simulation_time['sim_time'] / simulation_time['hierarchy_depth']
 simulation_time.to_csv(simulation_time_filename, index=False)
 
 print(f"Results were saved to {scalability_time_filename} and {simulation_time_filename}")

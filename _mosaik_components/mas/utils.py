@@ -41,6 +41,11 @@ def get_random_seed(base_seed=None, fixed_range=1000):
         set_random_seed(base_seed)
     return random.randint(0, fixed_range)
 
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
+
 def highlight(s, color='green'):
     return colored(s, color)
 
