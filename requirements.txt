@@ -18,3 +18,5 @@ mosaik-csv==2.0.0
 mosaik-pandapower-2==0.3.0
 mosaik-pvgis==1.0
 numba==0.58.1
+Pyarrow
+more_itertools

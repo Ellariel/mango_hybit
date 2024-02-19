@@ -61,7 +61,7 @@ else:
     with open(prof_file, 'r') as f:
         profiles = json.load(f)
 
-END = 3600 * 1#24 * 1  # 1 day
+END = 3600 * 24 * 1  # 1 day
 START_DATE = '2014-01-01 12:00:00'
 GRID_FILE = net_file #'demo/cells_net.json' 
 WIND_FILE = 'demo/wind_speed_m-s_15min.csv'

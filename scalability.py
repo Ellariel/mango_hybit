@@ -19,7 +19,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 base_dir = './'
-attempts = 1
+attempts = 5
 stdout_logs = False
 set_random_seed(seed=13)
 
@@ -47,7 +47,7 @@ scalability_time = []
 simulation_time = []
 for i in tqdm(cells_count):
     net, _ = create_cells(cells_count=i, dir=base_dir)
-    for j in tqdm(hierarchy):
+    for j in hierarchy:
         for _ in range(attempts):
             seed = get_random_seed()
             generate_profiles(net, dir=base_dir, seed=seed)
