@@ -47,8 +47,8 @@ scalability_time = []
 simulation_time = []
 for i in tqdm(cells_count):
     net, _ = create_cells(cells_count=i, dir=base_dir)
-    for j in hierarchy:
-        for _ in range(attempts):
+    for j in tqdm(hierarchy, desc=f"cells_count: {i}"):
+        for _ in tqdm(range(attempts), desc=f"hierarchy: {j}"):
             seed = get_random_seed()
             generate_profiles(net, dir=base_dir, seed=seed)
             
@@ -56,14 +56,14 @@ for i in tqdm(cells_count):
             os.system(f"python scenario.py --seed {seed} --dir {base_dir} --output_file {output_filename} --clean False --cells {i} --hierarchy {j} >> {'nul' if not stdout_logs else os.path.join(logs_dir, f'stdout_{i}_{seed}.log')}")
             simulation_time += [(i, j, time.time() - start_time)]
 
-            time.sleep(1) # wait as we are not sure if os.system closes all the file descriptors before we use it
+            # time.sleep(1) # wait as we are not sure if os.system closes all the file descriptors before we use it
 
             r = pd.read_csv(temp_filename)
             r = r[[c for c in r.columns if 'MosaikAgent-steptime' in c]]
             scalability_time += [(n+1, i, j, k) for n, k in enumerate(r.iloc[:,0].values)]
             os.remove(temp_filename)
 
-            time.sleep(1) # wait as we are not sure if os.system deletes files on time
+            # time.sleep(1) # wait as we are not sure if os.system deletes files on time
 
 scalability_time = pd.DataFrame().from_dict(scalability_time).rename(columns={0: 'step',
                                                             1: 'cells_count',
