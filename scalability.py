@@ -19,7 +19,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 base_dir = './'
-attempts = 5
+attempts = 1
 stdout_logs = False
 set_random_seed(seed=13)
 
@@ -37,8 +37,8 @@ temp_filename = os.path.join(base_dir, output_filename)
 scalability_time_filename = os.path.join(results_dir, scalability_time_filename)
 simulation_time_filename = os.path.join(results_dir, simulation_time_filename)
 
-cells_count = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50] #list(range(2, 16+1))
-hierarchy = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+cells_count = [5, 15, 20, 30, 40, 50] #list(range(2, 16+1))
+hierarchy = [1, 2, 4, 6, 8, 10]
 
 print(f"cells count: {', '.join([str(i) for i in cells_count])}")
 print(f"hierarchy depth: {', '.join([str(i) for i in hierarchy])}")
