@@ -45,6 +45,9 @@ base_dir = args.dir
 cells_count = args.cells
 hierarchy = args.hierarchy
 
+print(f"cells count: {cells_count}")
+print(f"hierarchy depth: {hierarchy}")
+
 # loading network and flexibility profiles
 cells = {}
 
