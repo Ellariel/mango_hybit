@@ -101,7 +101,7 @@ SIM_CONFIG = {
 # PV simulator
 PVSIM_PARAMS = {
     'start_date' : START_DATE,
-    'cache_dir' : './', # it caches PVGIS API requests
+    'cache_dir' : False, #'./', # it caches PVGIS API requests
     'verbose' : False, # print PVGIS parameters and requests
     'gen_neg' : False, # return negative P
 }
@@ -273,9 +273,9 @@ def main():
     print('hierarchical_controllers:', len(hierarchical_controllers))
     print('agents:', len(agents))
     #sys.exit()
-    
+
     print(f"Simulation started at {t.ctime()}")
-    world.run(END)
+    world.run(until=END)
     print(f"Simulation finished at {t.ctime()}")
     hard_close_file_descriptors()
 

@@ -17,9 +17,11 @@ import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
+NULL = '/dev/null' if os.name == 'posix' else 'nul'
+
 base_dir = './'
 attempts = 5
-stdout_logs = False
+stdout_logs = True
 set_random_seed(seed=13)
 
 output_filename = 'temp_results.csv'
@@ -52,7 +54,7 @@ for i in tqdm(cells_count):
             generate_profiles(net, dir=base_dir, seed=seed)
             
             start_time = time.time()
-            os.system(f"python scenario.py --seed {seed} --dir {base_dir} --output_file {output_filename} --clean False --cells {i} --hierarchy {j} >> {'nul' if not stdout_logs else os.path.join(logs_dir, f'stdout_{i}_{seed}.log')}")
+            os.system(f"python scenario.py --seed {seed} --dir {base_dir} --output_file {output_filename} --clean False --cells {i} --hierarchy {j} > {NULL if not stdout_logs else os.path.join(logs_dir, f'stdout_{i}_{j}_{seed}.log')} 2>&1")
             simulation_time += [(i, j, time.time() - start_time)]
 
             # time.sleep(1) # wait as we are not sure if os.system closes all the file descriptors before we use it

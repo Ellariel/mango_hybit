@@ -67,9 +67,12 @@ def reduce_equal_dicts(a_dict, b_dict):
 
 def hard_close_file_descriptors():
     KEEP_FD = set([0, 1, 2])
-    for fd in os.listdir(os.path.join("/proc", str(os.getpid()), "fd")):
-        if int(fd) not in KEEP_FD:
-            try:
-                os.close(int(fd))
-            except OSError:
-                pass
+    try:
+        for fd in os.listdir(os.path.join("/proc", str(os.getpid()), "fd")):
+            if int(fd) not in KEEP_FD:
+                try:
+                    os.close(int(fd))
+                except OSError:
+                    pass
+    except:
+        pass
