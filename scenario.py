@@ -104,7 +104,7 @@ SIM_CONFIG = {
 # PV simulator
 PVSIM_PARAMS = {
     'start_date' : START_DATE,
-    'cache_dir' : './', # it caches PVGIS API requests
+    'cache_dir' : False, #'./', # it caches PVGIS API requests
     'verbose' : False, # print PVGIS parameters and requests
     'gen_neg' : False, # return negative P
 }
