@@ -57,6 +57,8 @@ if not os.path.exists(net_file) or args.clean:
 else:
     net = pp.from_json(net_file)
 
+print(f"loads: {len(net.load)}, gens: {len(net.sgen)}")
+
 prof_file = os.path.join(base_dir, 'profiles.json')
 if not os.path.exists(prof_file) or args.clean:
     profiles, prof_file = generate_profiles(net, seed=args.seed)
