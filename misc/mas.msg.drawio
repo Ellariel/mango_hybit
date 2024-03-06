@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" modified="2024-02-02T12:11:32.266Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" etag="MohzmqKfPJCaqAeRjWGp" version="23.1.0" type="google">
+<mxfile host="app.diagrams.net" modified="2024-03-06T14:12:33.673Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36" etag="Jet_91csUEr-dwTqo-As" version="24.0.2" type="google">
   <diagram name="Page-1" id="ngWT1q-TGkk8tA6kE5au">
     <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
@@ -65,7 +65,7 @@
             <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="tapSRpTw7TU7nSGjjfra-1" value="Connected units&lt;br style=&quot;border-color: var(--border-color);&quot;&gt;(models of generator, load, ...)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};" vertex="1" parent="1">
+        <mxCell id="tapSRpTw7TU7nSGjjfra-1" value="Connected units&lt;br style=&quot;border-color: var(--border-color);&quot;&gt;(models of generators, loads, ...)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};" vertex="1" parent="1">
           <mxGeometry x="540" y="40" width="140" height="440" as="geometry" />
         </mxCell>
         <mxCell id="tapSRpTw7TU7nSGjjfra-7" value="Mosaik Agent&lt;br&gt;(co-simulation interface)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};" vertex="1" parent="1">
@@ -124,11 +124,11 @@
             <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="tapSRpTw7TU7nSGjjfra-37" value="update" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;startArrow=block;startFill=1;endFill=1;dashed=1;" edge="1" parent="1">
+        <mxCell id="tapSRpTw7TU7nSGjjfra-37" value="update" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;startArrow=none;startFill=0;endFill=1;dashed=1;" edge="1" parent="1">
           <mxGeometry x="0.6827" relative="1" as="geometry">
             <mxPoint x="108.32352941176464" y="140" as="sourcePoint" />
             <mxPoint as="offset" />
-            <mxPoint x="609.5" y="140" as="targetPoint" />
+            <mxPoint x="310" y="140" as="targetPoint" />
           </mxGeometry>
         </mxCell>
         <mxCell id="tapSRpTw7TU7nSGjjfra-32" value="confirm" style="html=1;verticalAlign=bottom;endArrow=classicThin;dashed=1;endSize=8;curved=0;rounded=0;exitX=0;exitY=1;exitDx=0;exitDy=-5;endFill=0;" edge="1" parent="1" source="tapSRpTw7TU7nSGjjfra-30" target="tapSRpTw7TU7nSGjjfra-39">
@@ -204,6 +204,20 @@
             </Array>
             <mxPoint x="465" y="450" as="targetPoint" />
             <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="--Rnqs96gJ30ZJb1j9w4-1" value="" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;startArrow=none;startFill=0;endFill=1;dashed=1;" edge="1" parent="1" target="S1uSHRcm7TGxCwYnk8AK-9">
+          <mxGeometry x="0.6827" relative="1" as="geometry">
+            <mxPoint x="313.00352941176465" y="140" as="sourcePoint" />
+            <mxPoint as="offset" />
+            <mxPoint x="514.6800000000001" y="140" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="--Rnqs96gJ30ZJb1j9w4-2" value="update" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;startArrow=none;startFill=0;endFill=1;dashed=1;" edge="1" parent="1" target="tapSRpTw7TU7nSGjjfra-1">
+          <mxGeometry x="0.6053" relative="1" as="geometry">
+            <mxPoint x="460.00352941176465" y="140" as="sourcePoint" />
+            <mxPoint as="offset" />
+            <mxPoint x="607" y="140" as="targetPoint" />
           </mxGeometry>
         </mxCell>
       </root>
