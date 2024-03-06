@@ -48,8 +48,8 @@ scalability_time = []
 simulation_time = []
 for i in tqdm(cells_count):
     net, _ = create_cells(cells_count=i, dir=base_dir)
-    for j in tqdm(hierarchy, desc=f"cells_count: {i}"):
-        for _ in tqdm(range(attempts), desc=f"hierarchy: {j}"):
+    for j in tqdm(hierarchy, desc=f"cells_count: {i}", leave=False):
+        for _ in tqdm(range(attempts), desc=f"hierarchy: {j}", leave=False):
             seed = get_random_seed()
             generate_profiles(net, dir=base_dir, seed=seed)
             
