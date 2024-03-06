@@ -1,14 +1,9 @@
 import os
 import json
 import random
-import pandas as pd
 import numpy as np
-import networkx as nx
 import pandapower as pp
 import pandapower.networks as pn
-import pandapower.plotting as pt
-import pandapower.topology as tp
-import matplotlib.pyplot as plt
 from pandapower.toolbox import merge_nets
 
 import warnings
@@ -64,9 +59,9 @@ def create_cells(cells_count=2, dir='./', validation=False):
         pp.create_line(net, from_bus=0, to_bus=idx['bus'][0], length_km=5, std_type="NAYY 4x50 SE") # connect merged cells
         net.ext_grid.drop(1, inplace=True) # drop excessive external grid
         net.res_ext_grid.drop(1, inplace=True)
-    _rename(net.sgen, cell_cutoff, ren_type='StaticGen')#, ren_type='load')
-    _rename(net.load, cell_cutoff, ren_type='Load')#, ren_type='load')
-    _rename(net.ext_grid, cell_cutoff, ren_type='ExternalGrid')#, ren_type='Ext_grid')
+    _rename(net.sgen, cell_cutoff, ren_type='StaticGen')
+    _rename(net.load, cell_cutoff, ren_type='Load')
+    _rename(net.ext_grid, cell_cutoff, ren_type='ExternalGrid')
 
     if validation:
         pp.runpp(net, numba=False) # to test

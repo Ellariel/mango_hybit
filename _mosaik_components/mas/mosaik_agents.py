@@ -123,6 +123,7 @@ class Agent(mango.Agent):
 
     def get_instructions(self, current_state, **kwargs):
         if callable(self.params['redispatch_method']):
+            kwargs.update({'verbose' : self.params['verbose']})
             return self.params['redispatch_method'](current_state, **kwargs)
 
     async def send_state(self, content, meta):
@@ -293,6 +294,7 @@ class MosaikAgent(mango.Agent):
 
     def get_instructions(self, current_state, **kwargs):
         if callable(self.params['redispatch_method']):
+            kwargs.update({'verbose' : self.params['verbose']})
             return self.params['redispatch_method'](current_state, **kwargs)
         else:
             raise AttributeError('Redispatch method is not defined!')

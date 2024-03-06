@@ -39,12 +39,6 @@ def state_to_output(output_request, output_data, input_data):
 # inputs {'Agent_3': {'current': {'WecsSim-0.wecs-0': 147.26366926766127}},
 # output_state: {'Agent_1': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 0.0}},
 # entities: {'Agent_3': 'WecsSim-0.wecs-0', 'Agent_4': 'Grid-0.Load-0',
-    #print(entities)
-    #data = {}
-    #print(input_data)
-    #print(output_data)
-    #print(output_request)
-
     data = {}
     for eid, attrs in output_request.items():
         data.setdefault(eid, {})
@@ -58,16 +52,10 @@ def state_to_output(output_request, output_data, input_data):
                         input_value = list(input_data[eid]['current'].values())[0]
                         if input_value != 0:
                             scale_factor = max(output_data[eid]['production']['current'], output_data[eid]['consumption']['current']) / input_value
-                        #print(eid, scale_factor)
                         data[eid].update({'scale_factor' : scale_factor})
                 else:
                     pass
-    #print(data)
     return data
-
-    #return {eid: {attr: max(output_data[eid]['production'][attr], output_data[eid]['consumption'][attr]) 
-    #                       for attr in attrs
-    #                            } for eid, attrs in output_request.items()}
 
 def aggregate_states(requested_states, current_state=MAS_STATE):
     current_state = copy.deepcopy(current_state)
@@ -85,6 +73,7 @@ def execute_instructions(instruction, current_state, requested_states):
     pass
 
 def compute_instructions(current_state, **kwargs):
+    verbose = kwargs.get('verbose', 0)
     def calc_delta(current_state, new_state):
             _new_state = copy.deepcopy(new_state)
             for i in new_state.keys():
@@ -126,7 +115,8 @@ def compute_instructions(current_state, **kwargs):
                     cell_flexibility = copy.deepcopy(MAS_STATE)
 
                 cell_balance = cell_flexibility['production']['current'] - cell_flexibility['consumption']['current']
-                print(highlight('cell balance:', 'red'), cell_balance)
+                if verbose:
+                    print(highlight('cell balance:', 'red'), cell_balance)
                 cell_inc_production = cell_flexibility['production']['max'] - cell_flexibility['production']['current']
                 if cell_inc_production < 0:
                     cell_inc_production = 0
@@ -209,8 +199,8 @@ def compute_instructions(current_state, **kwargs):
                         grid_inc_consumption = 0
                         #grid_dec_consumption = 0
                     else:
-                        pass
-                        print('balance mismatch!')
+                        if verbose:
+                            print('balance mismatch!')
                         cell_inc_production = 0
                         cell_dec_production = 0
                         
@@ -265,8 +255,8 @@ def compute_instructions(current_state, **kwargs):
                     elif abs(cell_balance) <= cell_dec_production + cell_inc_consumption + grid_dec_production + grid_inc_consumption:
                         grid_inc_consumption = abs(cell_balance) - cell_dec_production - cell_inc_consumption - grid_dec_production
                     else:
-                        pass
-                        print('balance mismatch!')
+                        if verbose:
+                            print('balance mismatch!')
                         cell_inc_production = 0
                         cell_dec_production = 0
                         
@@ -290,7 +280,8 @@ def compute_instructions(current_state, **kwargs):
                         
                         grid_inc_consumption = 0
                         grid_dec_consumption = 0  
-                        print('perfect balance!')             
+                        if verbose:
+                            print('perfect balance!')             
                         
                 
                 #print('cell_inc_production', cell_inc_production) 
@@ -309,8 +300,9 @@ def compute_instructions(current_state, **kwargs):
                 grid_delta['consumption']['current'] = grid_inc_consumption - grid_dec_consumption 
 
                 cell_balance = cell_flexibility['production']['current'] + cell_delta['production']['current'] - cell_flexibility['consumption']['current'] - cell_delta['consumption']['current']
-                print(highlight('new cell balance:', 'red'), cell_balance)
-                print('grid delta:', grid_delta)
+                if verbose:
+                    print(highlight('new cell balance:', 'red'), cell_balance)
+                    print('grid delta:', grid_delta)
 
                 return grid_delta, cell_delta 
 
@@ -322,8 +314,9 @@ def compute_instructions(current_state, **kwargs):
         instructions, delta_remained = compose_instructions(requested_states, delta)
     else:
         aggregated_state = aggregate_states(requested_states)
-        print('\ngrid_state:', current_state)
-        print('aggregated_cell_state:', aggregated_state)
+        if verbose:
+            print('\ngrid_state:', current_state)
+            print('aggregated_cell_state:', aggregated_state)
         grid_delta, delta = compute_delta_state(current_state, aggregated_state)
         instructions, delta_remained = compose_instructions(requested_states, delta)
 

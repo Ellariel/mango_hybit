@@ -9,7 +9,6 @@ import sys
 import os
 import time
 from tqdm import tqdm
-import json
 import pandas as pd
 from cells import create_cells, generate_profiles
 from _mosaik_components.mas.utils import set_random_seed, get_random_seed

@@ -1,5 +1,5 @@
 """
-This file contains the mosaik scenario.  To start the simulation, just run this
+This file contains the mosaik scenario. To start the simulation, just run this
 script from the command line::
 
     $ python scenario.py
@@ -7,13 +7,12 @@ script from the command line::
 """
 import sys
 import os
-import math
 import json
-import itertools
-import more_itertools as mit
+import mosaik
 import random
 import argparse
-import pandas as pd
+import numpy as np
+import more_itertools as mit
 import pandapower as pp
 import pandapower.networks as pn
 
@@ -23,12 +22,10 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 import pandapower.auxiliary
 pandapower.auxiliary._check_if_numba_is_installed = lambda x: x
 
-import mosaik
+from _mosaik_components.mas.cells import create_cells, generate_profiles
+from _mosaik_components.mas.utils import set_random_seed
 from _mosaik_components.mas.mosaik_agents import *
-from _mosaik_components.mas.utils import set_random_seed, chunks
-
-from cells import create_cells, generate_profiles
-from methods import *
+from _mosaik_components.mas.methods import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--cells', default=2, type=int)
@@ -68,7 +65,7 @@ else:
 
 END = 3600 * 24 * 1  # 1 day
 START_DATE = '2014-01-01 12:00:00'
-GRID_FILE = net_file #'demo/cells_net.json' 
+GRID_FILE = net_file
 WIND_FILE = 'demo/wind_speed_m-s_15min.csv'
 STEP_SIZE = 60 * 15
 
@@ -104,7 +101,7 @@ SIM_CONFIG = {
 # PV simulator
 PVSIM_PARAMS = {
     'start_date' : START_DATE,
-    'cache_dir' : False, #'./', # it caches PVGIS API requests
+    'cache_dir' : './', # it caches PVGIS API requests
     'verbose' : False, # print PVGIS parameters and requests
     'gen_neg' : False, # return negative P
 }
@@ -118,9 +115,6 @@ PVMODEL_PARAMS = {
 }
 
 # Wind power
-#WECS_CONFIG = [
-#    (1, {'P_rated': 5000, 'v_rated': 13, 'v_min': 3.5, 'v_max': 25, 'controller': None}),
-#]
 WECS_CONFIG = {'P_rated': 7000, 
                'v_rated': 13, 
                'v_min': 3.5, 
@@ -141,12 +135,10 @@ def input_to_state(input_data, current_state):
                 if scale_factor == 1 and value == 0:
                     value = random.uniform(profile['min'], profile['max'])
                 state['consumption']['current'] = np.clip(abs(value), profile['min'], profile['max'])
-                #print('LoadQQQQQQQQQQQQQQ', input_data, profile, value, scale_factor)
             elif 'Gen' in eid or 'PV' in eid:
                 state['production']['min'] = profile['min']
                 state['production']['max'] = min(abs(value), profile['max'])
                 state['production']['current'] = np.clip(abs(value), profile['min'], min(abs(value), profile['max']))
-                #print('GenQQQQQQQQQQQQQQ', input_data, profile, value, scale_factor)
             elif 'ExternalGrid' in eid:
                 if value >= 0: # check the convention here!
                     state['production']['current'] = value
@@ -190,17 +182,10 @@ def main():
                                            output_file=os.path.join(base_dir, args.output_file))
     csv_writer = csv_sim_writer.CSVWriter(buff_size = STEP_SIZE)
 
-    #csv_sim = world.start('CSV', 
-    #                    sim_start=START_DATE,
-    #                    datafile='fl.csv',
-    #                    delimiter=',')
-    #csv = csv_sim.FL.create(1)
-
-
     gridsim = world.start('Grid', step_size=STEP_SIZE)
-    ##pprint(gridsim.meta)
+
     masim = world.start('MAS', step_size=STEP_SIZE, **MAS_CONFIG)
-    #pprint(mas.meta)
+
     mosaik_agent = masim.MosaikAgents() # core agent for the mosaik communication 
 
     pvsim = world.start(
@@ -208,7 +193,6 @@ def main():
                     step_size=STEP_SIZE,
                     sim_params=PVSIM_PARAMS,
                 )
-    #pprint(pv_sim.meta)
     
     flsim = world.start(
                     "FLSim",
@@ -220,16 +204,10 @@ def main():
                        step_size=STEP_SIZE, 
                        wind_file=WIND_FILE)
 
-    #net = pn.create_cigre_network_mv(with_der="pv_wind")
-    #pp.runpp(net, numba=False)
-    #print('load', net.res_load)
-
     grid = gridsim.Grid(json=GRID_FILE) #2
     #grid = gridsim.Grid(gridfile=GRID_FILE)
 
     cells = get_cells_data(grid, gridsim.get_extra_info(), profiles)
-    #print(profiles)
-    #print(cells)
 
     input_sim = world.start("InputSim", step_size=STEP_SIZE)
 
@@ -237,10 +215,6 @@ def main():
     world.connect(ext_grids[0], mosaik_agent, ('P[MW]', 'current'))
 
     world.connect(mosaik_agent, csv_writer, 'steptime')
-
-    #wp = wsim.WECS.create(num=1, **WECS_CONFIG)
-    #print(wp)
-    #sys.exit()
 
     pv = [] # PV simulators
     wp = [] # Wind power simulators
