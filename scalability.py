@@ -21,7 +21,7 @@ NULL = '/dev/null' if os.name == 'posix' else 'nul'
 
 base_dir = './'
 attempts = 5
-stdout_logs = True
+stdout_logs = False
 set_random_seed(seed=13)
 
 output_filename = 'temp_results.csv'
