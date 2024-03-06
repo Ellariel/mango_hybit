@@ -1,17 +1,17 @@
 # The mosaik power cell agents
 
-It is a prototype of multi-agent system simulator (MASS) combining [mango](https://mango-agents.readthedocs.io/en/latest/) agents and [mosaik](https://mosaik.readthedocs.io/en/latest/) co-simulaion platform for the sake of implementing the power cell model. It was inspired by [mosaik-mango-demo](https://gitlab.com/mosaik/examples/mosaik-mango-demo), we also integrated a wind power simulator.
+It is a prototype of multi-agent system simulator for the cellular approach (MASSCA) combining [mango](https://mango-agents.readthedocs.io/en/latest/) agents and [mosaik](https://mosaik.readthedocs.io/en/latest/) co-simulaion framework for the sake of implementing the power cell model. It was inspired by [mosaik-mango-demo](https://gitlab.com/mosaik/examples/mosaik-mango-demo), we also integrated a PV and wind power simulators that are available on mosaik [ecosystem](https://gitlab.com/mosaik/components).
 
 ## Content
 
-* The power cell concept
-* The multi-agent system explained
+* The power cell concept explained
+* The multi-agent system architecture explained
 * The example scenario explained
 * Installation and execution
 * How to use
 
 
-## The PowerCell concept
+## The power cell concept
 
 In implementing the power cell model and its communication layer, we followed the general concept of an energy/power cell, which is described in:
 * [https://doi.org/10.1049/iet-gtd.2019.0991] A smart power cell (SPC) is a grid subsection composed of a set of power conversion units interconnected by a 3-phase AC-grid. The monitoring and control system can supervise the behavior of SPCs only taking aggregated information regarding their interfaces into account and issue aggregated control instructions when the behavior of a particular SPC at a particular transmission network bus needs to be adjusted to influence the operating state of the transmission network.
@@ -26,9 +26,9 @@ The control of a power cell includes all the technological control equipment, in
 
 ## The multi-agent system explained
 
-The multi-agent system (MAS) is located in `mosaik_agents.py`. It contains the entry point for starting the MAS. Apart from the class `MosaikAgents` which implements [mosaik-high-level-api](https://mosaik.readthedocs.io/en/latest/mosaik-api/high-level.html), there is also a class `MosaikAgent` which supports the communication between mosaik and MAS itself.
+The multi-agent system simulator (MASS) is located in `mosaik_agents.py`. It contains the entry point for starting the MAS. Apart from the class `MosaikAgents` which implements [mosaik-high-level-api](https://mosaik.readthedocs.io/en/latest/mosaik-api/high-level.html), there is also a class `MosaikAgent` which supports the communication between the mosaik and MASS itself.
 
-MAS consists of several `Agent`'s, one for each modeled entity and one for each modeled power cell. For simplicity, all agents run in the same mango container. 
+MASS in the general case consists of several `Agent`'s, one for each modeled entity (power unit) and one for each modeled power cell. For simplicity, all agents run in the same mango container. 
 
 The following diagram describes the message exchange between the agents during every mosaik step.
 
@@ -42,10 +42,10 @@ The following diagram describes the core flow and the following loops.
 
 ### Scenario
 
-The simulation scenario consists of two components:
+A simple simulation scenario consists of two components:
 
 * A power network that is modeled with pandapower and a set of PV/Wind power simulators that are linked to generators in the network. 
-* A multi-agent system with one agent for each simulated entity, *n* agents representing the aggregate (cellular) level, and one core agent serving the mosaik interface.
+* A multi-agent system with one agent for each simulated entity, *n* agents representing the aggregate (cellular) level, and one core agent serving the mosaik interface (created by default).
 
 In this scenario agents observe the power output and flexibility provided by associated entities such as generator, load etc. Cell agents aggregate the output from connected agents and then pass it among themselves to develop internal instructions. The mosaik agent provides updates from entities to its associated agents, triggers a communication cycle, and broadcasts instructions. For simplicity, the mosaik synchronously updates the agents with data from associated entities.
 
@@ -89,56 +89,25 @@ SIM_CONFIG = {
 }
 ```
 
-We recommend one to configure top-level agents (cell agents) and regular agents separately:
-```
-AGENTS_CONFIG = [
-    (2, {}), # here we configure two agents with empty parameters
-    (2, {}), # other two
-]
-
-CONTROLLERS_CONFIG = [
-    (2, {}), # and also two top-level agents that are named as controllers
-]
-```
-
 Initialize the pandapower grid and MAS simulator:
 ```
-    world = mosaik.World(SIM_CONFIG)
     gridsim = world.start('Grid', step_size=STEP_SIZE)
-    mas = world.start('MAS', **MAS_DEFAULT_CONFIG)
+    masim = world.start('MAS', step_size=STEP_SIZE, **MAS_CONFIG)     
 ```
 
 Instantiate model entities and agents:
 ```
     grid = gridsim.Grid(json=GRID_FILE)
-    mosaik_agent = mas.MosaikAgents()   # core agent for the mosaik communication 
+    mosaik_agent = masim.MosaikAgents() # core agent for the mosaik communication
 
-    controllers = []
-    for n, params in CONTROLLERS_CONFIG:  # iterate over the config sets
-        controllers += mas.MosaikAgents.create(num=n, **params)
 
-    agents = []
-    for n, params in AGENTS_CONFIG:
-        if len(agents) == 0: # connect the first couple of agents to the first controller
-            params.update({'controller' : controllers[0].eid})
-        else:
-            params.update({'controller' : controllers[1].eid})
-        agents += mas.MosaikAgents.create(num=n, **params)
+
 ```
 
 Connect and run:
 ```
-    gens = [e for e in grid.children if e.type in ['Gen', 'ControlledGen']]
-    ext_grids = [e for e in grid.children if e.type in ['ExternalGrid']]
-    loads = [e for e in grid.children if e.type in ['Load']]
 
-    world.connect(gens[0], agents[0], ('P[MW]', 'current'))
-    world.connect(loads[0], agents[1], ('P[MW]', 'current'))
-    world.connect(gens[1], agents[2], ('P[MW]', 'current'))
-    world.connect(loads[1], agents[3], ('P[MW]', 'current'))
-    world.connect(ext_grids[0], mosaik_agent, ('P[MW]', 'current')) # connect the external network to the core agent
-                                                                    # to execute the default redispatch algorithm
-                                                                    # which is based on the core agent state
-    world.run(until=END)
+
+
 ```
 
