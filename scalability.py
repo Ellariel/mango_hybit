@@ -17,16 +17,6 @@ import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-def hard_close_descriptors():
-    KEEP_FD = set([0, 1, 2])
-    for fd in os.listdir(os.path.join("/proc", str(os.getpid()), "fd")):
-        print(fd)
-        if int(fd) not in KEEP_FD:
-            try:
-                os.close(int(fd))
-            except OSError:
-                pass
-
 base_dir = './'
 attempts = 5
 stdout_logs = False
@@ -71,8 +61,6 @@ for i in tqdm(cells_count):
             r = r[[c for c in r.columns if 'MosaikAgent-steptime' in c]]
             scalability_time += [(n+1, i, j, k) for n, k in enumerate(r.iloc[:,0].values)]
             os.remove(temp_filename)
-
-            hard_close_descriptors()
 
             # time.sleep(1) # wait as we are not sure if os.system deletes files on time
 

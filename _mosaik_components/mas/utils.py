@@ -1,3 +1,4 @@
+import os
 import random
 import numpy as np
 from termcolor import colored
@@ -62,4 +63,14 @@ def reduce_equal_dicts(a_dict, b_dict):
         b_flattened = nested_to_record(b_dict, sep='_')
         if a_flattened == b_flattened:
             return colored('same', 'dark_grey')
-    return a_dict  
+    return a_dict
+
+def hard_close_descriptors():
+    KEEP_FD = set([0, 1, 2])
+    for fd in os.listdir(os.path.join("/proc", str(os.getpid()), "fd")):
+        print(fd)
+        if int(fd) not in KEEP_FD:
+            try:
+                os.close(int(fd))
+            except OSError:
+                pass

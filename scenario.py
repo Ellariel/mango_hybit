@@ -23,7 +23,7 @@ import pandapower.auxiliary
 pandapower.auxiliary._check_if_numba_is_installed = lambda x: x
 
 from _mosaik_components.mas.cells import create_cells, generate_profiles
-from _mosaik_components.mas.utils import set_random_seed
+from _mosaik_components.mas.utils import set_random_seed, hard_close_descriptors
 from _mosaik_components.mas.mosaik_agents import *
 from _mosaik_components.mas.methods import *
 
@@ -277,6 +277,7 @@ def main():
     print(f"Simulation started at {t.ctime()}")
     world.run(END)
     print(f"Simulation finished at {t.ctime()}")
+    hard_close_descriptors()
 
 if __name__ == '__main__':
     main()
