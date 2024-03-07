@@ -271,9 +271,9 @@ def main():
         
 
                     
-    print('cell_controllers:', len(cell_controllers))
-    print('hierarchical_controllers:', len(hierarchical_controllers))
-    print('agents:', len(agents))
+    print('cell controllers:', len(cell_controllers))
+    print('hierarchical controllers:', len(hierarchical_controllers))
+    print('power unit agents:', len(agents))
     #sys.exit()
 
     check_file_descriptors()
