@@ -207,7 +207,7 @@ def main():
     grid = gridsim.Grid(json=GRID_FILE) #2
     #grid = gridsim.Grid(gridfile=GRID_FILE)
 
-    cells = get_cells_data(grid, gridsim.get_extra_info(), profiles)
+    cells = get_cells_data(grid, gridsim.get_extra_info(), profiles)#
 
     input_sim = world.start("InputSim", step_size=STEP_SIZE)
 
@@ -235,9 +235,9 @@ def main():
                     if e['type'] == 'StaticGen':
                         if e['bus'] == '7': # wind
                             wp += wsim.WECS.create(num=1, **WECS_CONFIG)
-                            e.update({'agent' : agents[-1], 'sim' : wp[-1]})   
-                            world.connect(e['sim'], e['agent'], ('P', 'current'))
-                            world.connect(e['sim'], csv_writer, 'P') 
+                            #e.update({'agent' : agents[-1], 'sim' : wp[-1]})   
+                            #world.connect(e['sim'], e['agent'], ('P', 'current'))
+                            #world.connect(e['sim'], csv_writer, 'P') 
                             pass
                             #print(wp)                    
                         else: # PV
@@ -247,24 +247,26 @@ def main():
                             world.connect(e['agent'], e['sim'], 'scale_factor', weak=True, initial_data={'scale_factor' : 1})
                     elif e['type'] == 'Load':
                         fl += flsim.FLSim.create(num=1)
-                        #fli = input_sim.Function.create(1, function=lambda x: random.uniform(1, 10)*len(fl)/10)
+                        fli = input_sim.Function.create(1, function=lambda x: random.uniform(1, 10)*len(fl)/10)
                         e.update({'agent' : agents[-1], 'sim' : fl[-1]})
-                        #world.connect(fli[0], e['sim'], ('value', 'P[MW]'))
+                        world.connect(fli[0], e['sim'], ('value', 'P[MW]'))
                         world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
                         world.connect(e['agent'], e['sim'], 'scale_factor', weak=True, initial_data={'scale_factor' : 1})
                     else:
                         pass
                     
                     cells.setdefault('match_unit', {})
-                    cells['match_unit'].update({e['sim'].eid : e['unit'].eid})
+                    if 'sim' in e:
+                        cells['match_unit'].update({e['sim'].eid : e['unit'].eid})
 
                     #world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
                     #world.connect(e['sim'], e['unit'], ('P[MW]', 'P[MW]'))
                     #world.connect(e['agent'], e['sim'], 'scale_factor', weak=True, initial_data={'scale_factor' : 1})
                     
-                    world.connect(e['unit'], csv_writer, 'P[MW]')
-                    world.connect(e['agent'], csv_writer, 'current')
-                    world.connect(e['agent'], csv_writer, 'scale_factor')
+                    if 'unit' in e and 'agent' in e:
+                        world.connect(e['unit'], csv_writer, 'P[MW]')
+                        world.connect(e['agent'], csv_writer, 'current')
+                        world.connect(e['agent'], csv_writer, 'scale_factor')
 
             hierarchical_controllers += hierarchical[1:]
         
