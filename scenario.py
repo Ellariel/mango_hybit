@@ -63,7 +63,7 @@ else:
     with open(prof_file, 'r') as f:
         profiles = json.load(f)
 
-END = 3600 * 24 * 1  # 1 day
+END = 3600 * 1 #24 * 1  # 1 day
 START_DATE = '2014-01-01 12:00:00'
 GRID_FILE = net_file
 WIND_FILE = 'demo/wind_speed_m-s_15min.csv'
@@ -230,14 +230,15 @@ def main():
         for subset in mit.divide(hierarchy, entities):
             hierarchical += masim.MosaikAgents.create(num=1, controller=hierarchical[-1].eid)
             for e in subset:
-                    # agents += masim.MosaikAgents.create(num=1, controller=hierarchical[-1].eid)
+                    agents += masim.MosaikAgents.create(num=1, controller=hierarchical[-1].eid)
                     # 'type-index-bus-cell'
                     if e['type'] == 'StaticGen':
                         if e['bus'] == '7': # wind
                             wp += wsim.WECS.create(num=1, **WECS_CONFIG)
                             e.update({'agent' : agents[-1], 'sim' : wp[-1]})   
-                            world.connect(e['sim'], e['agent'], ('P', 'current'))
+                            #world.connect(e['sim'], e['agent'], ('P', 'current'))
                             world.connect(e['sim'], csv_writer, 'P') 
+                            pass
                             #print(wp)                    
                         else: # PV
                             pv += pvsim.PVSim.create(num=1, **PVMODEL_PARAMS)

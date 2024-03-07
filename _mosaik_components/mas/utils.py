@@ -74,7 +74,7 @@ def hard_close_file_descriptors():
             for fd in descs:
                 if int(fd) not in KEEP_FD:
                     try:
-                        print(os.readlink(f"/proc/self/fd/{fd}"))
+                        #print(os.readlink(f"/proc/self/fd/{fd}"))
                         os.close(int(fd))
                     except OSError:
                         pass
