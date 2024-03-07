@@ -22,10 +22,16 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--dir', default='./', type=str)
 parser.add_argument('--attempts', default=5, type=int)
 parser.add_argument('--seed', default=13, type=int)
-parser.add_argument('--log', default=False, type=bool)
+parser.add_argument('--log', default=True, type=bool)
 args = parser.parse_args()
 
 base_dir = args.dir
+logs_dir = os.path.join(base_dir, 'logs')
+data_dir = os.path.join(base_dir, 'data')
+results_dir = os.path.join(base_dir, 'results')
+os.makedirs(logs_dir, exist_ok=True)
+os.makedirs(data_dir, exist_ok=True)
+os.makedirs(results_dir, exist_ok=True)
 attempts = args.attempts
 stdout_logs = args.log
 set_random_seed(seed=args.seed)
@@ -35,14 +41,9 @@ NULL = '/dev/null' if os.name == 'posix' else 'nul'
 output_filename = 'temp_results.csv'
 scalability_time_filename = 'scalability_time.csv'
 simulation_time_filename = 'simulation_time.csv'
-logs_dir = os.path.join(base_dir, 'logs')
-results_dir = os.path.join(base_dir, 'results')
-os.makedirs(logs_dir, exist_ok=True)
-os.makedirs(results_dir, exist_ok=True)
-
-net_file = os.path.join(base_dir, 'cells.json')
-prof_file = os.path.join(base_dir, 'profiles.json')
-temp_filename = os.path.join(base_dir, output_filename)
+net_file = os.path.join(data_dir, 'cells.json')
+prof_file = os.path.join(data_dir, 'profiles.json')
+temp_filename = os.path.join(data_dir, output_filename)
 scalability_time_filename = os.path.join(results_dir, scalability_time_filename)
 simulation_time_filename = os.path.join(results_dir, simulation_time_filename)
 
@@ -55,11 +56,11 @@ print(f"hierarchy depth: {', '.join([str(i) for i in hierarchy])}")
 scalability_time = []
 simulation_time = []
 for i in tqdm(cells_count):
-    net, _ = create_cells(cells_count=i, dir=base_dir)
+    net, _ = create_cells(cells_count=i, dir=data_dir)
     for j in tqdm(hierarchy, desc=f"cells_count: {i}", leave=False):
         for _ in tqdm(range(attempts), desc=f"hierarchy: {j}", leave=False):
             seed = get_random_seed()
-            generate_profiles(net, dir=base_dir, seed=seed)
+            generate_profiles(net, dir=data_dir, seed=seed)
             
             start_time = time.time()
             os.system(f"python scenario.py --seed {seed} --dir {base_dir} --output_file {output_filename} --clean False --cells {i} --hierarchy {j} > {NULL if not stdout_logs else os.path.join(logs_dir, f'stdout_{i}_{j}_{seed}.log')} 2>&1")

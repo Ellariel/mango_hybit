@@ -39,6 +39,10 @@ parser.add_argument('--hierarchy', default=1, type=int)
 args = parser.parse_args()
 
 base_dir = args.dir
+data_dir = os.path.join(base_dir, 'data')
+results_dir = os.path.join(base_dir, 'results')
+os.makedirs(data_dir, exist_ok=True)
+os.makedirs(results_dir, exist_ok=True)
 cells_count = args.cells
 hierarchy = args.hierarchy
 
@@ -48,17 +52,17 @@ print(f"hierarchy depth: {hierarchy}")
 # loading network and flexibility profiles
 cells = {}
 
-net_file = os.path.join(base_dir, 'cells.json')
+net_file = os.path.join(data_dir, 'cells.json')
 if not os.path.exists(net_file) or args.clean:
-    net, net_file = create_cells(cells_count=cells_count)
+    net, net_file = create_cells(cells_count=cells_count, dir=data_dir)
 else:
     net = pp.from_json(net_file)
 
 print(f"loads: {len(net.load)}, gens: {len(net.sgen)}")
 
-prof_file = os.path.join(base_dir, 'profiles.json')
+prof_file = os.path.join(data_dir, 'profiles.json')
 if not os.path.exists(prof_file) or args.clean:
-    profiles, prof_file = generate_profiles(net, seed=args.seed)
+    profiles, prof_file = generate_profiles(net, seed=args.seed, dir=data_dir)
 else:
     with open(prof_file, 'r') as f:
         profiles = json.load(f)
@@ -66,7 +70,7 @@ else:
 END = 3600 * 24 * 1  # 1 day
 START_DATE = '2014-01-01 12:00:00'
 GRID_FILE = net_file
-WIND_FILE = os.path.join(base_dir, 'data/wind_speed_m-s_15min.csv')
+WIND_FILE = os.path.join(data_dir, 'wind_speed_m-s_15min.csv')
 STEP_SIZE = 60 * 15
 
 # simulators
@@ -101,7 +105,7 @@ SIM_CONFIG = {
 # PV simulator
 PVSIM_PARAMS = {
     'start_date' : START_DATE,
-    'cache_dir' : base_dir, #'./', # it caches PVGIS API requests
+    'cache_dir' : os.path.join(base_dir, 'data/'), #'./', # it caches PVGIS API requests
     'verbose' : False, # print PVGIS parameters and requests
     'gen_neg' : False, # return negative P
 }
@@ -179,7 +183,7 @@ def main():
     world = mosaik.World(SIM_CONFIG)
 
     csv_sim_writer = world.start('CSV_writer', start_date = START_DATE,
-                                           output_file=os.path.join(base_dir, args.output_file))
+                                           output_file=os.path.join(results_dir, args.output_file))
     csv_writer = csv_sim_writer.CSVWriter(buff_size = STEP_SIZE)
 
     gridsim = world.start('Grid', step_size=STEP_SIZE)

@@ -56,4 +56,4 @@ COPY . .
 #EXPOSE 8080
 
 # Run the application. #python scalability.py --dir ./scalability --log True
-CMD python -m pip install -e ./repo && python scalability.py --dir ./scalability --log True
+CMD python -m pip install -e ./repo && python scalability.py --dir ./repo/scalability
