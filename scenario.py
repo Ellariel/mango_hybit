@@ -228,9 +228,9 @@ def main():
         random.shuffle(entities)
         hierarchical = [cell_controllers[-1]]
         for subset in mit.divide(hierarchy, entities):
-            hierarchical += masim.MosaikAgents.create(num=1, controller=hierarchical[-1].eid)
+            hierarchical += masim.MosaikAgents.create(num=2, controller=hierarchical[-1].eid)
             for e in subset:
-                    agents += masim.MosaikAgents.create(num=2, controller=hierarchical[-1].eid)
+                    agents += masim.MosaikAgents.create(num=1, controller=hierarchical[-1].eid)
                     # 'type-index-bus-cell'
                     if e['type'] == 'StaticGen':
                         if e['bus'] == '7': # wind
