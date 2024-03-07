@@ -230,17 +230,17 @@ def main():
         for subset in mit.divide(hierarchy, entities):
             hierarchical += masim.MosaikAgents.create(num=1, controller=hierarchical[-1].eid)
             for e in subset:
-                    agents += masim.MosaikAgents.create(num=1, controller=hierarchical[-1].eid)
+                    agents += masim.MosaikAgents.create(num=2, controller=hierarchical[-1].eid)
                     # 'type-index-bus-cell'
                     if e['type'] == 'StaticGen':
                         if e['bus'] == '7': # wind
-                            wp += wsim.WECS.create(num=2, **WECS_CONFIG)
+                            wp += wsim.WECS.create(num=1, **WECS_CONFIG)
                             e.update({'agent' : agents[-1], 'sim' : wp[-1]})   
                             world.connect(e['sim'], e['agent'], ('P', 'current'))
                             world.connect(e['sim'], csv_writer, 'P') 
                             #print(wp)                    
                         else: # PV
-                            pv += pvsim.PVSim.create(num=2, **PVMODEL_PARAMS)
+                            pv += pvsim.PVSim.create(num=1, **PVMODEL_PARAMS)
                             e.update({'agent' : agents[-1], 'sim' : pv[-1]})
                             world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
                             world.connect(e['agent'], e['sim'], 'scale_factor', weak=True, initial_data={'scale_factor' : 1})
