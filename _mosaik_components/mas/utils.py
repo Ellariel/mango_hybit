@@ -69,7 +69,9 @@ def hard_close_file_descriptors():
     KEEP_FD = set([0, 1, 2])
     if os.name == 'posix':
         try:
-            for fd in os.listdir(os.path.join("/proc", str(os.getpid()), "fd")):
+            descs = os.listdir(os.path.join("/proc", str(os.getpid()), "fd"))
+            print(f"file descriptors: {len(descs)}")
+            for fd in descs:
                 if int(fd) not in KEEP_FD:
                     try:
                         print(os.readlink(f"/proc/self/fd/{fd}"))
