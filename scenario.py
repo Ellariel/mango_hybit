@@ -236,7 +236,7 @@ def main():
                         if e['bus'] == '7': # wind
                             wp += wsim.WECS.create(num=1, **WECS_CONFIG)
                             e.update({'agent' : agents[-1], 'sim' : wp[-1]})   
-                            #world.connect(e['sim'], e['agent'], ('P', 'current'))
+                            world.connect(e['sim'], e['agent'], ('P', 'current'))
                             world.connect(e['sim'], csv_writer, 'P') 
                             pass
                             #print(wp)                    
@@ -247,9 +247,9 @@ def main():
                             world.connect(e['agent'], e['sim'], 'scale_factor', weak=True, initial_data={'scale_factor' : 1})
                     elif e['type'] == 'Load':
                         fl += flsim.FLSim.create(num=1)
-                        fli = input_sim.Function.create(1, function=lambda x: random.uniform(1, 10)*len(fl)/10)
+                        #fli = input_sim.Function.create(1, function=lambda x: random.uniform(1, 10)*len(fl)/10)
                         e.update({'agent' : agents[-1], 'sim' : fl[-1]})
-                        world.connect(fli[0], e['sim'], ('value', 'P[MW]'))
+                        #world.connect(fli[0], e['sim'], ('value', 'P[MW]'))
                         world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
                         world.connect(e['agent'], e['sim'], 'scale_factor', weak=True, initial_data={'scale_factor' : 1})
                     else:
