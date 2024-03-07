@@ -1,0 +1,6 @@
+[project]
+name = "danilas-world"
+version = "0.1.0"
+
+[tool.setuptools]
+packages = ["_mosaik_components"]

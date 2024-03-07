@@ -10,4 +10,5 @@ results.csv
 temp_*.csv
 cells.json
 profiles.json
-
+*.egg-info
+buld

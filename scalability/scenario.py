@@ -63,10 +63,10 @@ else:
     with open(prof_file, 'r') as f:
         profiles = json.load(f)
 
-END = 3600 * 1 #24 * 1  # 1 day
+END = 3600 * 24 * 1  # 1 day
 START_DATE = '2014-01-01 12:00:00'
 GRID_FILE = net_file
-WIND_FILE = 'demo/wind_speed_m-s_15min.csv'
+WIND_FILE = os.path.join(base_dir, 'data/wind_speed_m-s_15min.csv')
 STEP_SIZE = 60 * 15
 
 # simulators
@@ -101,7 +101,7 @@ SIM_CONFIG = {
 # PV simulator
 PVSIM_PARAMS = {
     'start_date' : START_DATE,
-    'cache_dir' : False, #'./', # it caches PVGIS API requests
+    'cache_dir' : base_dir, #'./', # it caches PVGIS API requests
     'verbose' : False, # print PVGIS parameters and requests
     'gen_neg' : False, # return negative P
 }

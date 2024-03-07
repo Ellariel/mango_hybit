@@ -8,6 +8,7 @@ script from the command line::
 import sys
 import os
 import time
+import argparse
 from tqdm import tqdm
 import pandas as pd
 from _mosaik_components.mas.cells import create_cells, generate_profiles
@@ -17,12 +18,19 @@ import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-NULL = '/dev/null' if os.name == 'posix' else 'nul'
+parser = argparse.ArgumentParser()
+parser.add_argument('--dir', default='./', type=str)
+parser.add_argument('--attempts', default=5, type=int)
+parser.add_argument('--seed', default=13, type=int)
+parser.add_argument('--log', default=False, type=bool)
+args = parser.parse_args()
 
-base_dir = './'
-attempts = 5
-stdout_logs = False
-set_random_seed(seed=13)
+base_dir = args.dir
+attempts = args.attempts
+stdout_logs = args.log
+set_random_seed(seed=args.seed)
+
+NULL = '/dev/null' if os.name == 'posix' else 'nul'
 
 output_filename = 'temp_results.csv'
 scalability_time_filename = 'scalability_time.csv'

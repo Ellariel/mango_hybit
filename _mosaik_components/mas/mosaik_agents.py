@@ -390,8 +390,8 @@ class MosaikAgents(mosaik_api.Simulator):
 
     def __init__(self):
         super().__init__(META)
-        self.host = 'localhost'
-        self.port = 5678
+        self.host = None
+        self.port = None
         self.params = {}
         # Set by "run()":
         self.mosaik = None  # Proxy object for mosaik
@@ -415,6 +415,8 @@ class MosaikAgents(mosaik_api.Simulator):
         self.loop = asyncio.get_event_loop()
         self.params = sim_params
 
+        self.host = self.params.pop('host', '0.0.0.0')
+        self.port = self.params.pop('port', 5678)
         self.params.setdefault('verbose', 1)
         self.params.setdefault('performance', True)
         return META
@@ -433,7 +435,10 @@ class MosaikAgents(mosaik_api.Simulator):
         await agent.register()
         return agent
 
-    def create(self, num, model, **model_conf): #**self.params
+    def create(self, num, model, **model_conf):
+        return self.loop.run_until_complete(self._create(num, model, **model_conf))
+
+    async def _create(self, num, model, **model_conf): #**self.params
         """
         Create *num* instances of *model* and return a list of entity dicts
         to mosaik.
@@ -443,8 +448,8 @@ class MosaikAgents(mosaik_api.Simulator):
         # when creating new entity IDs:
 
         if model == 'MosaikAgents' and self.main_container == None and self.mosaik_agent == None:
-            self.main_container = self.loop.run_until_complete(self._create_container(self.host, self.port))
-            self.mosaik_agent = self.loop.run_until_complete(self._create_mosaik_agent(self.main_container, **self.params))
+            self.main_container = await self._create_container(self.host, self.port)
+            self.mosaik_agent = await self._create_mosaik_agent(self.main_container, **self.params)
             return [{'eid': 'MosaikAgent', 'type': model}]
 
         entities = []
@@ -453,7 +458,7 @@ class MosaikAgents(mosaik_api.Simulator):
         
         for i in range(n_agents, n_agents + num):
                 eid = 'Agent_%s' % i
-                agent = self.loop.run_until_complete(self._create_agent(self.main_container, **self.params))
+                agent = await self._create_agent(self.main_container, **self.params)
                 self.all_agents[eid] = (self.main_container.addr, agent.aid)
                 entities.append({'eid': eid, 'type': model})                  
             # as the event loop is not running here, we have to create the agents via loop.run_unti_complete.
