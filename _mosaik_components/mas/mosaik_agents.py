@@ -372,7 +372,7 @@ def main():
 # The simulator meta data that we return in "init()":
 META = {
     'api_version': '3.0',
-    'type': 'hybrid',
+    'type': 'event-based',
     'models': {
         'MosaikAgents': {
             'public': True,

@@ -27,7 +27,7 @@ from _mosaik_components.mas.methods import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--cells', default=2, type=int)
-parser.add_argument('--verbose', default=0, type=int)
+parser.add_argument('--verbose', default=1, type=int)
 parser.add_argument('--clean', default=True, type=bool)
 parser.add_argument('--dir', default='./', type=str)
 parser.add_argument('--seed', default=13, type=int)
@@ -179,33 +179,38 @@ def main():
     set_random_seed(seed=args.seed)
     world = mosaik.World(SIM_CONFIG)
 
-    csv_sim_writer = world.start('CSV_writer', start_date = START_DATE,
-                                           output_file=os.path.join(results_dir, args.output_file))
-    csv_writer = csv_sim_writer.CSVWriter(buff_size = STEP_SIZE)
+
+
 
     gridsim = world.start('Grid', step_size=STEP_SIZE)
     grid = gridsim.Grid(json=GRID_FILE)
 
-    masim = world.start('MAS', step_size=STEP_SIZE, **MAS_CONFIG)
-    mosaik_agent = masim.MosaikAgents() # core agent for the mosaik communication 
+    with world.group():
+        masim = world.start('MAS', step_size=STEP_SIZE, **MAS_CONFIG)
+        
 
-    pvsim = world.start(
-                    "PVSim",
-                    step_size=STEP_SIZE,
-                    sim_params=PVSIM_PARAMS,
-                )
-    
-    flsim = world.start(
-                    "FLSim",
-                    step_size=STEP_SIZE,
-                    sim_params=PVSIM_PARAMS,
-                )
-    
-    wsim = world.start('WecsSim', 
-                       step_size=STEP_SIZE, 
-                       wind_file=WIND_FILE)
+        pvsim = world.start(
+                        "PVSim",
+                        step_size=STEP_SIZE,
+                        sim_params=PVSIM_PARAMS,
+                    )
+        
+        flsim = world.start(
+                        "FLSim",
+                        step_size=STEP_SIZE,
+                        sim_params=PVSIM_PARAMS,
+                    )
+        
+        wsim = world.start('WecsSim', 
+                        step_size=STEP_SIZE, 
+                        wind_file=WIND_FILE)
+        
+        csv_sim_writer = world.start('CSV_writer', start_date = START_DATE,
+                                           output_file=os.path.join(results_dir, args.output_file))
     
     input_sim = world.start("InputSim", step_size=STEP_SIZE)
+    csv_writer = csv_sim_writer.CSVWriter(buff_size = STEP_SIZE)
+    mosaik_agent = masim.MosaikAgents() # core agent for the mosaik communication 
 
     cells = get_cells_data(grid, gridsim.get_extra_info(), profiles)
     ext_grids = [e for e in grid.children if e.type in ['ExternalGrid', 'Ext_grid']]
@@ -250,9 +255,9 @@ def main():
                         if 'agent' in e:
                             world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
                             #world.connect(e['sim'], e['unit'], 'P[MW]')
-                            world.connect(e['agent'], e['sim'], 'scale_factor', weak=True, initial_data={'scale_factor' : 1})
-                            world.connect(e['sim'], csv_writer, 'P[MW]') 
-                            world.connect(e['agent'], csv_writer, 'current')
+                            world.connect(e['agent'], e['sim'], 'scale_factor', weak=True)
+                            #world.connect(e['sim'], csv_writer, 'P[MW]') 
+                            #world.connect(e['agent'], csv_writer, 'current')
                             world.connect(e['agent'], csv_writer, 'scale_factor')
 
             hierarchical_controllers += hierarchical[1:]

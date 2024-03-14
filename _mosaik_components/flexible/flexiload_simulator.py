@@ -17,12 +17,13 @@ from mosaik_api_v3.types import (
 
 META = {
     "api_version": "3.0",
-    "type": "time-based",
+    "type": "hybrid",
     "models": {
         "FLSim": {
             "public": True,
             "any_inputs": True,
-            "params": ["scale_factor"], 
+            "trigger" : ['scale_factor'],
+            #"params": ["scale_factor"], 
             "attrs": ["P[MW]",           # input/output active power [MW]
                       'scale_factor'],   # input of modifier from ctrl
         }

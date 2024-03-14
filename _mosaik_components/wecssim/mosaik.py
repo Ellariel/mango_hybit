@@ -16,11 +16,12 @@ from .wecs import WECS
 
 # The meta data that the "init()" call will return.
 META = {
-    'type': 'time-based',
+    'type': 'hybrid',
     'models': {
         # We only expose the WECS agent as model to mosaik:
         'WECS': {
             'public': True,
+            "trigger" : ['scale_factor'],
             'params': [
                 # See "sim.WECS.__init__()" for descriptions of the params:
                 'P_rated',
@@ -102,6 +103,7 @@ class WecsSim(mosaik_api.Simulator):
             # and store the config for the current entity:
             self.wecs[eid] = wecs_idx
             self.wecs_config.append(WecsConfig(**wecs_params))
+            self.scale_factors[eid] = 1
 
             # Add entity data for mosaik
             entities.append({'eid': eid, 'type': model})
