@@ -3,6 +3,7 @@ import pandas as pd
 from _mosaik_components.mas.utils import *
 
 MAS_STATE = MAS_DEFAULT_STATE.copy()
+PRECISION = 10 ** -6
 
 def get_unit_profile(eid, cells_data):
     eid = eid.split('.')[1]
@@ -17,19 +18,22 @@ def state_to_output(output_request, output_data, input_data):
 # output_state: {'Agent_1': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 0.0}},
 # entities: {'Agent_3': 'WecsSim-0.wecs-0', 'Agent_4': 'Grid-0.Load-0',
     data = {}
+    print(output_request)
     for eid, attrs in output_request.items():
         data.setdefault(eid, {})
         if eid in output_data:
+            current = max(output_data[eid]['production']['current'], output_data[eid]['consumption']['current'])
+            if current < PRECISION:
+                current = 0
             for attr in attrs:
                 if attr == 'current':
-                    data[eid].update({'current' : max(output_data[eid]['production'][attr], output_data[eid]['consumption'][attr])})
+                    data[eid].update({'current' : current})
                 elif attr == 'scale_factor':
                     if eid in input_data:
-                        scale_factor = 1
-                        input_value = list(input_data[eid]['current'].values())[0]
-                        if input_value != 0:
-                            scale_factor = max(output_data[eid]['production']['current'], output_data[eid]['consumption']['current']) / input_value
-                        data[eid].update({'scale_factor' : scale_factor})
+                        input_value = abs(list(input_data[eid]['current'].values())[0])
+                        scale_factor = 1 if input_value < PRECISION else current / input_value
+                        if abs(scale_factor - 1) > PRECISION:
+                            data[eid].update({'scale_factor' : scale_factor})
                 else:
                     pass
     return data

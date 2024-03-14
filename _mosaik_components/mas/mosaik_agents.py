@@ -171,6 +171,7 @@ class Agent(mango.Agent):
         :param meta: The meta information dict
         """
         instructions = content.instructions
+        self._instructions_confirmed = content.instructions
         instruction = instructions[self.aid]
 
         # Do execute instruction
@@ -200,9 +201,13 @@ class Agent(mango.Agent):
                     for addr, aid in self.connected_agents]
             await asyncio.gather(*futs)
             self._instructions_confirmed = await asyncio.gather(*[fut for fut in self._instructions_confirmed.values()])
+            self._instructions_confirmed = {k : v for i in self._instructions_confirmed for k, v in i['instructions'].items()}
+
+        #    print('!!!!!_instructions_confirmed', self.aid, self._instructions_confirmed)
+        #print('!!!!!instructions', self.aid, instructions)
 
         msg_content = create_msg_content(InstructionsConfirmMessage, instructions={'aid': self.aid,
-                                                                                   'instructions': content.instructions})
+                                                                                   'instructions': self._instructions_confirmed})
         if 'sender_id' in meta.keys():
             conv_id = meta.get('conversation_id', None)
             self.schedule_instant_task(self.container.send_acl_message(
@@ -334,6 +339,7 @@ class MosaikAgent(mango.Agent):
             # Send instructions
             if self.params['verbose'] >= 1:
                 print(f'BROADCAST REDISPATCH INSTRUCTIONS: {info}')
+            #print('!!!!!!!instructions',instructions)
             self._instructions_confirmed = {aid: asyncio.Future() for _, aid in self.connected_agents}
             futs = [self.schedule_instant_task(self.container.send_acl_message(
                             receiver_addr=addr,
@@ -345,6 +351,7 @@ class MosaikAgent(mango.Agent):
                     for addr, aid in self.connected_agents]
             await asyncio.gather(*futs)
             self._instructions_confirmed = await asyncio.gather(*[fut for fut in self._instructions_confirmed.values()])
+            #print('!!!!!!!_instructions_confirmed',self._instructions_confirmed)
             self._instructions_confirmed = {k : v for i in self._instructions_confirmed for k, v in i['instructions'].items()}
             if self.params['verbose'] >= 1:
                 print('INSTRUCTIONS ARE CONFIRMED')
@@ -511,6 +518,8 @@ class MosaikAgents(mosaik_api.Simulator):
         mosaik to continue the simulation.
 
         """
+        print(highlight('\ninputs:'), inputs)
+
         if self.params['verbose'] >= 2:
             print(highlight('\ninputs:'), inputs)
 
@@ -544,6 +553,7 @@ class MosaikAgents(mosaik_api.Simulator):
         if self.params['verbose'] >= 2:
             print(highlight('\noutput'), self.output_cache)
 
+        print('\n', self.output_cache)
         return self.output_cache
 
 

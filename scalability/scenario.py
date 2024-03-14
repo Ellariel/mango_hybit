@@ -27,7 +27,7 @@ from _mosaik_components.mas.methods import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--cells', default=2, type=int)
-parser.add_argument('--verbose', default=1, type=int)
+parser.add_argument('--verbose', default=0, type=int)
 parser.add_argument('--clean', default=True, type=bool)
 parser.add_argument('--dir', default='./', type=str)
 parser.add_argument('--seed', default=13, type=int)
@@ -65,7 +65,7 @@ else:
     with open(prof_file, 'r') as f:
         profiles = json.load(f)
 
-END = 3600 * 24 * 1  # 1 day
+END = 3600 #* 24 * 1  # 1 day
 START_DATE = '2014-01-01 12:00:00'
 GRID_FILE = net_file
 WIND_FILE = os.path.join(data_dir, 'wind_speed_m-s_15min.csv')
@@ -109,7 +109,7 @@ PVSIM_PARAMS = {
 
 # For each PV
 PVMODEL_PARAMS = {
-    'scale_factor' : 100,
+    'scale_factor' : 100000,
     'lat' : 52.373,
     'lon' : 9.738,
     'optimal_both' : True,
@@ -126,14 +126,14 @@ def input_to_state(input_data, current_state):
     # state={'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0}}
     global cells
     state = copy.deepcopy(current_state)
+    #print(input_data, current_state)
     if 'current' in input_data:
         for eid, value in input_data['current'].items():
             profile = get_unit_profile(eid, cells)
-            scale_factor = input_data.get('scale_factor', 1)
             if 'Load' in eid or 'FL' in eid: # check the type of connected unit and its profile
                 state['consumption']['min'] = profile['min']
                 state['consumption']['max'] = profile['max']
-                if scale_factor == 1 and value == 0:
+                if value == 0: #input_data.get('scale_factor', 1) == 1 and 
                     value = random.uniform(profile['min'], profile['max'])
                 state['consumption']['current'] = np.clip(abs(value), profile['min'], profile['max'])
             elif 'Gen' in eid or 'PV' in eid:
@@ -155,6 +155,8 @@ def input_to_state(input_data, current_state):
                     state['consumption']['current'] = abs(value)
                     state['consumption']['min'] = abs(value) * -3
                     state['consumption']['max'] = abs(value) * 3
+            #print(eid, state)
+            break
     return state
 
 # Multi-agent system (MAS) configuration
@@ -186,6 +188,7 @@ def main():
     grid = gridsim.Grid(json=GRID_FILE)
 
     with world.group():
+    #if True:
         masim = world.start('MAS', step_size=STEP_SIZE, **MAS_CONFIG)
         
 
@@ -205,8 +208,8 @@ def main():
                         step_size=STEP_SIZE, 
                         wind_file=WIND_FILE)
         
-        csv_sim_writer = world.start('CSV_writer', start_date = START_DATE,
-                                           output_file=os.path.join(results_dir, args.output_file))
+    csv_sim_writer = world.start('CSV_writer', start_date = START_DATE,
+                                            output_file=os.path.join(results_dir, args.output_file))
     
     input_sim = world.start("InputSim", step_size=STEP_SIZE)
     csv_writer = csv_sim_writer.CSVWriter(buff_size = STEP_SIZE)
@@ -242,7 +245,7 @@ def main():
                             e.update({'agent' : agents[-1], 'sim' : pv[-1]})              
                     elif e['type'] == 'Load':
                         fl += flsim.FLSim.create(num=1)
-                        fli = input_sim.Function.create(1, function=lambda x: random.uniform(1, 10)*len(fl)/10)
+                        fli = input_sim.Function.create(1, function=lambda x: 100*len(fl)/10) #random.uniform(1, 10)
                         e.update({'agent' : agents[-1], 'sim' : fl[-1]})
                         world.connect(fli[0], e['sim'], ('value', 'P[MW]'))
                     else:
