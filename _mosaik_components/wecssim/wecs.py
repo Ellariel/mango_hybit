@@ -55,7 +55,7 @@ v_max = 25  # m/s
 
 
 class WECS:
-    def __init__(self, P_rated, v_rated, v_min, v_max):#, controller=False):
+    def __init__(self, P_rated, v_rated, v_min, v_max):
         """Created a number of wind energy conversion systems.
 
         All four arguments need to be NumPy arrays of the same length.  That

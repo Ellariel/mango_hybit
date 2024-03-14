@@ -27,12 +27,12 @@ META = {
                 'v_rated',
                 'v_min',
                 'v_max',
-                #'controller',
             ],
             'attrs': [
                 'P_max',  # output / input, can be set by an agent
-                'P',  # output
+                'P[MW]',  # output
                 'v',  # output
+                'scale_factor',
             ],
         },
     },
@@ -40,7 +40,7 @@ META = {
 STEP_SIZE = 15  # minutes
 
 # Used to store a single WECS' config parameters
-WecsConfig = namedtuple('WecsConfig', 'P_rated, v_rated, v_min, v_max')#, controller')
+WecsConfig = namedtuple('WecsConfig', 'P_rated, v_rated, v_min, v_max')
 
 
 class WecsSim(mosaik_api.Simulator):
@@ -54,6 +54,7 @@ class WecsSim(mosaik_api.Simulator):
         self.wecs = {}  # Maps EIDs to wecs index
         self.wecs_config = []  # List of WecsConfig tuples
         self.sim = None  # WECS sim instance
+        self.scale_factors = {}
 
     def init(self, sid, time_resolution=1., **sim_params):
         """*wind_file* is a CSV file containing one or more time series for
@@ -120,7 +121,6 @@ class WecsSim(mosaik_api.Simulator):
         # "self.wecs_config" is just a list of tuples that contain only float
         # numbers:
         config = np.array(self.wecs_config, dtype=float)
-
         # Config stores the data row-wise, but the sim needs the data
         # column-wise, so we just transpose the array and expand it into the
         # four columns "P_rated", "v_rated", "v_min", "v_max".
@@ -147,6 +147,7 @@ class WecsSim(mosaik_api.Simulator):
             }
 
         """
+        #print(inputs)
         # Generate a new vector with P_Max values.  Use P_rated as default and
         # override the default value if necessary:
         P_max = self.sim.P_rated.copy()
@@ -160,6 +161,9 @@ class WecsSim(mosaik_api.Simulator):
                 # Pop the single value from the dict:
                 _, p_max_i = wecs_inputs['P_max'].popitem()
                 P_max[idx] = p_max_i
+            
+            factor = wecs_inputs.get('scale_factor', {'default' : 1.0})
+            self.scale_factors[eid] = list(factor.values())[0]
 
         # Set the P_max vector to the simulator:
         self.sim.set_P_max(P_max)
@@ -178,24 +182,6 @@ class WecsSim(mosaik_api.Simulator):
         return time + (STEP_SIZE * 60)
 
     def get_data(self, outputs):
-        """Return the data requested by mosaik.  *outputs* is a dict like::
-
-            {
-                'wecs-0': ['v', 'P'],
-                ...
-            }
-
-        Return a dict with the requested data::
-
-            {
-                'wecs-0': {
-                    'v': 23,
-                    'P': 42,
-                },
-                ...
-            }
-
-        """
         data = {}
         for eid, attrs in outputs.items():
             if eid not in self.wecs:
@@ -206,15 +192,13 @@ class WecsSim(mosaik_api.Simulator):
             for attr in attrs:
                 if attr not in self.meta['models']['WECS']['attrs']:
                     raise AttributeError('Attribute "%s" not available' % attr)
-                data[eid][attr] = float(getattr(self.sim, attr)[idx]) / 10**3
-
+                elif attr == 'P[MW]':
+                    data[eid][attr] = self.scale_factors[eid] * float(getattr(self.sim, 'P')[idx]) / 10**3
         return data
-
 
 def main():
     """Run our simulator and expose the "WecsSim"."""
     return mosaik_api.start_simulation(WecsSim(), 'WECS simulator')
-
 
 if __name__ == '__main__':
     main()

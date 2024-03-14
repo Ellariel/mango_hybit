@@ -23,7 +23,6 @@ META = {
         "PVSim": {
             "public": True,
             "any_inputs": True,
-            "persistent": [],
             "params": ["scale_factor", "slope", "azimuth", "pvtech", 
                         "lat", "lon", "system_loss", "datayear", "datatype",
                         "optimal_angle", "optimal_both", "database"], 

@@ -1,11 +1,10 @@
 """
-This file contains the mosaik scenario.  To start the simulation, just run this
+This file contains the scenario augmentation script. To start it, just run this
 script from the command line::
 
-    $ python scenario.py
+    $ python scalability.py
 
 """
-import sys
 import os
 import time
 import argparse
@@ -66,28 +65,24 @@ for i in tqdm(cells_count):
             os.system(f"python scenario.py --seed {seed} --dir {base_dir} --output_file {output_filename} --clean False --cells {i} --hierarchy {j} > {NULL if not stdout_logs else os.path.join(logs_dir, f'stdout_{i}_{j}_{seed}.log')} 2>&1")
             simulation_time += [(i, j, time.time() - start_time)]
 
-            # time.sleep(1) # wait as we are not sure if os.system closes all the file descriptors before we use it
-
             r = pd.read_csv(temp_filename)
             r = r[[c for c in r.columns if 'MosaikAgent-steptime' in c]]
             scalability_time += [(n+1, i, j, k) for n, k in enumerate(r.iloc[:,0].values)]
             os.remove(temp_filename)
 
-            # time.sleep(1) # wait as we are not sure if os.system deletes files on time
-
 scalability_time = pd.DataFrame().from_dict(scalability_time).rename(columns={0: 'step',
                                                             1: 'cells_count',
                                                             2: 'hierarchy_depth',
                                                             3: 'agents_time'})
-scalability_time['per_cell'] = scalability_time['agents_time'] / scalability_time['cells_count']
-scalability_time['per_level'] = scalability_time['agents_time'] / scalability_time['hierarchy_depth']
+# scalability_time['per_cell'] = scalability_time['agents_time'] / scalability_time['cells_count']
+# scalability_time['per_level'] = scalability_time['agents_time'] / scalability_time['hierarchy_depth']
 scalability_time.to_csv(scalability_time_filename, index=False)
 
 simulation_time = pd.DataFrame().from_dict(simulation_time).rename(columns={0: 'cells_count',
                                                                             1: 'hierarchy_depth',
                                                                             2: 'sim_time'})
-simulation_time['per_cell'] = simulation_time['sim_time'] / simulation_time['cells_count']
-simulation_time['per_level'] = simulation_time['sim_time'] / simulation_time['hierarchy_depth']
+# simulation_time['per_cell'] = simulation_time['sim_time'] / simulation_time['cells_count']
+# simulation_time['per_level'] = simulation_time['sim_time'] / simulation_time['hierarchy_depth']
 simulation_time.to_csv(simulation_time_filename, index=False)
 
 print(f"Results were saved to {scalability_time_filename} and {simulation_time_filename}")

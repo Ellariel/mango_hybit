@@ -1,6 +1,7 @@
 import os
 import json
 import random
+import pandas as pd
 import numpy as np
 import pandapower as pp
 import pandapower.networks as pn
@@ -50,12 +51,26 @@ def create_cells(cells_count=2, dir='./', validation=False):
             elements.loc[elements.index == idx, 'type'] = new_type
             elements.loc[elements.index == idx, 'name'] = f"{new_type}-{idx}-{g.bus}-{int(g.bus / cutoff_index) if cutoff_index > 0 else 0}"
 
+    def _save_old_names(elements, mapping, ren_type=None):
+        for idx, g in elements.iterrows():
+            new_type = g.type.lower() if not ren_type else ren_type
+            if idx in mapping:
+                elements.loc[elements.index == idx, 'type'] = new_type
+                elements.loc[elements.index == idx, 'name'] = f"{new_type}-{idx}-{idx}" 
+            else:  
+                for old_idx, new_idx in mapping.items():
+                    if idx == new_idx:
+                        elements.loc[elements.index == idx, 'type'] = new_type
+                        elements.loc[elements.index == idx, 'name'] = f"{new_type}-{idx}-{old_idx}"
+                        break
+
     cell_cutoff = 0
     net = get_cell()
     for _ in range(cells_count-1):
         new_subnet = get_cell()
         cell_cutoff = len(new_subnet.bus) # identify the cell index based on the index of buses
         net, idx = merge_nets(net, new_subnet, validation=False, numba=False, return_net2_reindex_lookup=True)
+        _save_old_names(net.bus, idx['bus'], ren_type='Bus')
         pp.create_line(net, from_bus=0, to_bus=idx['bus'][0], length_km=5, std_type="NAYY 4x50 SE") # connect merged cells
         net.ext_grid.drop(1, inplace=True) # drop excessive external grid
         net.res_ext_grid.drop(1, inplace=True)
@@ -89,6 +104,33 @@ def generate_profiles(net, dir='./', seed=13):
         with open(dir, 'w') as f:
             json.dump(profiles, f)
     return profiles, dir
+
+
+def get_cells_data(grid, grid_extra_info, profiles):
+    def lookup_bus_name(idx):
+        return grid_extra_info[f'Bus-{idx}']['name']
+
+    cells = {}
+    for e in grid.children:
+        if e.eid in grid_extra_info and\
+           'name' in grid_extra_info[e.eid] and\
+           pd.notna(grid_extra_info[e.eid]['name']):
+                name = grid_extra_info[e.eid]['name']
+                id = name.split('-')
+                if len(id) == 4: # type-index-bus-cell
+                    cells.setdefault(id[3], {})
+                    cells.setdefault('match_cell', {})
+                    cells['match_cell'].update({e.eid : id[3]})
+                    cells[id[3]].setdefault(id[0], {})
+                    cells[id[3]][id[0]].update({e.eid : {
+                        'unit' : e,
+                        'type' : id[0],
+                        'index' : id[1],
+                        'bus' : lookup_bus_name(id[2]),
+                        'cell' : id[3],
+                        'profile' : profiles[name] if name in profiles else {},
+                    }})
+    return cells
 
 if __name__ == '__main__':
     cells_count = 2

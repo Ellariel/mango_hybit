@@ -5,7 +5,6 @@ script from the command line::
     $ python scenario.py
 
 """
-import sys
 import os
 import json
 import mosaik
@@ -14,7 +13,6 @@ import argparse
 import numpy as np
 import more_itertools as mit
 import pandapower as pp
-import pandapower.networks as pn
 
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -22,8 +20,8 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 import pandapower.auxiliary
 pandapower.auxiliary._check_if_numba_is_installed = lambda x: x
 
-from _mosaik_components.mas.cells import create_cells, generate_profiles
-from _mosaik_components.mas.utils import set_random_seed, check_file_descriptors
+from _mosaik_components.mas.cells import create_cells, generate_profiles, get_cells_data
+from _mosaik_components.mas.utils import set_random_seed
 from _mosaik_components.mas.mosaik_agents import *
 from _mosaik_components.mas.methods import *
 
@@ -76,8 +74,7 @@ STEP_SIZE = 60 * 15
 # simulators
 SIM_CONFIG = {
     'Grid': {
-         'python': 'mosaik_components.pandapower:Simulator' #2
-         # 'python': 'mosaik_pandapower.simulator:Pandapower'
+         'python': 'mosaik_components.pandapower:Simulator'
     },
     'PVSim': {
         'python': 'mosaik_components.pv.pvgis_simulator:PVGISSimulator',
@@ -98,14 +95,14 @@ SIM_CONFIG = {
         'python': 'mosaik_csv_writer:CSVWriter',
     },
     'InputSim': {
-        'python': '_mosaik_components.basic_simulators.input_simulator:InputSimulator',
+        'python': 'mosaik.basic_simulators.input_simulator:InputSimulator', #mosaik_components
     },
 }
 
 # PV simulator
 PVSIM_PARAMS = {
     'start_date' : START_DATE,
-    'cache_dir' : os.path.join(base_dir, 'data/'), #'./', # it caches PVGIS API requests
+    'cache_dir' : os.path.join(base_dir, 'data/'), # it caches PVGIS API requests
     'verbose' : False, # print PVGIS parameters and requests
     'gen_neg' : False, # return negative P
 }
@@ -187,9 +184,9 @@ def main():
     csv_writer = csv_sim_writer.CSVWriter(buff_size = STEP_SIZE)
 
     gridsim = world.start('Grid', step_size=STEP_SIZE)
+    grid = gridsim.Grid(json=GRID_FILE)
 
     masim = world.start('MAS', step_size=STEP_SIZE, **MAS_CONFIG)
-
     mosaik_agent = masim.MosaikAgents() # core agent for the mosaik communication 
 
     pvsim = world.start(
@@ -207,17 +204,12 @@ def main():
     wsim = world.start('WecsSim', 
                        step_size=STEP_SIZE, 
                        wind_file=WIND_FILE)
-
-    grid = gridsim.Grid(json=GRID_FILE) #2
-    #grid = gridsim.Grid(gridfile=GRID_FILE)
-
-    cells = get_cells_data(grid, gridsim.get_extra_info(), profiles)#
-
+    
     input_sim = world.start("InputSim", step_size=STEP_SIZE)
 
+    cells = get_cells_data(grid, gridsim.get_extra_info(), profiles)
     ext_grids = [e for e in grid.children if e.type in ['ExternalGrid', 'Ext_grid']]
     world.connect(ext_grids[0], mosaik_agent, ('P[MW]', 'current'))
-
     world.connect(mosaik_agent, csv_writer, 'steptime')
 
     pv = [] # PV simulators
@@ -237,50 +229,38 @@ def main():
                     agents += masim.MosaikAgents.create(num=1, controller=hierarchical[-1].eid)
                     # 'type-index-bus-cell'
                     if e['type'] == 'StaticGen':
-                        if e['bus'] == '7': # wind
+                        if '-7' in e['bus']: # wind at Bus-*-7                     
                             wp += wsim.WECS.create(num=1, **WECS_CONFIG)
-                            e.update({'agent' : agents[-1], 'sim' : wp[-1]})   
-                            world.connect(e['sim'], e['agent'], ('P', 'current'))
-                            world.connect(e['sim'], csv_writer, 'P') 
-                            #print(wp)                    
+                            e.update({'agent' : agents[-1], 'sim' : wp[-1]})             
                         else: # PV
                             pv += pvsim.PVSim.create(num=1, **PVMODEL_PARAMS)
-                            e.update({'agent' : agents[-1], 'sim' : pv[-1]})
-                            world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
-                            world.connect(e['agent'], e['sim'], 'scale_factor', weak=True, initial_data={'scale_factor' : 1})
+                            e.update({'agent' : agents[-1], 'sim' : pv[-1]})              
                     elif e['type'] == 'Load':
                         fl += flsim.FLSim.create(num=1)
                         fli = input_sim.Function.create(1, function=lambda x: random.uniform(1, 10)*len(fl)/10)
                         e.update({'agent' : agents[-1], 'sim' : fl[-1]})
                         world.connect(fli[0], e['sim'], ('value', 'P[MW]'))
-                        world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
-                        world.connect(e['agent'], e['sim'], 'scale_factor', weak=True, initial_data={'scale_factor' : 1})
                     else:
                         pass
                     
                     cells.setdefault('match_unit', {})
                     if 'sim' in e:
                         cells['match_unit'].update({e['sim'].eid : e['unit'].eid})
-
-                    #world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
-                    #world.connect(e['sim'], e['unit'], ('P[MW]', 'P[MW]'))
-                    #world.connect(e['agent'], e['sim'], 'scale_factor', weak=True, initial_data={'scale_factor' : 1})
                     
-                    if 'unit' in e and 'agent' in e:
-                        world.connect(e['unit'], csv_writer, 'P[MW]')
-                        world.connect(e['agent'], csv_writer, 'current')
-                        world.connect(e['agent'], csv_writer, 'scale_factor')
+                        if 'agent' in e:
+                            world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
+                            #world.connect(e['sim'], e['unit'], 'P[MW]')
+                            world.connect(e['agent'], e['sim'], 'scale_factor', weak=True, initial_data={'scale_factor' : 1})
+                            world.connect(e['sim'], csv_writer, 'P[MW]') 
+                            world.connect(e['agent'], csv_writer, 'current')
+                            world.connect(e['agent'], csv_writer, 'scale_factor')
 
             hierarchical_controllers += hierarchical[1:]
-        
-
                     
     print('cell controllers:', len(cell_controllers))
     print('hierarchical controllers:', len(hierarchical_controllers))
     print('power unit agents:', len(agents))
-    #sys.exit()
 
-    check_file_descriptors()
     print(f"Simulation started at {t.ctime()}")
     world.run(until=END)
     print(f"Simulation finished at {t.ctime()}")

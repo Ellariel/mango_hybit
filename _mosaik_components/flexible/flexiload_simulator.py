@@ -22,7 +22,6 @@ META = {
         "FLSim": {
             "public": True,
             "any_inputs": True,
-            "persistent": [],
             "params": ["scale_factor"], 
             "attrs": ["P[MW]",           # input/output active power [MW]
                       'scale_factor'],   # input of modifier from ctrl

@@ -4,29 +4,6 @@ from _mosaik_components.mas.utils import *
 
 MAS_STATE = MAS_DEFAULT_STATE.copy()
 
-def get_cells_data(grid, grid_extra_info, profiles):
-    cells = {}
-    for e in grid.children:
-        if e.eid in grid_extra_info and\
-           'name' in grid_extra_info[e.eid] and\
-           pd.notna(grid_extra_info[e.eid]['name']):
-                name = grid_extra_info[e.eid]['name']
-                id = name.split('-')
-                if len(id) == 4: # type-index-bus-cell
-                    cells.setdefault(id[3], {})
-                    cells.setdefault('match_cell', {})
-                    cells['match_cell'].update({e.eid : id[3]})
-                    cells[id[3]].setdefault(id[0], {})
-                    cells[id[3]][id[0]].update({e.eid : {
-                        'unit' : e,
-                        'type' : id[0],
-                        'index' : id[1],
-                        'bus' : id[2],
-                        'cell' : id[3],
-                        'profile' : profiles[name] if name in profiles else {},
-                    }})
-    return cells
-
 def get_unit_profile(eid, cells_data):
     eid = eid.split('.')[1]
     if eid in cells_data['match_unit']:
