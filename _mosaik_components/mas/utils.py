@@ -65,7 +65,7 @@ def reduce_equal_dicts(a_dict, b_dict):
             return colored('same', 'dark_grey')
     return a_dict
 
-def hard_close_file_descriptors():
+def _hard_close_file_descriptors():
     KEEP_FD = set([0, 1, 2])
     if os.name == 'posix':
         try:
@@ -79,7 +79,7 @@ def hard_close_file_descriptors():
         except:
             pass
 
-def check_file_descriptors():
+def _check_file_descriptors():
     if os.name == 'posix':
         try:
             descs = os.listdir(os.path.join("/proc", str(os.getpid()), "fd"))

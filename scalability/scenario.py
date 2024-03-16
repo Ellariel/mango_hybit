@@ -124,9 +124,46 @@ WECS_CONFIG = {'P_rated': 7000,
                'v_min': 3.5, 
                'v_max': 25}
 
+def input_to_state(aeid, aid, input_data, current_state, **kwargs):
+    # state={'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0}}
+    global cells
+    #input Agent_3 {'current': {'FLSim-0.FLSim-0': 0.9}} {'production': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}, 'consumption': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}}
+    
+    #cells = {}
+    state = copy.deepcopy(MAS_STATE)
+    profile = get_unit_profile(aeid, cells)
+    #print('profile', profile)
+    #print(input_data, current_state)
+    if 'current' in input_data:
+        for eid, value in input_data['current'].items():
+            if 'Load' in eid or 'FL' in eid: # check the type of connected unit and its profile
+                state['consumption']['current'] += abs(value)
+                state['consumption'].update(profile)
+            elif 'Gen' in eid or 'PV' in eid or 'Wecs' in eid:
+                state['production']['current'] += abs(value)
+                profile.update({'max' : min(abs(value), profile['max'])})
+                state['production'].update(profile)
+                #print('ppp',get_unit_profile(aeid, cells))
+            elif 'ExternalGrid' in eid: #{'Grid-0.ExternalGrid-0': 45.30143468767862}} 
+                if value > 0: # check the convention here!
+                    state['production']['current'] += value
+                else:
+                    state['consumption']['current'] += abs(value) 
+                state['production'].update(profile)
+                state['consumption'].update(profile) 
+                #state['production']['min'] = value * -3
+                state['production']['max'] = value * 3 
+                #state['consumption']['min'] = abs(value) * -3
+                state['consumption']['max'] = abs(value) * 3
+                        
+            #print(eid, input_data, state)
+    print(highlight('\ninput'), aeid, aid, input_data, current_state, state)
+    return state
 
 def execute_instructions(aeid, aid, instruction, current_state, requested_states, **kwargs):
     global cells
+    info = {}
+    
     #print('EXECUTION')
     #print('instruction',instruction)
     #print('current_state',current_state)
@@ -143,9 +180,23 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
     print()
     print('requested_states', requested_states)
 
-    instructions, info = compute_instructions(instruction=instruction, 
-                                                                   current_state=current_state,
-                                                           requested_states=requested_states)
+
+
+    if len(requested_states) == 0:
+        print('LIST', aeid)
+        profile = get_unit_profile(aeid, cells)
+        print()
+        print('profile', profile)
+        
+
+
+
+
+        instructions = {aid : instruction}
+    else:
+        instructions, info = compute_instructions(instruction=instruction, 
+                                                                    current_state=current_state,
+                                                            requested_states=requested_states)
     print()
     print('new instructions', instructions)
     print()
@@ -317,10 +368,12 @@ def main():
                         pass
                     
                     cells.setdefault('match_unit', {})
+                    cells.setdefault('match_agent', {})
                     if 'sim' in e:
                         cells['match_unit'].update({e['sim'].eid : e['unit'].eid})
                     
                         if 'agent' in e:
+                            cells['match_agent'].update({e['agent'].eid : e['sim'].eid})
                             world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
                             #world.connect(e['sim'], e['unit'], 'P[MW]')
                             world.connect(e['agent'], e['sim'], 'scale_factor', weak=True)
@@ -329,11 +382,14 @@ def main():
                             #world.connect(e['agent'], csv_writer, 'scale_factor')
                     break
             hierarchical_controllers += hierarchical[1:]
-                    
+    
     print('cell controllers:', len(cell_controllers))
     print('hierarchical controllers:', len(hierarchical_controllers))
     print('power unit agents:', len(agents))
 
+    print(cells['match_agent'])
+    print(cells['match_unit'])
+    #sys.exit()
     print(f"Simulation started at {t.ctime()}")
     world.run(until=END)
     print(f"Simulation finished at {t.ctime()}")

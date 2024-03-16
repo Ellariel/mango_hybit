@@ -369,11 +369,12 @@ class MosaikAgent(mango.Agent):
                 
             if callable(self.params['execute_method']):
                 print(self._aggregated_state)
-                instructions, info = self.params['execute_method'](self.aeid,
+                instructions, state = self.params['execute_method'](self.aeid,
                                                                    self.aid, instruction=None, 
                                                                    current_state=self.state,
                                                            requested_states=self._requested_states,
                                                         **self.params)
+                self.state = state
             else:
                 raise AttributeError('Redispatch method is not defined!')
             
@@ -382,7 +383,7 @@ class MosaikAgent(mango.Agent):
             
             # Send instructions
             if self.params['verbose'] >= 1:
-                print(f'BROADCAST REDISPATCH INSTRUCTIONS: {info}')
+                print(f'BROADCAST REDISPATCH INSTRUCTIONS:')
             #print('!!!!!!!instructions',instructions)
             self._instructions_confirmed = {aid: asyncio.Future() for _, aid in self.connected_agents}
             futs = [self.schedule_instant_task(self.container.send_acl_message(
@@ -394,6 +395,7 @@ class MosaikAgent(mango.Agent):
                     ))
                     for addr, aid in self.connected_agents]
             await asyncio.gather(*futs)
+            #sys.exit()
             self._instructions_confirmed = await asyncio.gather(*[fut for fut in self._instructions_confirmed.values()])
             #print('!!!!!!!_instructions_confirmed',self._instructions_confirmed)
             self._instructions_confirmed = {k : v for i in self._instructions_confirmed for k, v in i['instructions'].items()}

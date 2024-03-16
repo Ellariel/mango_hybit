@@ -97,7 +97,7 @@ def generate_profiles(net, dir='./', seed=13):
     for _, unit in net.load.iterrows():
         profiles[unit['name']] = {
                 'max' : unit.p_mw * random.randrange(1, 4),
-                'min' : (unit.p_mw - unit.p_mw * random.randrange(1, 4) / 10) * random.randrange(0, 2),
+                'min' : (unit.p_mw - unit.p_mw * random.randrange(1, 4) / 10) * random.randrange(0, 2) + 0.01,
             }
     if dir:
         dir = os.path.join(dir, "profiles.json")
@@ -133,13 +133,23 @@ def get_cells_data(grid, grid_extra_info, profiles):
                     }})
     return cells
 
-def get_unit_profile(eid, cells_data):
+def _get_unit_profile(eid, cells_data):
     eid = eid.split('.')[1]
     if eid in cells_data['match_unit']:
         unit_eid = cells_data['match_unit'][eid]
         unit_type = unit_eid.split('-')[0]
         if unit_eid in cells_data['match_cell']:
             return cells_data[cells_data['match_cell'][unit_eid]][unit_type][unit_eid]['profile']
+        
+def get_unit_profile(aeid, cells_data):
+    if aeid in cells_data['match_agent']:
+        sim_eid = cells_data['match_agent'][aeid]
+        if sim_eid in cells_data['match_unit']:
+            unit_eid = cells_data['match_unit'][sim_eid]
+            unit_type = unit_eid.split('-')[0]
+            if unit_eid in cells_data['match_cell']:
+                return cells_data[cells_data['match_cell'][unit_eid]][unit_type][unit_eid]['profile']
+    return {}
 
 if __name__ == '__main__':
     cells_count = 2

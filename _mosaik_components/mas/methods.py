@@ -1,11 +1,11 @@
-import copy
+import copy, sys
 import pandas as pd
 from _mosaik_components.mas.utils import *
 
 MAS_STATE = MAS_DEFAULT_STATE.copy()
 PRECISION = 10 ** -6
 
-def input_to_state(aeid, aid, input_data, current_state, **kwargs):
+def _input_to_state(aeid, aid, input_data, current_state, **kwargs):
     # state={'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0}}
     #global cells
     #input Agent_3 {'current': {'FLSim-0.FLSim-0': 0.9}} {'production': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}, 'consumption': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}}
@@ -214,234 +214,308 @@ def compute_instructions(current_state, **kwargs):
             for i in _delta.keys():
                 max_inc = state[i]['max'] - state[i]['current']
                 max_dec = state[i]['current'] - state[i]['min']
-                if _delta[i]['current'] > 0:
+                if _delta[i]['current'] > PRECISION:
                     if _delta[i]['current'] <= max_inc:
                        state[i]['current'] += _delta[i]['current']
                        _delta[i]['current'] = 0
                     else:
                        state[i]['current'] += max_inc
                        _delta[i]['current'] -= max_inc
-                elif _delta[i]['current'] < 0:            
+                elif _delta[i]['current'] < PRECISION:            
                     if abs(_delta[i]['current']) <= max_dec:
                        state[i]['current'] += _delta[i]['current']
                        _delta[i]['current'] = 0
                     else:
                        state[i]['current'] -= max_dec
                        _delta[i]['current'] += max_dec
+                state[i]['scale_factor'] = state[i]['current'] / agents_info[aid][i]['current'] if agents_info[aid][i]['current'] > PRECISION else 1
         return _agents_info, _delta
-    def compute_delta_state(grid_state=None, cell_flexibility=None):
-                if grid_state == None:
-                    grid_state = copy.deepcopy(MAS_STATE)
-                if cell_flexibility == None:
-                    cell_flexibility = copy.deepcopy(MAS_STATE)
+    
+    def compute_balance(external_network_state=copy.deepcopy(MAS_STATE), 
+                                    cells_aggregated_state=copy.deepcopy(MAS_STATE)):
 
-                cell_balance = cell_flexibility['production']['current'] - cell_flexibility['consumption']['current']
+                old_cells_aggregated_state = copy.deepcopy(cells_aggregated_state)
+                old_external_network_state = copy.deepcopy(external_network_state)
+                cell_balance = cells_aggregated_state['production']['current'] - cells_aggregated_state['consumption']['current']
+                cells_aggregated_state['production']['current'] = np.clip(cells_aggregated_state['production']['current'], 
+                                                                            cells_aggregated_state['production']['min'], 
+                                                                            cells_aggregated_state['production']['max'])
+                cells_aggregated_state['consumption']['current'] = np.clip(cells_aggregated_state['consumption']['current'], 
+                                                                            cells_aggregated_state['consumption']['min'], 
+                                                                            cells_aggregated_state['consumption']['max'])
+                cell_expected_balance = cells_aggregated_state['production']['current'] - cells_aggregated_state['consumption']['current']
                 if verbose:
                     print(highlight('cell balance:', 'red'), cell_balance)
                 print(highlight('cell balance:', 'red'), cell_balance)
-                cell_inc_production = cell_flexibility['production']['max'] - cell_flexibility['production']['current']
-                if cell_inc_production < 0:
+                print(highlight('cell expected balance:', 'red'), cell_expected_balance)
+                external_network_min = external_network_state['consumption']['max'] * (-1)
+                external_network_max = external_network_state['production']['max']
+                external_network_default_balance = np.clip(external_network_state['production']['current'] - external_network_state['consumption']['current'] - cell_balance,
+                                                            external_network_min,
+                                                            external_network_max)
+                #print('external_network_default_balance', external_network_default_balance)
+                print(highlight('external_network_default_balance:', 'blue'), external_network_default_balance)
+                print('flexibility:')
+                print('external_network_min', external_network_min)
+                print('external_network_max', external_network_max)
+                #external_network_state['production']['current'] = np.clip(external_network_state['production']['current'], 
+                #                                                            external_network_state['production']['min'], 
+                #                                                            external_network_state['production']['max'])
+                
+                #external_network_state['consumption']['current'] = np.clip(external_network_state['consumption']['current'], 
+                #                                                            external_network_state['consumption']['min'], 
+                #                                                            external_network_state['consumption']['max'])
+                cell_inc_production = cells_aggregated_state['production']['max'] - cells_aggregated_state['production']['current']
+                if cell_inc_production < PRECISION:
                     cell_inc_production = 0
-                cell_dec_production = cell_flexibility['production']['current'] - cell_flexibility['production']['min']
-                if cell_dec_production < 0:
+                cell_dec_production = cells_aggregated_state['production']['current'] - cells_aggregated_state['production']['min']
+                if cell_dec_production < PRECISION:
                     cell_dec_production = 0
-
-                cell_dec_consumption = cell_flexibility['consumption']['current'] - cell_flexibility['consumption']['min']
-                if cell_dec_consumption < 0:
+                cell_dec_consumption = cells_aggregated_state['consumption']['current'] - cells_aggregated_state['consumption']['min']
+                if cell_dec_consumption < PRECISION:
                     cell_dec_consumption = 0
-                cell_inc_consumption = cell_flexibility['consumption']['max'] - cell_flexibility['consumption']['current']
-                if cell_inc_consumption < 0:
+                cell_inc_consumption = cells_aggregated_state['consumption']['max'] - cells_aggregated_state['consumption']['current']
+                if cell_inc_consumption < PRECISION:
                     cell_inc_consumption = 0
+                
+                print('cell_inc_production', cell_inc_production)
+                print('cell_dec_production', cell_dec_production)
+                print('cell_inc_consumption', cell_inc_consumption)
+                print('cell_dec_consumption', cell_dec_consumption)
+                #print()
 
-                grid_inc_production = grid_state['production']['max'] - grid_state['production']['current']
-                if grid_inc_production < 0:
+                grid_inc = external_network_max - external_network_default_balance
+                grid_dec = external_network_default_balance - external_network_min
+                print('grid_inc', grid_inc)
+                print('grid_dec', grid_dec)
+
+                '''
+                grid_inc_production = external_network_state['production']['max'] - external_network_state['production']['current']
+                if grid_inc_production < PRECISION:
                     grid_inc_production = 0
-                grid_dec_production = grid_state['production']['current'] - grid_state['production']['min']
-                if grid_dec_production < 0:
+                grid_dec_production = external_network_state['production']['current'] - external_network_state['production']['min']
+                if grid_dec_production < PRECISION:
                     grid_dec_production = 0
-
-                grid_dec_consumption = grid_state['consumption']['current'] - grid_state['consumption']['min']
-                if grid_dec_consumption < 0:
+                grid_dec_consumption = external_network_state['consumption']['current'] - external_network_state['consumption']['min']
+                if grid_dec_consumption < PRECISION:
                     grid_dec_consumption = 0
-                grid_inc_consumption = grid_state['consumption']['max'] - grid_state['consumption']['current']
-                if grid_inc_consumption < 0:
+                grid_inc_consumption = external_network_state['consumption']['max'] - external_network_state['consumption']['current']
+                if grid_inc_consumption < PRECISION:
                     grid_inc_consumption = 0
-
-                if cell_balance < 0:
-                    if abs(cell_balance) <= cell_inc_production:
-                        cell_inc_production = abs(cell_balance)
+                print('grid_inc_production', grid_inc_production)
+                print('grid_dec_production', grid_dec_production)
+                print('grid_inc_consumption', grid_inc_consumption)
+                print('grid_dec_consumption', grid_dec_consumption)
+                print()
+                '''
+                if cell_expected_balance < PRECISION:
+                    if abs(cell_expected_balance) <= cell_inc_production:
+                        cell_inc_production = abs(cell_expected_balance)
                         #cell_inc_production = 0
                         cell_dec_production = 0
-                        
                         cell_inc_consumption = 0
                         cell_dec_consumption = 0
-
-                        grid_inc_production = 0
-                        grid_dec_production = 0
-                        
-                        grid_inc_consumption = 0
-                        grid_dec_consumption = 0
-                    elif abs(cell_balance) <= cell_inc_production + cell_dec_consumption:
-                        cell_dec_consumption = abs(cell_balance) - cell_inc_production
-                        #cell_inc_production = 0
-                        cell_dec_production = 0
-                        
-                        cell_inc_consumption = 0
-                        #cell_dec_consumption = 0
-
-                        grid_inc_production = 0
-                        grid_dec_production = 0
-                        
-                        grid_inc_consumption = 0
-                        grid_dec_consumption = 0
-                    elif abs(cell_balance) <= cell_inc_production + cell_dec_consumption + grid_inc_production:
-                        grid_inc_production = abs(cell_balance) - cell_inc_production - cell_dec_consumption
-                        #cell_inc_production = 0
-                        cell_dec_production = 0
-                        
-                        cell_inc_consumption = 0
-                        #cell_dec_consumption = 0
-
+                        grid_inc = 0
+                        grid_dec = 0
                         #grid_inc_production = 0
-                        grid_dec_production = 0
-                        
-                        grid_inc_consumption = 0
-                        grid_dec_consumption = 0
-                    elif abs(cell_balance) <= cell_inc_production + cell_dec_consumption + grid_inc_production + grid_dec_consumption:
-                        grid_dec_consumption = abs(cell_balance) - cell_inc_production - cell_dec_consumption - grid_inc_production
+                        #grid_dec_production = 0
+                        #grid_inc_consumption = 0
+                        #grid_dec_consumption = 0
+                    elif abs(cell_expected_balance) <= cell_inc_production + cell_dec_consumption:
+                        cell_dec_consumption = abs(cell_expected_balance) - cell_inc_production
                         #cell_inc_production = 0
                         cell_dec_production = 0
-                        
                         cell_inc_consumption = 0
                         #cell_dec_consumption = 0
-
-                        #grid_inc_production = 0
-                        grid_dec_production = 0
+                        grid_inc = 0
+                        grid_dec = 0
                         
-                        grid_inc_consumption = 0
+                        #grid_inc_production = 0
+                        #grid_dec_production = 0
+                        #grid_inc_consumption = 0
+                        #grid_dec_consumption = 0
+                    #elif abs(cell_expected_balance) <= cell_inc_production + cell_dec_consumption + grid_inc_production:
+                    #    grid_inc_production = abs(cell_expected_balance) - cell_inc_production - cell_dec_consumption
+                    elif abs(cell_expected_balance) <= cell_inc_production + cell_dec_consumption + grid_inc:
+                        grid_inc = abs(cell_expected_balance) - cell_inc_production - cell_dec_consumption
+                        #cell_inc_production = 0
+                        cell_dec_production = 0
+                        cell_inc_consumption = 0
+                        #cell_dec_consumption = 0
+                        #grid_inc = 0
+                        grid_dec = 0
+                        
+                        #grid_inc_production = 0
+                        #grid_dec_production = 0
+                        #grid_inc_consumption = 0
+                        #grid_dec_consumption = 0
+                    #elif abs(cell_expected_balance) <= cell_inc_production + cell_dec_consumption + grid_inc_production + grid_dec_consumption:
+                    #    grid_dec_consumption = abs(cell_expected_balance) - cell_inc_production - cell_dec_consumption - grid_inc_production
+                    elif abs(cell_expected_balance) <= cell_inc_production + cell_dec_consumption + grid_inc + grid_dec:
+                        grid_dec = abs(cell_expected_balance) - cell_inc_production - cell_dec_consumption - grid_inc
+                        #cell_inc_production = 0
+                        cell_dec_production = 0
+                        cell_inc_consumption = 0
+                        #cell_dec_consumption = 0
+                        #grid_inc = 0
+                        #grid_dec = 0
+                        
+                        #grid_inc_production = 0
+                        #grid_dec_production = 0
+                        #grid_inc_consumption = 0
                         #grid_dec_consumption = 0
                     else:
                         if verbose:
                             print('balance mismatch!')
                         cell_inc_production = 0
                         cell_dec_production = 0
-                        
                         cell_inc_consumption = 0
                         cell_dec_consumption = 0
+                        grid_inc = 0
+                        grid_dec = 0
 
-                        grid_inc_production = 0
-                        grid_dec_production = 0
-                        
-                        grid_inc_consumption = 0
-                        grid_dec_consumption = 0 
-                elif cell_balance > 0:
-                    if abs(cell_balance) <= cell_dec_production:
-                        cell_dec_production = abs(cell_balance)
-                        cell_inc_production = 0
-                        #cell_dec_production = 0
-                        
-                        cell_inc_consumption = 0
-                        cell_dec_consumption = 0
-
-                        grid_inc_production = 0
-                        grid_dec_production = 0
-                        
-                        grid_inc_consumption = 0
-                        grid_dec_consumption = 0
-                    elif abs(cell_balance) <= cell_dec_production + cell_inc_consumption:
-                        cell_inc_consumption = abs(cell_balance) - cell_dec_production
-                        cell_inc_production = 0
-                        #cell_dec_production = 0
-                        
-                        #cell_inc_consumption = 0
-                        cell_dec_consumption = 0
-
-                        grid_inc_production = 0
-                        grid_dec_production = 0
-                        
-                        grid_inc_consumption = 0
-                        grid_dec_consumption = 0
-                    elif abs(cell_balance) <= cell_dec_production + cell_inc_consumption + grid_dec_production:
-                        grid_dec_production = abs(cell_balance) - cell_dec_production - cell_inc_consumption
-                        cell_inc_production = 0
-                        #cell_dec_production = 0
-                        
-                        #cell_inc_consumption = 0
-                        cell_dec_consumption = 0
-
-                        grid_inc_production = 0
+                        #grid_inc_production = 0
                         #grid_dec_production = 0
-                        
-                        grid_inc_consumption = 0
-                        grid_dec_consumption = 0
-                    elif abs(cell_balance) <= cell_dec_production + cell_inc_consumption + grid_dec_production + grid_inc_consumption:
-                        grid_inc_consumption = abs(cell_balance) - cell_dec_production - cell_inc_consumption - grid_dec_production
+                        #grid_inc_consumption = 0
+                        #grid_dec_consumption = 0 
+                elif cell_expected_balance > PRECISION:
+                    if abs(cell_expected_balance) <= cell_dec_production:
+                        cell_dec_production = abs(cell_expected_balance)
+                        cell_inc_production = 0
+                        #cell_dec_production = 0
+                        cell_inc_consumption = 0
+                        cell_dec_consumption = 0
+                        grid_inc = 0
+                        grid_dec = 0
+
+                        #grid_inc_production = 0
+                        #grid_dec_production = 0
+                        #grid_inc_consumption = 0
+                        #grid_dec_consumption = 0
+                    elif abs(cell_expected_balance) <= cell_dec_production + cell_inc_consumption:
+                        cell_inc_consumption = abs(cell_expected_balance) - cell_dec_production
+                        cell_inc_production = 0
+                        #cell_dec_production = 0
+                        #cell_inc_consumption = 0
+                        cell_dec_consumption = 0
+                        grid_inc = 0
+                        grid_dec = 0
+
+                        #grid_inc_production = 0
+                        #grid_dec_production = 0
+                        #grid_inc_consumption = 0
+                        #grid_dec_consumption = 0
+                    #elif abs(cell_expected_balance) <= cell_dec_production + cell_inc_consumption + grid_dec_production:
+                    #    grid_dec_production = abs(cell_expected_balance) - cell_dec_production - cell_inc_consumption
+                    elif abs(cell_expected_balance) <= cell_dec_production + cell_inc_consumption + grid_dec:
+                        grid_dec = abs(cell_expected_balance) - cell_dec_production - cell_inc_consumption
+                        cell_inc_production = 0
+                        #cell_dec_production = 0
+                        #cell_inc_consumption = 0
+                        cell_dec_consumption = 0
+                        grid_inc = 0
+                        #grid_dec = 0
+
+                        #grid_dec_production = 0
+                        #grid_inc_consumption = 0
+                        #grid_dec_consumption = 0
+                    #elif abs(cell_expected_balance) <= cell_dec_production + cell_inc_consumption + grid_dec_production + grid_inc_consumption:
+                    #    grid_inc_consumption = abs(cell_expected_balance) - cell_dec_production - cell_inc_consumption - grid_dec_production
+                    elif abs(cell_expected_balance) <= cell_dec_production + cell_inc_consumption + grid_dec + grid_inc:
+                        grid_inc = abs(cell_expected_balance) - cell_dec_production - cell_inc_consumption - grid_dec
+                        cell_inc_production = 0
+                        #cell_dec_production = 0
+                        #cell_inc_consumption = 0
+                        cell_dec_consumption = 0
+                        #grid_inc = 0
+                        #grid_dec = 0
                     else:
                         if verbose:
                             print('balance mismatch!')
                         cell_inc_production = 0
                         cell_dec_production = 0
-                        
                         cell_inc_consumption = 0
                         cell_dec_consumption = 0
-
-                        grid_inc_production = 0
-                        grid_dec_production = 0
-                        
-                        grid_inc_consumption = 0
-                        grid_dec_consumption = 0 
+                        grid_inc = 0
+                        grid_dec = 0
+                        #grid_inc_production = 0
+                        #grid_dec_production = 0
+                        #grid_inc_consumption = 0
+                        #grid_dec_consumption = 0 
                 else:
-                        cell_inc_production = 0
-                        cell_dec_production = 0
-                        
-                        cell_inc_consumption = 0
-                        cell_dec_consumption = 0
+                    cell_inc_production = 0
+                    cell_dec_production = 0
+                    cell_inc_consumption = 0
+                    cell_dec_consumption = 0
+                    grid_inc = 0
+                    grid_dec = 0
+                    if verbose:
+                        print('perfect balance!')  
+                print()           
+                print('control action:')
+                print('cell_inc_production', cell_inc_production) 
+                print('cell_dec_production', cell_dec_production) 
+                print('cell_dec_consumption', cell_dec_consumption) 
+                print('cell_inc_consumption', cell_inc_consumption) 
+                print('grid_inc', grid_inc) 
+                print('grid_dec', grid_dec) 
 
-                        grid_inc_production = 0
-                        grid_dec_production = 0
-                        
-                        grid_inc_consumption = 0
-                        grid_dec_consumption = 0  
-                        if verbose:
-                            print('perfect balance!')             
-                        
-                
-                #print('cell_inc_production', cell_inc_production) 
-                #print('cell_dec_production', cell_dec_production) 
-                #print('cell_dec_consumption', cell_dec_consumption) 
-                #print('cell_inc_consumption', cell_inc_consumption) 
                 #print('grid_inc_production', grid_inc_production)
                 #print('grid_dec_production', grid_dec_production)
                 #print('grid_dec_consumption', grid_dec_consumption) 
-                #print('grid_inc_consumption', grid_inc_consumption) 
-                cell_delta = copy.deepcopy(MAS_STATE)
-                cell_delta['production']['current'] = cell_inc_production - cell_dec_production
-                cell_delta['consumption']['current'] = cell_inc_consumption - cell_dec_consumption     
-                grid_delta = copy.deepcopy(MAS_STATE)
-                grid_delta['production']['current'] = grid_inc_production - grid_dec_production
-                grid_delta['consumption']['current'] = grid_inc_consumption - grid_dec_consumption 
+                #print('grid_inc_consumption', grid_inc_consumption)
 
-                cell_balance = cell_flexibility['production']['current'] + cell_delta['production']['current'] - cell_flexibility['consumption']['current'] - cell_delta['consumption']['current']
+                cells_aggregated_state['production']['current'] = cells_aggregated_state['production']['current'] + cell_inc_production - cell_dec_production
+                cells_aggregated_state['consumption']['current'] = cells_aggregated_state['consumption']['current'] + cell_inc_consumption - cell_dec_consumption     
+                new_cell_balance = cells_aggregated_state['production']['current'] - cells_aggregated_state['consumption']['current']
+                
+                #external_network_state['production']['current'] = external_network_state['production']['current'] + grid_inc - grid_dec
+                #external_network_state['consumption']['current'] = external_network_state['consumption']['current'] + grid_inc - grid_dec
+                new_external_network_balance = external_network_default_balance + grid_inc - grid_dec
+                if new_external_network_balance > PRECISION:
+                    external_network_state['production']['current'] = new_external_network_balance
+                    external_network_state['consumption']['current'] = 0
+                else:
+                    external_network_state['production']['current'] = 0
+                    external_network_state['consumption']['current'] = abs(new_external_network_balance)      
+
+                cells_aggregated_delta = calc_delta(old_cells_aggregated_state, cells_aggregated_state)
+                external_network_delta = calc_delta(old_external_network_state, external_network_state)
+
+                print('new_cells_aggregated_state', cells_aggregated_state)
+                print('new_external_network_state', external_network_state)
+                print('cells_aggregated_delta', cells_aggregated_delta)
+                print('external_network_delta', external_network_delta)
+
                 if verbose:
-                    print(highlight('new cell balance:', 'red'), cell_balance)
-                    print('grid delta:', grid_delta)
-                print(highlight('new cell balance:', 'red'), cell_balance)
-                print('grid delta:', grid_delta)
+                    print(highlight('new cell balance:', 'red'), new_cell_balance)
 
-                return grid_delta, cell_delta 
+                print(highlight('new cell balance:', 'red'), new_cell_balance)
+                print(highlight('new_external_network_balance:', 'blue'), new_external_network_balance)
+                #print('grid delta:', grid_delta)
+                #print('grid delta:', grid_delta)
 
-    requested_states = kwargs.get('requested_states', None)
+                return cells_aggregated_state, cells_aggregated_delta, external_network_state, external_network_delta
+
+    requested_states = kwargs.get('requested_states', {})
     instruction = kwargs.get('instruction', None)
 
     if instruction != None:
         delta = calc_delta(current_state, instruction)
-        instructions, delta_remained = compose_instructions(requested_states, delta)
+        instructions, remains = compose_instructions(requested_states, delta)
     else:
-        aggregated_state = aggregate_states(requested_states)
-        if True:# verbose:
-            print('\ngrid_state:', current_state)
-            print('aggregated_cell_state:', aggregated_state)
-        grid_delta, delta = compute_delta_state(current_state, aggregated_state)
-        instructions, delta_remained = compose_instructions(requested_states, delta)
+        cells_aggregated_state = aggregate_states(requested_states)
+        #if True:# verbose:
+            #print('\ngrid_state:', current_state)
+            #print('aggregated_cell_state:', aggregated_state)
+        #return cells_aggregated_state, cells_aggregated_delta, external_network_state, external_network_delta
+        _, cells_delta, delta, _ = compute_balance(current_state, cells_aggregated_state)
+        #print('compute_delta_state')
+        #print('grid_delta', grid_delta)
+        #print('delta', delta)
+        instructions, remains = compose_instructions(requested_states, cells_delta)
+        print('instructions', instructions)
+        print('info', reduce_zero_dict(delta))
+        #sys.exit()
 
     return instructions, delta
