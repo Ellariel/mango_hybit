@@ -18,11 +18,12 @@ from mosaik_api_v3.types import (
 
 META = {
     "api_version": "3.0",
-    "type": "time-based",
+    "type": "hybrid",
     "models": {
         "PVSim": {
             "public": True,
             "any_inputs": True,
+            "trigger" : ['scale_factor'],
             "params": ["scale_factor", "slope", "azimuth", "pvtech", 
                         "lat", "lon", "system_loss", "datayear", "datatype",
                         "optimal_angle", "optimal_both", "database"], 
@@ -62,7 +63,7 @@ class PVGISSimulator(mosaik_api_v3.Simulator):
         self.date = arrow.get(sim_params.get('start_date', '2016-01-01 00:00:00'), DATE_FORMAT)
         self.time_resolution = time_resolution
         self.step_size = step_size
-        self._first_step = True
+        self.current_time = -1
         self.sid = sid
         self.pvgis = PVGIS(verbose=self.verbose, 
                            local_cache_dir=self.cache_dir)
@@ -82,8 +83,8 @@ class PVGISSimulator(mosaik_api_v3.Simulator):
 
             old_index = production.index.copy()
             new_step_size = pd.Timedelta(self.step_size * self.time_resolution, unit='seconds')
-            production = production.resample(new_step_size).sum()
-            new_index = production.index.get_indexer(old_index, method='ffill')
+            production = production.fillna(0).resample(new_step_size).sum()
+            new_index = sorted(production.index.get_indexer(old_index, method='ffill'))
 
             for i in range(0, len(new_index) - 1): # rescaling with new step size
                 production.iloc[new_index[i]:new_index[i+1]] = production.iloc[new_index[i]:new_index[i+1]].mean()
@@ -98,26 +99,29 @@ class PVGISSimulator(mosaik_api_v3.Simulator):
     
     def get_production(self, eid, attr):
         idx = self.entities[eid].index.get_indexer([self.date.datetime], method='ffill')[0]
+        #print('\nidx', idx)
         production = self.entities[eid].iloc[idx] * self.scale_factor[eid]
         if self.gen_neg:
             production *= (-1)
+        print('\npvgis_output scalefctr', production)
         return production
 
     def step(self, time, inputs, max_advance):
-        if not self._first_step:
+        print('\npvgis', time)
+        if self.current_time > -1 and self.current_time != time:
             self.date = self.date.shift(seconds=self.step_size)
-        self._first_step = False
-        #print('\n!!PV input!!', inputs)
+        self.current_time = time
+
         for eid, attrs in inputs.items():
             for attr, vals in attrs.items():
                 if attr == 'scale_factor':
                     self.scale_factor[eid] = list(vals.values())[0]
+                    print('\npvgis_input scalefctr', self.scale_factor[eid])
+
 
         return time + self.step_size
      
     def get_data(self, outputs: OutputRequest) -> OutputData:
-        data =  {eid: {attr: self.get_production(eid, attr) 
+        return {eid: {attr: self.get_production(eid, attr) 
                             for attr in attrs
                                 } for eid, attrs in outputs.items()}
-        #print(data)
-        return data

@@ -18,13 +18,18 @@ from _mosaik_components.mas.utils import *
 import nest_asyncio
 nest_asyncio.apply()
 
+#aid_to_eid = {}
+
 class Agent(mango.Agent):
     def __init__(self, container, **params):
         super().__init__(container)
         self.container = container
         self.params = params
-        self.state = self.params.get('initial_state', copy.deepcopy(self.params['state_dict']))
-        self.controller = self.params.get('controller', None)
+        self.state = self.params.pop('initial_state', copy.deepcopy(self.params['state_dict']))
+        self.controller = self.params.pop('controller', None)
+        self.sid = self.params.pop('sid', None)
+        self.aeid = self.params.pop('aeid', None)
+        #print(self.sid, self.aeid, self.aid)
         self.connected_agents = []
         self._registration_confirmed = asyncio.Future()
         self._instructions_confirmed = {}
@@ -101,9 +106,10 @@ class Agent(mango.Agent):
         :param content: The state content including the current state coming from mosaik
         :param meta: the meta information dict
         """
+        
 
         if callable(self.params['input_method']):
-            self.state = self.params['input_method'](content.state, self.state)
+            self.state = self.params['input_method'](self.aeid, self.aid, content.state, self.state, **self.params)
         else:
             self.state = copy.deepcopy(content.state)
 
@@ -121,10 +127,10 @@ class Agent(mango.Agent):
         if callable(self.params['states_agg_method']):
             return self.params['states_agg_method'](requested_states, current_state)
 
-    def get_instructions(self, current_state, **kwargs):
-        if callable(self.params['redispatch_method']):
-            kwargs.update({'verbose' : self.params['verbose']})
-            return self.params['redispatch_method'](current_state, **kwargs)
+    #def get_instructions(self, current_state, **kwargs):
+    #    if callable(self.params['redispatch_method']):
+    #        kwargs.update({'verbose' : self.params['verbose']})
+    #        return self.params['redispatch_method'](current_state, **kwargs)
 
     async def send_state(self, content, meta):
         """
@@ -139,6 +145,7 @@ class Agent(mango.Agent):
         if len(self.connected_agents):
             if self.params['verbose'] >= 1:
                 print(f"REQUEST STATES: {self.aid} <- {', '.join([i[1] for i in self.connected_agents])}")
+            print(f"REQUEST STATES: {self.aid} <- {', '.join([i[1] for i in self.connected_agents])}")
             self._requested_states = {aid: asyncio.Future() for _, aid in self.connected_agents}
             futs = [self.schedule_instant_task(self.container.send_acl_message(
                             receiver_addr=addr,
@@ -171,21 +178,35 @@ class Agent(mango.Agent):
         :param meta: The meta information dict
         """
         instructions = content.instructions
-        self._instructions_confirmed = content.instructions
         instruction = instructions[self.aid]
-
+        #print(meta, content)
         # Do execute instruction
+        print(self.sid, self.aeid)
+
+        info = {}
         if callable(self.params['execute_method']):
-            self.params['execute_method'](instruction, current_state=self._aggregated_state,
+            add_instructions, info = self.params['execute_method'](self.aeid,
+                                                                   self.aid, instruction=instruction, 
+                                                                   current_state=self._aggregated_state,
                                                            requested_states=self._requested_states)
+            #instructions[self.aid] = instruction
+            instructions.update(add_instructions)
+
+        #print('!!!!!!!!!!!!!updateinstructions',self.aid, instructions)
+        #print(self.aid, 'scale_factr', instructions[self.aid]['production']['scale_factor'], instructions[self.aid]['consumption']['scale_factor'])
+
         if self.params['verbose'] >= 1:
             print(f"{highlight(self.aid)} <- {highlight('current_state')}: {self._aggregated_state}, {highlight('new_state')}: {reduce_equal_dicts(instruction, self._aggregated_state)}")
         
+        self._instructions_confirmed = instructions
+
         if len(self.connected_agents):
-            add_instructions, info = self.get_instructions(current_state=self._aggregated_state,
-                                                           requested_states=self._requested_states, 
-                                                           instruction=instruction)
-            instructions.update(add_instructions)
+            #add_instructions, info = self.get_instructions(current_state=self._aggregated_state,
+            #                                               requested_states=self._requested_states, 
+            #                                               instruction=instruction)
+            #print('!!!!!!!!!!!!!instructions',self.aid, instructions)
+            #instructions.update(add_instructions)
+            #print('!!!!!!!!!!!!!updateinstructions',self.aid, instructions)
             if self.params['verbose'] >= 1:
                 print(f"{highlight('info for')} {', '.join(self._requested_states.keys())}: {reduce_zero_dict(info)}")
 
@@ -205,6 +226,9 @@ class Agent(mango.Agent):
 
         #    print('!!!!!_instructions_confirmed', self.aid, self._instructions_confirmed)
         #print('!!!!!instructions', self.aid, instructions)
+        #print(self.aid, 'scale_factr', self._instructions_confirmed[self.aid]['production']['scale_factor'], self._instructions_confirmed[self.aid]['consumption']['scale_factor'])
+
+        
 
         msg_content = create_msg_content(InstructionsConfirmMessage, instructions={'aid': self.aid,
                                                                                    'instructions': self._instructions_confirmed})
@@ -222,7 +246,11 @@ class MosaikAgent(mango.Agent):
         super().__init__(container)
         self.container = container
         self.params = params
-        self.state = self.params.get('initial_state', copy.deepcopy(self.params['state_dict']))
+        self.sid = self.params.pop('sid', None)
+        self.aeid = self.params.pop('aeid', None)
+        #print(self.sid, self.aeid, self.aid)
+
+        self.state = self.params.pop('initial_state', copy.deepcopy(self.params['state_dict']))
         self.connected_agents = []
         self._updates_received = {}
         self._instructions_confirmed = {}
@@ -297,12 +325,12 @@ class MosaikAgent(mango.Agent):
         else:
             raise AttributeError('States aggregation method is not defined!')
 
-    def get_instructions(self, current_state, **kwargs):
-        if callable(self.params['redispatch_method']):
-            kwargs.update({'verbose' : self.params['verbose']})
-            return self.params['redispatch_method'](current_state, **kwargs)
-        else:
-            raise AttributeError('Redispatch method is not defined!')
+    #def get_instructions(self, current_state, **kwargs):
+    #    if callable(self.params['redispatch_method']):
+    #        kwargs.update({'verbose' : self.params['verbose']})
+    #        return self.params['redispatch_method'](current_state, **kwargs)
+    #    else:
+    #        raise AttributeError('Redispatch method is not defined!')
 
     async def trigger_communication_cycle(self):
         """
@@ -330,8 +358,24 @@ class MosaikAgent(mango.Agent):
                 print('EXECUTE REDISPATCH ALGORITHM')
                 #sys.exit()
 
-            instructions, info = self.get_instructions(current_state=self.state,
-                                                        requested_states=self._requested_states)
+            #instructions, info = self.get_instructions(current_state=self.state,
+            #                                            requested_states=self._requested_states)
+            
+
+            #if callable(self.params['redispatch_method']):
+            #    instructions, info = self.params['redispatch_method'](current_state=self.state,
+            #                                            requested_states=self._requested_states,
+            #                                            **self.params)
+                
+            if callable(self.params['execute_method']):
+                print(self._aggregated_state)
+                instructions, info = self.params['execute_method'](self.aeid,
+                                                                   self.aid, instruction=None, 
+                                                                   current_state=self.state,
+                                                           requested_states=self._requested_states,
+                                                        **self.params)
+            else:
+                raise AttributeError('Redispatch method is not defined!')
             
             if self.params['verbose'] >= 1:
                 print('AGGREGATED INSTRUCTIONS:', instructions)
@@ -355,6 +399,10 @@ class MosaikAgent(mango.Agent):
             self._instructions_confirmed = {k : v for i in self._instructions_confirmed for k, v in i['instructions'].items()}
             if self.params['verbose'] >= 1:
                 print('INSTRUCTIONS ARE CONFIRMED')
+
+            print('INSTRUCTIONS ARE CONFIRMED')
+            #print(self.aid, self._instructions_confirmed)
+
 
             return self._instructions_confirmed   
 
@@ -410,28 +458,32 @@ class MosaikAgents(mosaik_api.Simulator):
         # Set/updated in "setup_done()"
         self.all_agents = {} # contains agents + controllers for technical tasks
         self.aid_to_eid = {}
+        #self.last_time = -1
+        self.new_timestep = True
         self.entities = {}  # agent_id: unit_id
         self.output_cache = {}
-        self.input_cache = {}
+        #self.last_output_cache = {}
+        #self.input_cache = {}
 
         self._steptime = 0 # performance
 
-    def init(self, sid, time_resolution=1., step_size=60*15, **sim_params):
+    def init(self, sid, time_resolution=1., **sim_params):
         self.sid = sid
-        self.step_size = step_size
         self.loop = asyncio.get_event_loop()
         self.params = sim_params
 
+        self.step_size = self.params.pop('step_size', 60*15)
         self.host = self.params.pop('host', '0.0.0.0')
         self.port = self.params.pop('port', 5678)
         self.params.setdefault('verbose', 1)
         self.params.setdefault('performance', True)
         return META
 
-    async def _create_container(self, host, port):
+    async def _create_container(self, host, port, **params):
         return await mango.create_container(addr=(host, port))
     
     async def _create_mosaik_agent(self, container, **params):
+        params.update({'aeid' : 'MosaikAgent'})
         return MosaikAgent(container, **params)
 
     async def _create_agent(self, container, **params):
@@ -453,19 +505,24 @@ class MosaikAgents(mosaik_api.Simulator):
         assert model in META['models']
         # Get the number of agents created so far and count from this number
         # when creating new entity IDs:
+        #print(model_conf)
+        #print(self.params)
 
+        model_conf.update(self.params)
+        model_conf.update({'sid' : self.sid})
         if model == 'MosaikAgents' and self.main_container == None and self.mosaik_agent == None:
-            self.main_container = await self._create_container(self.host, self.port)
-            self.mosaik_agent = await self._create_mosaik_agent(self.main_container, **self.params)
+            self.main_container = await self._create_container(self.host, self.port, **model_conf)
+            self.mosaik_agent = await self._create_mosaik_agent(self.main_container, **model_conf)
             return [{'eid': 'MosaikAgent', 'type': model}]
 
         entities = []
-        self.params.update(model_conf)
+        
         n_agents = len(self.all_agents) + 1
         
         for i in range(n_agents, n_agents + num):
                 eid = 'Agent_%s' % i
-                agent = await self._create_agent(self.main_container, **self.params)
+                model_conf.update({'aeid' : eid})
+                agent = await self._create_agent(self.main_container, **model_conf)
                 self.all_agents[eid] = (self.main_container.addr, agent.aid)
                 entities.append({'eid': eid, 'type': model})                  
             # as the event loop is not running here, we have to create the agents via loop.run_unti_complete.
@@ -478,9 +535,14 @@ class MosaikAgents(mosaik_api.Simulator):
         Get the entities that our agents are connected to once the scenario
         setup is done.
         """
+        #global aid_to_eid
+        #aid_to_eid = {v[1] : k for k, v in self.all_agents.items()}
+        #aid_to_eid[self.mosaik_agent.aid] = 'MosaikAgent'
+
         self.mosaik_agent._all_agents = self.all_agents
         self.aid_to_eid = {v[1] : k for k, v in self.all_agents.items()}
         self.aid_to_eid[self.mosaik_agent.aid] = 'MosaikAgent'
+
         full_ids = ['%s.%s' % (self.sid, eid) for eid in self.all_agents.keys()] + [f"{self.sid}.MosaikAgent"]
         relations = yield self.mosaik.get_related_entities(full_ids)
         if self.params['verbose'] >= 2:
@@ -518,43 +580,67 @@ class MosaikAgents(mosaik_api.Simulator):
         mosaik to continue the simulation.
 
         """
+        print('\nagents', time)
         print(highlight('\ninputs:'), inputs)
+
+        #global aid_to_eid
 
         if self.params['verbose'] >= 2:
             print(highlight('\ninputs:'), inputs)
 
-        self.input_cache = copy.deepcopy(inputs)
+        #self.input_cache = copy.deepcopy(inputs)
 
         new_state = inputs.pop('MosaikAgent', {})
         if callable(self.params['input_method']):
-            self.mosaik_agent.state = self.params['input_method'](new_state, self.mosaik_agent.state)
+            self.mosaik_agent.state = self.params['input_method']('MosaikAgent', 'agent0', new_state, self.mosaik_agent.state, **self.params)
         else:
             self.mosaik_agent.state = copy.deepcopy(new_state)
 
+        #self.input_cache['MosaikAgent'] = self.mosaik_agent.state
+
         #print('INPUT', inputs)
         #print('OUTPUT', self.output_cache)
+        #self.last_output_cache = copy.deepcopy(self.output_cache)
             
         self._steptime = t.time()
         self.output_cache = self.loop.run_until_complete(self.mosaik_agent.run_loop(inputs=inputs))   
-        self._steptime = t.time() - self._steptime
-
+        #self.output_cache = {aid_to_eid[k]: v for k, v in self.output_cache.items()}
         self.output_cache = {self.aid_to_eid[k]: v for k, v in self.output_cache.items()}
         self.output_cache["MosaikAgent"] = self.mosaik_agent.state
+        self._steptime = t.time() - self._steptime      
 
         return time + self.step_size
 
     def get_data(self, outputs):
+        #if callable(self.params['output_method']):
+        #    self.output_cache = self.params['output_method'](outputs, self.output_cache)#, self.input_cache)
+        data = {}
+        #print(outputs)
         if callable(self.params['output_method']):
-            self.output_cache = self.params['output_method'](outputs, self.output_cache, self.input_cache)
+            for aeid, attrs in outputs.items():
+                aid = self.all_agents[aeid][1] if aeid in self.all_agents else None
+                if aeid == "MosaikAgent" and 'steptime' in attrs:
+                    aid = 'agent0'
+                    #print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!', attrs, attrs.index('steptime'))
+                    attrs = attrs.copy()
+                    attrs.remove('steptime')
 
-        if "MosaikAgent" in self.output_cache and self.params['performance']:
-            self.output_cache["MosaikAgent"].update({'steptime' : self._steptime})
+                #print(aid, attrs)
+                data[aeid] = self.params['output_method'](aeid, aid,
+                                                         attrs, 
+                                                         self.output_cache[aeid],
+                                                         **self.params)
+        else:
+            data = self.output_cache
+
+        if "MosaikAgent" in data and self.params['performance']:
+            data["MosaikAgent"].update({'steptime' : self._steptime})
 
         if self.params['verbose'] >= 2:
-            print(highlight('\noutput'), self.output_cache)
+            print(highlight('\noutput'), data)
 
-        print('\n', self.output_cache)
-        return self.output_cache
+        print(highlight('\noutput'), data)
+        return data
 
 
 if __name__ == '__main__':

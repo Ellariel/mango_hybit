@@ -91,8 +91,8 @@ def generate_profiles(net, dir='./', seed=13):
     np.random.seed(seed)
     for _, unit in net.sgen.iterrows():
         profiles[unit['name']] = {
-                'max' : unit.p_mw,
-                'min' : 0
+                'max' : unit.p_mw * random.randrange(1, 4),
+                'min' : 0 #0.1 if unit['bus'] == 7 or unit['bus'] == 22 else 0
             }
     for _, unit in net.load.iterrows():
         profiles[unit['name']] = {
@@ -103,6 +103,7 @@ def generate_profiles(net, dir='./', seed=13):
         dir = os.path.join(dir, "profiles.json")
         with open(dir, 'w') as f:
             json.dump(profiles, f)
+    #print(profiles)
     return profiles, dir
 
 
@@ -131,6 +132,14 @@ def get_cells_data(grid, grid_extra_info, profiles):
                         'profile' : profiles[name] if name in profiles else {},
                     }})
     return cells
+
+def get_unit_profile(eid, cells_data):
+    eid = eid.split('.')[1]
+    if eid in cells_data['match_unit']:
+        unit_eid = cells_data['match_unit'][eid]
+        unit_type = unit_eid.split('-')[0]
+        if unit_eid in cells_data['match_cell']:
+            return cells_data[cells_data['match_cell'][unit_eid]][unit_type][unit_eid]['profile']
 
 if __name__ == '__main__':
     cells_count = 2

@@ -6,6 +6,7 @@ script from the command line::
 
 """
 import os
+import sys
 import json
 import mosaik
 import random
@@ -20,7 +21,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 import pandapower.auxiliary
 pandapower.auxiliary._check_if_numba_is_installed = lambda x: x
 
-from _mosaik_components.mas.cells import create_cells, generate_profiles, get_cells_data
+from _mosaik_components.mas.cells import create_cells, generate_profiles, get_cells_data, get_unit_profile
 from _mosaik_components.mas.utils import set_random_seed
 from _mosaik_components.mas.mosaik_agents import *
 from _mosaik_components.mas.methods import *
@@ -65,10 +66,12 @@ else:
     with open(prof_file, 'r') as f:
         profiles = json.load(f)
 
-END = 3600 #* 24 * 1  # 1 day
-START_DATE = '2014-01-01 12:00:00'
+END = 3600 #* 2#* 24 * 1  # 1 day
+START_DATE = '2014-01-01 08:00:00'
+DATE_FORMAT = 'YYYY-MM-DD hh:mm:ss'
 GRID_FILE = net_file
 WIND_FILE = os.path.join(data_dir, 'wind_speed_m-s_15min.csv')
+LOAD_FILE = os.path.join(data_dir, 'Braunschweig_meteodata_2020_15min.csv')
 STEP_SIZE = 60 * 15
 
 # simulators
@@ -77,13 +80,10 @@ SIM_CONFIG = {
          'python': 'mosaik_components.pandapower:Simulator'
     },
     'PVSim': {
-        'python': 'mosaik_components.pv.pvgis_simulator:PVGISSimulator',
+        'python': '_mosaik_components.pv.pvgis_simulator:PVGISSimulator',
     },
     'FLSim': {
         'python': '_mosaik_components.flexible.flexiload_simulator:FLSimulator',
-    },
-    'CSV': {
-        'python': 'mosaik_csv:CSV',
     },
     'WecsSim': {
         'python': '_mosaik_components.wecssim.mosaik:WecsSim',
@@ -97,6 +97,9 @@ SIM_CONFIG = {
     'InputSim': {
         'python': 'mosaik.basic_simulators.input_simulator:InputSimulator', #mosaik_components
     },
+    'LoadSim': {
+        'python': 'mosaik_csv:CSV'
+    },  
 }
 
 # PV simulator
@@ -121,6 +124,49 @@ WECS_CONFIG = {'P_rated': 7000,
                'v_min': 3.5, 
                'v_max': 25}
 
+
+def execute_instructions(aeid, aid, instruction, current_state, requested_states, **kwargs):
+    global cells
+    #print('EXECUTION')
+    #print('instruction',instruction)
+    #print('current_state',current_state)
+    #instruction = copy.deepcopy(instruction)
+
+    print('EXECUTION', aeid, aid, instruction['production']['scale_factor'] if instruction else None, 
+          instruction['consumption']['scale_factor'] if instruction else None, 
+          list(requested_states.keys()))
+    
+    print()
+    print('instruction', instruction)
+    print()
+    print('current_state', current_state)
+    print()
+    print('requested_states', requested_states)
+
+    instructions, info = compute_instructions(instruction=instruction, 
+                                                                   current_state=current_state,
+                                                           requested_states=requested_states)
+    print()
+    print('new instructions', instructions)
+    print()
+    print('info', info)
+    return instructions, info
+    #global cells
+
+    new = instruction['production']['current']
+    current = current_state['production']['current']
+    instruction['production']['scale_factor'] = new / current if current > PRECISION else 1
+
+    new = instruction['consumption']['current']
+    current = current_state['consumption']['current']
+    instruction['consumption']['scale_factor'] = new / current if current > PRECISION else 1
+
+    #print('instruction', instruction)
+    print('EXECUTION', aeid, aid, instruction['production']['scale_factor'], instruction['consumption']['scale_factor'], list(requested_states.keys()))
+
+    return instruction
+
+'''
 # method that transforms mosaik inputs dict to the agent state (called for each agent/connected unit, default: copy dict)
 def input_to_state(input_data, current_state):
     # state={'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0}}
@@ -133,13 +179,19 @@ def input_to_state(input_data, current_state):
             if 'Load' in eid or 'FL' in eid: # check the type of connected unit and its profile
                 state['consumption']['min'] = profile['min']
                 state['consumption']['max'] = profile['max']
-                if value == 0: #input_data.get('scale_factor', 1) == 1 and 
-                    value = random.uniform(profile['min'], profile['max'])
+                #if value == 0: #input_data.get('scale_factor', 1) == 1 and 
+                #    value = random.uniform(profile['min'], profile['max'])
                 state['consumption']['current'] = np.clip(abs(value), profile['min'], profile['max'])
-            elif 'Gen' in eid or 'PV' in eid:
+                state['production']['current'] = 0
+                state['production']['min'] = 0
+                state['production']['max'] = 0
+            elif 'Gen' in eid or 'PV' in eid or 'Wecs' in eid:
                 state['production']['min'] = profile['min']
                 state['production']['max'] = min(abs(value), profile['max'])
-                state['production']['current'] = np.clip(abs(value), profile['min'], min(abs(value), profile['max']))
+                state['production']['current'] = np.clip(abs(value), profile['min'], profile['max'])
+                state['consumption']['current'] = 0
+                state['consumption']['min'] = 0
+                state['consumption']['max'] = 0
             elif 'ExternalGrid' in eid:
                 if value >= 0: # check the convention here!
                     state['production']['current'] = value
@@ -155,9 +207,11 @@ def input_to_state(input_data, current_state):
                     state['consumption']['current'] = abs(value)
                     state['consumption']['min'] = abs(value) * -3
                     state['consumption']['max'] = abs(value) * 3
-            #print(eid, state)
+            
+            print(eid, input_data, state)
             break
     return state
+'''
 
 # Multi-agent system (MAS) configuration
 # User-defined methods are specified in methods.py to make scenario cleaner, 
@@ -170,7 +224,7 @@ MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py
     'input_method': input_to_state, # method that transforms mosaik inputs dict to the agent state (see `update_state`, default: copy dict)
     'output_method': state_to_output, # method that transforms the agent state to mosaik outputs dict (default: copy dict)
     'states_agg_method': aggregate_states, # method that aggregates gathered states to one top-level state
-    'redispatch_method': compute_instructions, # method that computes and decomposes the redispatch instructions 
+    #'redispatch_method': compute_instructions, # method that computes and decomposes the redispatch instructions 
                                                # that will be hierarchically transmitted from each agent to its connected peers
     'execute_method': execute_instructions,    # executes the received instructions internally
 }
@@ -181,44 +235,50 @@ def main():
     set_random_seed(seed=args.seed)
     world = mosaik.World(SIM_CONFIG)
 
-
-
-
     gridsim = world.start('Grid', step_size=STEP_SIZE)
     grid = gridsim.Grid(json=GRID_FILE)
 
+    #loadsim = world.start("LoadSim", 
+    #                      sim_start=START_DATE, 
+    ##                      date_format=DATE_FORMAT,
+     #                     datafile=LOAD_FILE)
+
     with world.group():
     #if True:
-        masim = world.start('MAS', step_size=STEP_SIZE, **MAS_CONFIG)
-        
-
+        masim = world.start('MAS', 
+                            step_size=STEP_SIZE, 
+                            **MAS_CONFIG,
+                            )
         pvsim = world.start(
                         "PVSim",
                         step_size=STEP_SIZE,
                         sim_params=PVSIM_PARAMS,
                     )
-        
+        input_sim = world.start("InputSim", step_size=STEP_SIZE)
         flsim = world.start(
                         "FLSim",
                         step_size=STEP_SIZE,
                         sim_params=PVSIM_PARAMS,
                     )
-        
-        wsim = world.start('WecsSim', 
-                        step_size=STEP_SIZE, 
-                        wind_file=WIND_FILE)
+        #wsim = world.start('WecsSim', 
+        #                step_size=STEP_SIZE, 
+        #                wind_file=WIND_FILE,
+        #            )
         
     csv_sim_writer = world.start('CSV_writer', start_date = START_DATE,
                                             output_file=os.path.join(results_dir, args.output_file))
     
-    input_sim = world.start("InputSim", step_size=STEP_SIZE)
-    csv_writer = csv_sim_writer.CSVWriter(buff_size = STEP_SIZE)
+    
+    csv_writer = csv_sim_writer.CSVWriter(buff_size=STEP_SIZE)
     mosaik_agent = masim.MosaikAgents() # core agent for the mosaik communication 
 
     cells = get_cells_data(grid, gridsim.get_extra_info(), profiles)
     ext_grids = [e for e in grid.children if e.type in ['ExternalGrid', 'Ext_grid']]
     world.connect(ext_grids[0], mosaik_agent, ('P[MW]', 'current'))
     world.connect(mosaik_agent, csv_writer, 'steptime')
+    world.connect(mosaik_agent, csv_writer, 'current')
+
+    #print(cells)
 
     pv = [] # PV simulators
     wp = [] # Wind power simulators
@@ -237,15 +297,20 @@ def main():
                     agents += masim.MosaikAgents.create(num=1, controller=hierarchical[-1].eid)
                     # 'type-index-bus-cell'
                     if e['type'] == 'StaticGen':
-                        if '-7' in e['bus']: # wind at Bus-*-7                     
-                            wp += wsim.WECS.create(num=1, **WECS_CONFIG)
-                            e.update({'agent' : agents[-1], 'sim' : wp[-1]})             
-                        else: # PV
+                        #if '-7' in e['bus']: # wind at Bus-*-7                     
+                        #    wp += wsim.WECS.create(num=1, **WECS_CONFIG)
+                        #    e.update({'agent' : agents[-1], 'sim' : wp[-1]})   
+                        #    world.connect(e['sim'], csv_writer, 'P[MW]')   
+                        #    pass        
+                        #else: # PV
                             pv += pvsim.PVSim.create(num=1, **PVMODEL_PARAMS)
-                            e.update({'agent' : agents[-1], 'sim' : pv[-1]})              
+                            e.update({'agent' : agents[-1], 'sim' : pv[-1]})     
+                            #world.connect(e['sim'], csv_writer, 'P[MW]')            
                     elif e['type'] == 'Load':
                         fl += flsim.FLSim.create(num=1)
-                        fli = input_sim.Function.create(1, function=lambda x: 100*len(fl)/10) #random.uniform(1, 10)
+                        fli = input_sim.Function.create(1, function=lambda x: x * len(fl)/1000)
+                        #fli = loadsim.Braunschweig.create(1)
+                        #world.connect(fli[0], csv_writer, ('value', 'P[MW]'))
                         e.update({'agent' : agents[-1], 'sim' : fl[-1]})
                         world.connect(fli[0], e['sim'], ('value', 'P[MW]'))
                     else:
@@ -261,8 +326,8 @@ def main():
                             world.connect(e['agent'], e['sim'], 'scale_factor', weak=True)
                             #world.connect(e['sim'], csv_writer, 'P[MW]') 
                             #world.connect(e['agent'], csv_writer, 'current')
-                            world.connect(e['agent'], csv_writer, 'scale_factor')
-
+                            #world.connect(e['agent'], csv_writer, 'scale_factor')
+                    break
             hierarchical_controllers += hierarchical[1:]
                     
     print('cell controllers:', len(cell_controllers))

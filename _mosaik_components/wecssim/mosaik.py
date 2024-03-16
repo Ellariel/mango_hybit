@@ -38,7 +38,7 @@ META = {
         },
     },
 }
-STEP_SIZE = 15  # minutes
+#STEP_SIZE = 15  # minutes
 
 # Used to store a single WECS' config parameters
 WecsConfig = namedtuple('WecsConfig', 'P_rated, v_rated, v_min, v_max')
@@ -78,6 +78,7 @@ class WecsSim(mosaik_api.Simulator):
 
         """
         wind_file = sim_params['wind_file']
+        self.step_size = sim_params.get('step_size', 60*15)
         self.wind_file = io.open(wind_file, 'rt')
 
         # Return our simulator's meta data to mosaik:
@@ -149,6 +150,7 @@ class WecsSim(mosaik_api.Simulator):
             }
 
         """
+        print('\nwecs', time)
         #print(inputs)
         # Generate a new vector with P_Max values.  Use P_rated as default and
         # override the default value if necessary:
@@ -166,6 +168,7 @@ class WecsSim(mosaik_api.Simulator):
             
             factor = wecs_inputs.get('scale_factor', {'default' : 1.0})
             self.scale_factors[eid] = list(factor.values())[0]
+            print('scale_factors in', self.scale_factors[eid])
 
         # Set the P_max vector to the simulator:
         self.sim.set_P_max(P_max)
@@ -181,7 +184,7 @@ class WecsSim(mosaik_api.Simulator):
         self.sim.step(data)
 
         # We want to do our next step in STEP_SIZE minutes:
-        return time + (STEP_SIZE * 60)
+        return time + self.step_size #(STEP_SIZE * 60)
 
     def get_data(self, outputs):
         data = {}
@@ -195,7 +198,10 @@ class WecsSim(mosaik_api.Simulator):
                 if attr not in self.meta['models']['WECS']['attrs']:
                     raise AttributeError('Attribute "%s" not available' % attr)
                 elif attr == 'P[MW]':
+                    print(float(getattr(self.sim, 'P')[idx]))
+                    #print('scale_factors out', self.scale_factors[eid])
                     data[eid][attr] = self.scale_factors[eid] * float(getattr(self.sim, 'P')[idx]) / 10**3
+        print(data)
         return data
 
 def main():

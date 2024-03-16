@@ -27,8 +27,8 @@ MAS_DEFAULT_CONFIG = {
     'input_method': None, # method that transforms mosaik inputs dict to the agent state (see `update_state`, default: copy dict)
     'output_method': None, # method that transforms the agent state to mosaik outputs dict (default: copy dict)
     'states_agg_method': None, # method that aggregates gathered states to one top-level state
-    'redispatch_method': None, # method that computes and decomposes the redispatch instructions 
-                               # that will be hierarchically transmitted from each agent to its connected peers
+    #'redispatch_method': None, # method that computes and decomposes the redispatch instructions 
+    #                           # that will be hierarchically transmitted from each agent to its connected peers
     'execute_method': None,    # executes the received instructions internally
 }
 
