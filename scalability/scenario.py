@@ -141,8 +141,8 @@ def input_to_state(aeid, aid, input_data, current_state, **kwargs):
                 state['consumption'].update(profile)
             elif 'Gen' in eid or 'PV' in eid or 'Wecs' in eid:
                 state['production']['current'] += abs(value)
-                profile.update({'max' : min(abs(value), profile['max'])})
-                state['production'].update(profile)
+                #state['production'].update(profile)
+                state['production'].update({'max' : min(abs(value), profile['max'])})
                 #print('ppp',get_unit_profile(aeid, cells))
             elif 'ExternalGrid' in eid: #{'Grid-0.ExternalGrid-0': 45.30143468767862}} 
                 if value > 0: # check the convention here!
@@ -183,10 +183,10 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
 
 
     if len(requested_states) == 0:
-        print('LIST', aeid)
-        profile = get_unit_profile(aeid, cells)
-        print()
-        print('profile', profile)
+        #print('LIST', aeid)
+        #profile = get_unit_profile(aeid, cells)
+        #print()
+        #print('profile', profile)
         
 
 
@@ -197,10 +197,10 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
         instructions, info = compute_instructions(instruction=instruction, 
                                                                     current_state=current_state,
                                                             requested_states=requested_states)
-    print()
-    print('new instructions', instructions)
-    print()
-    print('info', info)
+    #print()
+    #print('new instructions', instructions)
+    #print()
+    #print('info', info)
     return instructions, info
     #global cells
 
@@ -380,7 +380,7 @@ def main():
                             #world.connect(e['sim'], csv_writer, 'P[MW]') 
                             #world.connect(e['agent'], csv_writer, 'current')
                             #world.connect(e['agent'], csv_writer, 'scale_factor')
-                    break
+                    #break
             hierarchical_controllers += hierarchical[1:]
     
     print('cell controllers:', len(cell_controllers))

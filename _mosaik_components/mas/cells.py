@@ -97,7 +97,7 @@ def generate_profiles(net, dir='./', seed=13):
     for _, unit in net.load.iterrows():
         profiles[unit['name']] = {
                 'max' : unit.p_mw * random.randrange(1, 4),
-                'min' : (unit.p_mw - unit.p_mw * random.randrange(1, 4) / 10) * random.randrange(0, 2) + 0.01,
+                'min' : (unit.p_mw - unit.p_mw * random.randrange(1, 4) / 10) * random.randrange(0, 2),
             }
     if dir:
         dir = os.path.join(dir, "profiles.json")
