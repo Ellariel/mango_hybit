@@ -677,7 +677,7 @@ class MosaikAgents(mosaik_api.Simulator):
         if self.params['verbose'] >= 2:
             print(highlight('\noutput'), data)
 
-        #print(highlight('\noutput'), data)
+        print(highlight('\noutput'), data)
         return data
 
 

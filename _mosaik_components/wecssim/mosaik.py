@@ -55,7 +55,9 @@ class WecsSim(mosaik_api.Simulator):
         self.wecs = {}  # Maps EIDs to wecs index
         self.wecs_config = []  # List of WecsConfig tuples
         self.sim = None  # WECS sim instance
-        self.scale_factors = {}
+        self.scale_factor = {}
+        self.current_time = -1
+        #self.values_cache = {}
 
     def init(self, sid, time_resolution=1., **sim_params):
         """*wind_file* is a CSV file containing one or more time series for
@@ -104,7 +106,8 @@ class WecsSim(mosaik_api.Simulator):
             # and store the config for the current entity:
             self.wecs[eid] = wecs_idx
             self.wecs_config.append(WecsConfig(**wecs_params))
-            self.scale_factors[eid] = 1
+            self.scale_factor[eid] = 0
+            #self.values_cache[eid] = 0
 
             # Add entity data for mosaik
             entities.append({'eid': eid, 'type': model})
@@ -150,13 +153,14 @@ class WecsSim(mosaik_api.Simulator):
             }
 
         """
-        print('\nwecs', time)
+        #print('\nwecs', time)
         #print(inputs)
         # Generate a new vector with P_Max values.  Use P_rated as default and
         # override the default value if necessary:
         P_max = self.sim.P_rated.copy()
         for eid, wecs_inputs in inputs.items():
             idx = self.wecs[eid]
+
             if 'P_max' in wecs_inputs:
                 # "wecs_inputs" must be a dict with only one entry, because
                 # there is a 1:1 relation between WECS and agent:
@@ -165,23 +169,31 @@ class WecsSim(mosaik_api.Simulator):
                 # Pop the single value from the dict:
                 _, p_max_i = wecs_inputs['P_max'].popitem()
                 P_max[idx] = p_max_i
-            
-            factor = wecs_inputs.get('scale_factor', {'default' : 1.0})
-            self.scale_factors[eid] = list(factor.values())[0]
-            print('scale_factors in', self.scale_factors[eid])
 
-        # Set the P_max vector to the simulator:
-        self.sim.set_P_max(P_max)
 
-        # Get current wind velocities from the file and step the sim:
-        data = next(self.wind_file).strip().split(',')
-        data = [float(val) for val in data]
-        data_len = len(data)
-        wecs_count = len(self.wecs)
-        # "data_len" may be smaller than "wecs_count" (see "init()"),
-        # so we need to expand it:
-        data = np.array([data[i % data_len] for i in range(wecs_count)])
-        self.sim.step(data)
+            if 'scale_factor' in wecs_inputs:
+                factor = wecs_inputs.get('scale_factor', {'default' : 0})
+                self.scale_factor[eid] = list(factor.values())[0]
+            #print('scale_factors in', self.scale_factors[eid])
+
+        if self.current_time != time:
+            #self.date = self.date.shift(seconds=self.step_size)
+            self.scale_factor = {k: 0 for k, v in self.scale_factor.items()}               
+        
+
+            # Set the P_max vector to the simulator:
+            self.sim.set_P_max(P_max)
+            # Get current wind velocities from the file and step the sim:
+            data = next(self.wind_file).strip().split(',')
+            data = [float(val) for val in data]
+            data_len = len(data)
+            wecs_count = len(self.wecs)
+            # "data_len" may be smaller than "wecs_count" (see "init()"),
+            # so we need to expand it:
+            data = np.array([data[i % data_len] for i in range(wecs_count)])
+            self.sim.step(data)
+
+        self.current_time = time
 
         # We want to do our next step in STEP_SIZE minutes:
         return time + self.step_size #(STEP_SIZE * 60)
@@ -198,10 +210,10 @@ class WecsSim(mosaik_api.Simulator):
                 if attr not in self.meta['models']['WECS']['attrs']:
                     raise AttributeError('Attribute "%s" not available' % attr)
                 elif attr == 'P[MW]':
-                    print(float(getattr(self.sim, 'P')[idx]))
+                    #print(float(getattr(self.sim, 'P')[idx]))
                     #print('scale_factors out', self.scale_factors[eid])
-                    data[eid][attr] = self.scale_factors[eid] * float(getattr(self.sim, 'P')[idx]) / 10**3
-        print(data)
+                    data[eid][attr] = self.scale_factor[eid] + (float(getattr(self.sim, 'P')[idx]) / 10**3)
+        #print(data)
         return data
 
 def main():

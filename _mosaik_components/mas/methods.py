@@ -246,7 +246,15 @@ def compute_instructions(current_state, **kwargs):
                             state[i]['current'] -= max_dec
                             _delta[i]['current'] += max_dec
                     #state[i]['scale_factor'] = state[i]['current'] / agents_info[aid][i]['current'] if agents_info[aid][i]['current'] > PRECISION else 1
-                    state[i]['scale_factor'] = state[i]['current'] - agents_info[aid][i]['current'] #/ if agents_info[aid][i]['current'] > PRECISION else 1
+                    
+                    #print(aid, 'scale_factor old', agents_info[aid][i]['scale_factor'], ' current', agents_info[aid][i]['current'])
+                    
+                    #state[i]['scale_factor'] = state[i]['current'] - (agents_info[aid][i]['current'] - agents_info[aid][i]['scale_factor'])#/ if agents_info[aid][i]['current'] > PRECISION else 1
+                    state[i]['scale_factor'] = state[i]['current'] - agents_info[aid][i]['current']#/ if agents_info[aid][i]['current'] > PRECISION else 1
+
+
+                    #print(aid, 'scale_factor new', state[i]['scale_factor'], ' current', state[i]['current'])
+        
         return _agents_info, _delta
     
     def compute_balance(external_network_state=copy.deepcopy(MAS_STATE), 
@@ -264,27 +272,21 @@ def compute_instructions(current_state, **kwargs):
                                                                             cells_aggregated_state['consumption']['min'], 
                                                                             cells_aggregated_state['consumption']['max'])
                 cell_expected_balance = cells_aggregated_state['production']['current'] - cells_aggregated_state['consumption']['current']
-                if verbose:
-                    print(highlight('cell balance:', 'red'), cell_balance)
-                print(highlight('cell balance:', 'red'), cell_balance)
-                print(highlight('cell expected balance:', 'red'), cell_expected_balance)
+
                 external_network_min = external_network_state['consumption']['max'] * (-1)
                 external_network_max = external_network_state['production']['max']
                 external_network_default_balance = np.clip(external_network_state['production']['current'] - external_network_state['consumption']['current'] - cell_balance,
                                                             external_network_min,
                                                             external_network_max)
-                #print('external_network_default_balance', external_network_default_balance)
-                print(highlight('external_network_default_balance:', 'blue'), external_network_default_balance)
-                print('flexibility:')
-                print('external_network_min', external_network_min)
-                print('external_network_max', external_network_max)
-                #external_network_state['production']['current'] = np.clip(external_network_state['production']['current'], 
-                #                                                            external_network_state['production']['min'], 
-                #                                                            external_network_state['production']['max'])
-                
-                #external_network_state['consumption']['current'] = np.clip(external_network_state['consumption']['current'], 
-                #                                                            external_network_state['consumption']['min'], 
-                #                                                            external_network_state['consumption']['max'])
+                if verbose >= 0:
+                    #print(highlight('cell balance:', 'red'), cell_balance)
+                    print(highlight('cells balance:', 'red'), cell_balance)
+                    print(highlight('cells expected balance:', 'red'), cell_expected_balance)
+                    print(highlight('external network default balance:', 'blue'), external_network_default_balance)
+                #print('flexibility:')
+                #print('external_network_min', external_network_min)
+                #print('external_network_max', external_network_max)
+
                 cell_inc_production = cells_aggregated_state['production']['max'] - cells_aggregated_state['production']['current']
                 if cell_inc_production < PRECISION:
                     cell_inc_production = 0
@@ -298,36 +300,17 @@ def compute_instructions(current_state, **kwargs):
                 if cell_inc_consumption < PRECISION:
                     cell_inc_consumption = 0
                 
-                print('cell_inc_production', cell_inc_production)
-                print('cell_dec_production', cell_dec_production)
-                print('cell_inc_consumption', cell_inc_consumption)
-                print('cell_dec_consumption', cell_dec_consumption)
+                #print('cell_inc_production', cell_inc_production)
+                #print('cell_dec_production', cell_dec_production)
+                #print('cell_inc_consumption', cell_inc_consumption)
+                #print('cell_dec_consumption', cell_dec_consumption)
                 #print()
 
                 grid_inc = external_network_max - external_network_default_balance
                 grid_dec = external_network_default_balance - external_network_min
-                print('grid_inc', grid_inc)
-                print('grid_dec', grid_dec)
+                #print('grid_inc', grid_inc)
+                #print('grid_dec', grid_dec)
 
-                '''
-                grid_inc_production = external_network_state['production']['max'] - external_network_state['production']['current']
-                if grid_inc_production < PRECISION:
-                    grid_inc_production = 0
-                grid_dec_production = external_network_state['production']['current'] - external_network_state['production']['min']
-                if grid_dec_production < PRECISION:
-                    grid_dec_production = 0
-                grid_dec_consumption = external_network_state['consumption']['current'] - external_network_state['consumption']['min']
-                if grid_dec_consumption < PRECISION:
-                    grid_dec_consumption = 0
-                grid_inc_consumption = external_network_state['consumption']['max'] - external_network_state['consumption']['current']
-                if grid_inc_consumption < PRECISION:
-                    grid_inc_consumption = 0
-                print('grid_inc_production', grid_inc_production)
-                print('grid_dec_production', grid_dec_production)
-                print('grid_inc_consumption', grid_inc_consumption)
-                print('grid_dec_consumption', grid_dec_consumption)
-                print()
-                '''
                 if cell_expected_balance < PRECISION:
                     if abs(cell_expected_balance) <= cell_inc_production:
                         cell_inc_production = abs(cell_expected_balance)
@@ -385,7 +368,7 @@ def compute_instructions(current_state, **kwargs):
                         #grid_inc_consumption = 0
                         #grid_dec_consumption = 0
                     else:
-                        if verbose:
+                        if verbose >= 0:
                             print('balance mismatch!')
                         cell_inc_production = 0
                         cell_dec_production = 0
@@ -450,7 +433,7 @@ def compute_instructions(current_state, **kwargs):
                         #grid_inc = 0
                         #grid_dec = 0
                     else:
-                        if verbose:
+                        if verbose >= 0:
                             print('balance mismatch!')
                         cell_inc_production = 0
                         cell_dec_production = 0
@@ -469,16 +452,16 @@ def compute_instructions(current_state, **kwargs):
                     cell_dec_consumption = 0
                     grid_inc = 0
                     grid_dec = 0
-                    if verbose:
+                    if verbose >= 0:
                         print('perfect balance!')  
-                print()           
-                print('control action:')
-                print('cell_inc_production', cell_inc_production) 
-                print('cell_dec_production', cell_dec_production) 
-                print('cell_dec_consumption', cell_dec_consumption) 
-                print('cell_inc_consumption', cell_inc_consumption) 
-                print('grid_inc', grid_inc) 
-                print('grid_dec', grid_dec) 
+                #print()           
+                #print('control action:')
+                #print('cell_inc_production', cell_inc_production) 
+                #print('cell_dec_production', cell_dec_production) 
+                #print('cell_dec_consumption', cell_dec_consumption) 
+                #print('cell_inc_consumption', cell_inc_consumption) 
+                #print('grid_inc', grid_inc) 
+                #print('grid_dec', grid_dec) 
 
                 #print('grid_inc_production', grid_inc_production)
                 #print('grid_dec_production', grid_dec_production)
@@ -502,22 +485,23 @@ def compute_instructions(current_state, **kwargs):
                 cells_aggregated_delta = calc_delta(old_cells_aggregated_state, cells_aggregated_state)
                 external_network_delta = calc_delta(old_external_network_state, external_network_state)
 
-                print('new_cells_aggregated_state', cells_aggregated_state)
-                print('new_external_network_state', external_network_state)
-                print('cells_aggregated_delta', cells_aggregated_delta)
-                print('external_network_delta', external_network_delta)
+                #print('new_cells_aggregated_state', cells_aggregated_state)
+                #print('new_external_network_state', external_network_state)
+                #print('cells_aggregated_delta', cells_aggregated_delta)
+                #print('external_network_delta', external_network_delta)
 
-                if verbose:
-                    print(highlight('new cell balance:', 'red'), new_cell_balance)
-
-                print(highlight('new cell balance:', 'red'), new_cell_balance)
-                print(highlight('new_external_network_balance:', 'blue'), new_external_network_balance)
+                if verbose >= 0:
+                    print(highlight('new cells balance:', 'red'), new_cell_balance)
+                    print(highlight('new external network balance:', 'blue'), new_external_network_balance)
                 #print('grid delta:', grid_delta)
                 #print('grid delta:', grid_delta)
 
                 ok = abs(cell_balance - cell_expected_balance) < PRECISION
-                if ok:
-                    print('CONVERGED')
+                if verbose >= 0:
+                    if ok:
+                        print(highlight('CONVERGED!', 'green'))
+                    else:
+                        print(highlight('NOT CONVERGED!', 'red'))
                 return ok, cells_aggregated_state, cells_aggregated_delta, external_network_state, external_network_delta
 
     requested_states = kwargs.get('requested_states', {})
@@ -538,8 +522,8 @@ def compute_instructions(current_state, **kwargs):
         #print('grid_delta', grid_delta)
         #print('delta', delta)
         instructions, remains = compose_instructions(requested_states, cells_delta)
-        print('instructions', instructions)
-        print('info', reduce_zero_dict(delta))
+        #print('instructions', instructions)
+        #print('info', reduce_zero_dict(delta))
         #sys.exit()
 
     return ok, instructions, delta

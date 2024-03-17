@@ -66,7 +66,7 @@ else:
     with open(prof_file, 'r') as f:
         profiles = json.load(f)
 
-END = 3600 * 3#* 24 * 1  # 1 day
+END = 3600 #* 3#* 24 * 1  # 1 day
 START_DATE = '2014-01-01 08:00:00'
 DATE_FORMAT = 'YYYY-MM-DD hh:mm:ss'
 GRID_FILE = net_file
@@ -132,9 +132,11 @@ def input_to_state(aeid, aid, input_data, current_state, **kwargs):
     #cells = {}
     state = copy.deepcopy(MAS_STATE)
     profile = get_unit_profile(aeid, cells)
+    #state['production'].update(profile)
+    #state['consumption'].update(profile) 
     #print('profile', profile)
-    print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!',input_data)
-    print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!',current_state)
+    #print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!',input_data)
+    #print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!',current_state)
     #if current_state['info']['initial_state'] < PRECISION:
     #    print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!', 'initial_state')
     print()
@@ -156,13 +158,15 @@ def input_to_state(aeid, aid, input_data, current_state, **kwargs):
                     state['consumption']['current'] += abs(value) 
                 state['production'].update(profile)
                 state['consumption'].update(profile) 
-                #state['production']['min'] = value * -3
+                state['production']['min'] = 0
                 state['production']['max'] = value * 3 
-                #state['consumption']['min'] = abs(value) * -3
+                state['consumption']['min'] = 0
                 state['consumption']['max'] = abs(value) * 3
-                        
+            break 
             #print(eid, input_data, state)
-    #print(highlight('\ninput'), aeid, aid, input_data, current_state, state)
+    state['consumption']['scale_factor'] = current_state['consumption']['scale_factor']
+    state['production']['scale_factor'] = current_state['production']['scale_factor']
+    print(highlight('\ninput'), aeid, aid, input_data, current_state, state)
     #state['info'].update({'initial_state' : 1})
     return state
 
@@ -320,10 +324,10 @@ def main():
                         step_size=STEP_SIZE,
                         sim_params=PVSIM_PARAMS,
                     )
-        #wsim = world.start('WecsSim', 
-        #                step_size=STEP_SIZE, 
-        #                wind_file=WIND_FILE,
-        #            )
+        wsim = world.start('WecsSim', 
+                        step_size=STEP_SIZE, 
+                        wind_file=WIND_FILE,
+                    )
     input_sim = world.start("InputSim", step_size=STEP_SIZE)   
     csv_sim_writer = world.start('CSV_writer', start_date = START_DATE,
                                             output_file=os.path.join(results_dir, args.output_file))
@@ -357,15 +361,16 @@ def main():
                     agents += masim.MosaikAgents.create(num=1, controller=hierarchical[-1].eid)
                     # 'type-index-bus-cell'
                     if e['type'] == 'StaticGen':
-                        #if '-7' in e['bus']: # wind at Bus-*-7                     
-                        #    wp += wsim.WECS.create(num=1, **WECS_CONFIG)
-                        #    e.update({'agent' : agents[-1], 'sim' : wp[-1]})   
-                        #    world.connect(e['sim'], csv_writer, 'P[MW]')   
-                        #    pass        
-                        #else: # PV
+                        if '-7' in e['bus']: # wind at Bus-*-7                     
+                            wp += wsim.WECS.create(num=1, **WECS_CONFIG)
+                            e.update({'agent' : agents[-1], 'sim' : wp[-1]})   
+                            world.connect(e['sim'], csv_writer, 'P[MW]')   
+                            pass        
+                        else: # PV
                             pv += pvsim.PVSim.create(num=1, **PVMODEL_PARAMS)
                             e.update({'agent' : agents[-1], 'sim' : pv[-1]})     
-                            world.connect(e['sim'], csv_writer, 'P[MW]')            
+                            world.connect(e['sim'], csv_writer, 'P[MW]')  
+                            pass          
                     elif e['type'] == 'Load':
                         fl += flsim.FLSim.create(num=1)
                         fli = input_sim.Function.create(1, function=lambda x: x * len(fl)/1000)
