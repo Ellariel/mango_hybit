@@ -139,7 +139,7 @@ def input_to_state(aeid, aid, input_data, current_state, **kwargs):
     #print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!',current_state)
     #if current_state['info']['initial_state'] < PRECISION:
     #    print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!', 'initial_state')
-    print()
+    #print()
     #print('!!!!!!!!!!!!!',input_data)
     if 'current' in input_data:
         for eid, value in input_data['current'].items():
@@ -166,22 +166,23 @@ def input_to_state(aeid, aid, input_data, current_state, **kwargs):
             #print(eid, input_data, state)
     state['consumption']['scale_factor'] = current_state['consumption']['scale_factor']
     state['production']['scale_factor'] = current_state['production']['scale_factor']
-    print(highlight('\ninput'), aeid, aid, input_data, current_state, state)
+    #print(highlight('\ninput'), aeid, aid, input_data, current_state, state)
     #state['info'].update({'initial_state' : 1})
     return state
 
 def execute_instructions(aeid, aid, instruction, current_state, requested_states, **kwargs):
     #global cells
-    info = {}
-    ok = True
-    instructions = {aid : instruction}
     
-    print('EXECUTION')
-    print('instruction',instruction)
-    print('current_state',current_state)
+    ok = True
+    #state = None
+    
+    
+    #print('EXECUTION')
+    #print('instruction',instruction)
+    #print('current_state',current_state)
     #instruction = copy.deepcopy(instruction)
 
-    #print('EXECUTION', aeid, aid, instruction['production']['scale_factor'] if instruction else None, 
+    #print('EXECUTION', aeid, aid)#, instruction['production']['scale_factor'] if instruction else None, 
     #      instruction['consumption']['scale_factor'] if instruction else None, 
     #      list(requested_states.keys()))
     
@@ -195,16 +196,21 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
 
 
     if not len(requested_states) == 0:
-        ok, instructions, info = compute_instructions(instruction=instruction, 
+        ok, instructions, state = compute_instructions(instruction=instruction, 
                                                                     current_state=current_state,
                                                             requested_states=requested_states)
         #for k in requested_states:
         #    if k in instructions:
         #        instructions[k].update({'INITIAL' : {}})
-        
+        if aeid != 'MosaikAgent':
+            state = MAS_STATE.copy()
     else:
+        instructions = {aid : instruction}
+        state = instruction
+        
+    #else:
         #if (instruction['production'] + instruction['consumption']) < PRECISION:
-        pass
+    #    print(instruction)
         #print('FIIIIIIIIIRSTLISTTTT', instruction, current_state)
         #    profile = get_unit_profile(aeid, cells)
         #print()
@@ -212,10 +218,10 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
 
         
     #print()
-    print('new instructions', instructions)
+    #print('new instructions', instructions)
     #print()
     #print('info', info)
-    return ok, instructions, info
+    return ok, instructions, state
     #global cells
 
     new = instruction['production']['current']
@@ -231,52 +237,6 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
 
     return instruction
 
-'''
-# method that transforms mosaik inputs dict to the agent state (called for each agent/connected unit, default: copy dict)
-def input_to_state(input_data, current_state):
-    # state={'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0}}
-    global cells
-    state = copy.deepcopy(current_state)
-    #print(input_data, current_state)
-    if 'current' in input_data:
-        for eid, value in input_data['current'].items():
-            profile = get_unit_profile(eid, cells)
-            if 'Load' in eid or 'FL' in eid: # check the type of connected unit and its profile
-                state['consumption']['min'] = profile['min']
-                state['consumption']['max'] = profile['max']
-                #if value == 0: #input_data.get('scale_factor', 1) == 1 and 
-                #    value = random.uniform(profile['min'], profile['max'])
-                state['consumption']['current'] = np.clip(abs(value), profile['min'], profile['max'])
-                state['production']['current'] = 0
-                state['production']['min'] = 0
-                state['production']['max'] = 0
-            elif 'Gen' in eid or 'PV' in eid or 'Wecs' in eid:
-                state['production']['min'] = profile['min']
-                state['production']['max'] = min(abs(value), profile['max'])
-                state['production']['current'] = np.clip(abs(value), profile['min'], profile['max'])
-                state['consumption']['current'] = 0
-                state['consumption']['min'] = 0
-                state['consumption']['max'] = 0
-            elif 'ExternalGrid' in eid:
-                if value >= 0: # check the convention here!
-                    state['production']['current'] = value
-                    state['production']['min'] = value * -3
-                    state['production']['max'] = value * 3
-                    state['consumption']['current'] = 0
-                    state['consumption']['min'] = 0
-                    state['consumption']['max'] = 0
-                else:
-                    state['production']['current'] = 0
-                    state['production']['min'] = 0
-                    state['production']['max'] = 0
-                    state['consumption']['current'] = abs(value)
-                    state['consumption']['min'] = abs(value) * -3
-                    state['consumption']['max'] = abs(value) * 3
-            
-            print(eid, input_data, state)
-            break
-    return state
-'''
 
 # Multi-agent system (MAS) configuration
 # User-defined methods are specified in methods.py to make scenario cleaner, 
@@ -324,10 +284,10 @@ def main():
                         step_size=STEP_SIZE,
                         sim_params=PVSIM_PARAMS,
                     )
-        wsim = world.start('WecsSim', 
-                        step_size=STEP_SIZE, 
-                        wind_file=WIND_FILE,
-                    )
+        #wsim = world.start('WecsSim', 
+        #                step_size=STEP_SIZE, 
+        #                wind_file=WIND_FILE,
+        #            )
     input_sim = world.start("InputSim", step_size=STEP_SIZE)   
     csv_sim_writer = world.start('CSV_writer', start_date = START_DATE,
                                             output_file=os.path.join(results_dir, args.output_file))
@@ -361,12 +321,12 @@ def main():
                     agents += masim.MosaikAgents.create(num=1, controller=hierarchical[-1].eid)
                     # 'type-index-bus-cell'
                     if e['type'] == 'StaticGen':
-                        if '-7' in e['bus']: # wind at Bus-*-7                     
-                            wp += wsim.WECS.create(num=1, **WECS_CONFIG)
-                            e.update({'agent' : agents[-1], 'sim' : wp[-1]})   
-                            world.connect(e['sim'], csv_writer, 'P[MW]')   
-                            pass        
-                        else: # PV
+                        #if '-7' in e['bus']: # wind at Bus-*-7                     
+                        #    wp += wsim.WECS.create(num=1, **WECS_CONFIG)
+                        #    e.update({'agent' : agents[-1], 'sim' : wp[-1]})   
+                        #    world.connect(e['sim'], csv_writer, 'P[MW]')   
+                        #    pass        
+                        #else: # PV
                             pv += pvsim.PVSim.create(num=1, **PVMODEL_PARAMS)
                             e.update({'agent' : agents[-1], 'sim' : pv[-1]})     
                             world.connect(e['sim'], csv_writer, 'P[MW]')  
@@ -394,7 +354,7 @@ def main():
                             #world.connect(e['sim'], csv_writer, 'P[MW]') 
                             #world.connect(e['agent'], csv_writer, 'current')
                             #world.connect(e['agent'], csv_writer, 'scale_factor')
-                    #break
+                    break
             hierarchical_controllers += hierarchical[1:]
     
     print('cell controllers:', len(cell_controllers))

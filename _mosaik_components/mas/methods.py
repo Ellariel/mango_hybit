@@ -5,70 +5,6 @@ from _mosaik_components.mas.utils import *
 MAS_STATE = MAS_DEFAULT_STATE.copy()
 PRECISION = 10 ** -6
 
-def _input_to_state(aeid, aid, input_data, current_state, **kwargs):
-    # state={'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0}}
-    #global cells
-    #input Agent_3 {'current': {'FLSim-0.FLSim-0': 0.9}} {'production': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}, 'consumption': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}}
-    
-    #cells = {}
-    state = copy.deepcopy(MAS_STATE)
-    #print(input_data, current_state)
-    if 'current' in input_data:
-        for eid, value in input_data['current'].items():
-            if 'Load' in eid or 'FL' in eid: # check the type of connected unit and its profile
-                state['consumption']['current'] += abs(value)
-            elif 'Gen' in eid or 'PV' in eid or 'Wecs' in eid:
-                state['production']['current'] += abs(value)
-            elif 'ExternalGrid' in eid: #{'Grid-0.ExternalGrid-0': 45.30143468767862}} 
-                if value > 0: # check the convention here!
-                    state['production']['current'] += value
-                else:
-                    state['consumption']['current'] += abs(value)           
-            #print(eid, input_data, state)
-            #break
-
-    '''
-    if 'current' in input_data:
-        for eid, value in input_data['current'].items():
-            profile = get_unit_profile(eid, cells)
-            if 'Load' in eid or 'FL' in eid: # check the type of connected unit and its profile
-                state['consumption']['min'] = profile['min']
-                state['consumption']['max'] = profile['max']
-                #if value == 0: #input_data.get('scale_factor', 1) == 1 and 
-                #    value = random.uniform(profile['min'], profile['max'])
-                state['consumption']['current'] = np.clip(abs(value), profile['min'], profile['max'])
-                state['production']['current'] = 0
-                state['production']['min'] = 0
-                state['production']['max'] = 0
-            elif 'Gen' in eid or 'PV' in eid or 'Wecs' in eid:
-                state['production']['min'] = profile['min']
-                state['production']['max'] = min(abs(value), profile['max'])
-                state['production']['current'] = np.clip(abs(value), profile['min'], profile['max'])
-                state['consumption']['current'] = 0
-                state['consumption']['min'] = 0
-                state['consumption']['max'] = 0
-            elif 'ExternalGrid' in eid:
-                if value >= 0: # check the convention here!
-                    state['production']['current'] = value
-                    state['production']['min'] = value * -3
-                    state['production']['max'] = value * 3
-                    state['consumption']['current'] = 0
-                    state['consumption']['min'] = 0
-                    state['consumption']['max'] = 0
-                else:
-                    state['production']['current'] = 0
-                    state['production']['min'] = 0
-                    state['production']['max'] = 0
-                    state['consumption']['current'] = abs(value)
-                    state['consumption']['min'] = abs(value) * -3
-                    state['consumption']['max'] = abs(value) * 3
-            
-            print(eid, input_data, state)
-            break
-    '''
-    print(highlight('\ninput'), aeid, aid, input_data, current_state, state)
-    return state
-
 def state_to_output(aeid, aid, attrs, current_state, converged, **kwargs):
 # inputs {'Agent_3': {'current': {'WecsSim-0.wecs-0': 147.26366926766127}},
 # output_state: {'Agent_1': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 0.0}},
@@ -98,81 +34,12 @@ def state_to_output(aeid, aid, attrs, current_state, converged, **kwargs):
             if abs(scale_factor) > PRECISION and not converged:
                 data.update({'scale_factor' : scale_factor})
 
-    '''
-    for eid, attrs in output_request.items():
-        data.setdefault(eid, {})
-        if eid in output_data:
-            scale_factor = 1
-            if output_data[eid]['production']['current'] > output_data[eid]['consumption']['current']:
-                current = output_data[eid]['production']['current']
-                scale_factor = output_data[eid]['production']['scale_factor']
-            else:
-                current = output_data[eid]['consumption']['current']
-                scale_factor = output_data[eid]['consumption']['scale_factor']                
-            data[eid].update({'current' : current})
-            if abs(scale_factor - 1) > PRECISION:
-                data[eid].update({'scale_factor' : scale_factor})
-            print(eid, 'scale_factor', scale_factor, 'current', current)
-    '''
     #print(data)
     #print(highlight('\noutput'), aeid, aid, attrs, current_state, data)
     return data
 
-'''
-def state_to_output(output_request, output_data): #input_data):
-# inputs {'Agent_3': {'current': {'WecsSim-0.wecs-0': 147.26366926766127}},
-# output_state: {'Agent_1': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 0.0}},
-# entities: {'Agent_3': 'WecsSim-0.wecs-0', 'Agent_4': 'Grid-0.Load-0',
-    data = {}
-    #print(highlight('\noutputs:'), output_data)
-    #print(new_timestep)
-    for eid, attrs in output_request.items():
-        data.setdefault(eid, {})
-        if eid in output_data:
-            scale_factor = 1
-            if output_data[eid]['production']['current'] > output_data[eid]['consumption']['current']:
-                current = output_data[eid]['production']['current']
-                scale_factor = output_data[eid]['production']['scale_factor']
-            else:
-                current = output_data[eid]['consumption']['current']
-                scale_factor = output_data[eid]['consumption']['scale_factor']                
-            data[eid].update({'current' : current})
-            if abs(scale_factor - 1) > PRECISION:
-                data[eid].update({'scale_factor' : scale_factor})
-            print(eid, 'scale_factor', scale_factor, 'current', current)
-    return data
-'''
 
-'''
-def state_to_output(output_request, output_data, input_data):
-# inputs {'Agent_3': {'current': {'WecsSim-0.wecs-0': 147.26366926766127}},
-# output_state: {'Agent_1': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 0.0}},
-# entities: {'Agent_3': 'WecsSim-0.wecs-0', 'Agent_4': 'Grid-0.Load-0',
-    data = {}
-    print(highlight('\noutputs:'), output_data)
-    #print(new_timestep)
-    for eid, attrs in output_request.items():
-        data.setdefault(eid, {})
-        if eid in output_data:
-            current = max(output_data[eid]['production']['current'], output_data[eid]['consumption']['current'])
-            if current < PRECISION:
-                current = 0
-            for attr in attrs:
-                if attr == 'current':
-                    data[eid].update({'current' : current})
-                elif attr == 'scale_factor':
-                    if eid in input_data:
-                        input_value = abs(list(input_data[eid]['current'].values())[0])
-                        scale_factor = 1 if input_value < PRECISION else current / input_value
-                        if abs(scale_factor - 1) > PRECISION:
-                            data[eid].update({'scale_factor' : scale_factor})
-                        print(eid, 'scale_factor', scale_factor, 'input_value', input_value, 'current', current)
-                else:
-                    pass
-    return data
-'''
-
-def aggregate_states(requested_states, current_state=MAS_STATE, **kwargs):
+def aggregate_states(aeid, aid, requested_states, current_state=MAS_STATE, **kwargs):
     current_state = copy.deepcopy(current_state)
     for aid, state in requested_states.items():
         for i in current_state.keys():
@@ -185,26 +52,7 @@ def aggregate_states(requested_states, current_state=MAS_STATE, **kwargs):
                     #else:
                     #    print('NOAGGGGG')
     return current_state
-'''
-def execute_instructions(instruction, current_state, requested_states):
-    #print('EXECUTION')
-    #print('instruction',instruction)
-    #print('current_state',current_state)
-    #instruction = copy.deepcopy(instruction)
 
-    new = instruction['production']['current']
-    current = current_state['production']['current']
-    instruction['production']['scale_factor'] = new / current if current > PRECISION else 1
-
-    new = instruction['consumption']['current']
-    current = current_state['consumption']['current']
-    instruction['consumption']['scale_factor'] = new / current if current > PRECISION else 1
-
-    #print('instruction', instruction)
-    print('EXECUTION scale_factr', instruction['production']['scale_factor'], instruction['consumption']['scale_factor'], requested_states.keys())
-
-    return instruction
-'''
 
 def compute_instructions(current_state, **kwargs):
     verbose = kwargs.get('verbose', 0)
@@ -279,10 +127,10 @@ def compute_instructions(current_state, **kwargs):
                                                             external_network_min,
                                                             external_network_max)
                 if verbose >= 0:
-                    #print(highlight('cell balance:', 'red'), cell_balance)
+                    print()
                     print(highlight('cells balance:', 'red'), cell_balance)
-                    print(highlight('cells expected balance:', 'red'), cell_expected_balance)
-                    print(highlight('external network default balance:', 'blue'), external_network_default_balance)
+                    #print(highlight('cells expected balance:', 'red'), cell_expected_balance)
+                    #print(highlight('external network default balance:', 'blue'), external_network_default_balance)
                 #print('flexibility:')
                 #print('external_network_min', external_network_min)
                 #print('external_network_max', external_network_max)
@@ -491,17 +339,18 @@ def compute_instructions(current_state, **kwargs):
                 #print('external_network_delta', external_network_delta)
 
                 if verbose >= 0:
-                    print(highlight('new cells balance:', 'red'), new_cell_balance)
-                    print(highlight('new external network balance:', 'blue'), new_external_network_balance)
+                    #print(highlight('new cells balance:', 'red'), new_cell_balance)
+                    print(highlight('external network balance:', 'blue'), new_external_network_balance)
                 #print('grid delta:', grid_delta)
                 #print('grid delta:', grid_delta)
 
                 ok = abs(cell_balance - cell_expected_balance) < PRECISION
                 if verbose >= 0:
                     if ok:
-                        print(highlight('CONVERGED!', 'green'))
+                        print(highlight('test convergence..', 'red'), highlight('CONVERGED!', 'green'))
                     else:
-                        print(highlight('NOT CONVERGED!', 'red'))
+                        print(highlight('test convergence..', 'red'))
+                    print()
                 return ok, cells_aggregated_state, cells_aggregated_delta, external_network_state, external_network_delta
 
     requested_states = kwargs.get('requested_states', {})
@@ -509,15 +358,16 @@ def compute_instructions(current_state, **kwargs):
 
     if instruction != None:
         ok = True
+        state = None
         delta = calc_delta(current_state, instruction)
         instructions, remains = compose_instructions(requested_states, delta)
     else:
-        cells_aggregated_state = aggregate_states(requested_states)
+        cells_aggregated_state = aggregate_states(None, None, requested_states)
         #if True:# verbose:
             #print('\ngrid_state:', current_state)
             #print('aggregated_cell_state:', aggregated_state)
         #return cells_aggregated_state, cells_aggregated_delta, external_network_state, external_network_delta
-        ok, _, cells_delta, delta, _ = compute_balance(current_state, cells_aggregated_state)
+        ok, _, cells_delta, state, _ = compute_balance(current_state, cells_aggregated_state)
         #print('compute_delta_state')
         #print('grid_delta', grid_delta)
         #print('delta', delta)
@@ -526,4 +376,4 @@ def compute_instructions(current_state, **kwargs):
         #print('info', reduce_zero_dict(delta))
         #sys.exit()
 
-    return ok, instructions, delta
+    return ok, instructions, state

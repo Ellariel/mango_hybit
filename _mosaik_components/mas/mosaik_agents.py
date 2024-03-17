@@ -125,7 +125,7 @@ class Agent(mango.Agent):
 
     def aggregate_states(self, requested_states, current_state=None):
         if callable(self.params['states_agg_method']):
-            return self.params['states_agg_method'](requested_states, current_state)
+            return self.params['states_agg_method'](self.aeid, self.aid, requested_states, current_state)
 
     #def get_instructions(self, current_state, **kwargs):
     #    if callable(self.params['redispatch_method']):
@@ -183,13 +183,15 @@ class Agent(mango.Agent):
         # Do execute instruction
         #print(self.sid, self.aeid)
 
-        info = {}
+        #info = {}
         if callable(self.params['execute_method']):
-            ok, add_instructions, info = self.params['execute_method'](self.aeid,
+            ok, add_instructions, state = self.params['execute_method'](self.aeid,
                                                                    self.aid, instruction=instruction, 
                                                                    current_state=self._aggregated_state,
                                                            requested_states=self._requested_states)
             #instructions[self.aid] = instruction
+            self.state = state
+            #print(self.aeid, 'instruction', instruction, 'state', self.state)
             instructions.update(add_instructions)
         else:
             raise AttributeError('Redispatch method is not defined!')
@@ -198,7 +200,7 @@ class Agent(mango.Agent):
         #print(self.aid, 'scale_factr', instructions[self.aid]['production']['scale_factor'], instructions[self.aid]['consumption']['scale_factor'])
 
         if self.params['verbose'] >= 1:
-            print(f"{highlight(self.aid)} <- {highlight('current_state')}: {self._aggregated_state}, {highlight('new_state')}: {reduce_equal_dicts(instruction, self._aggregated_state)}")
+            print(f"{highlight(self.aid)} <- {highlight('current_state')}: {self._aggregated_state}, {highlight('new_state')}: {reduce_equal_dicts(self.state, self._aggregated_state)}")
         
         self._instructions_confirmed = instructions
 
@@ -209,8 +211,8 @@ class Agent(mango.Agent):
             #print('!!!!!!!!!!!!!instructions',self.aid, instructions)
             #instructions.update(add_instructions)
             #print('!!!!!!!!!!!!!updateinstructions',self.aid, instructions)
-            if self.params['verbose'] >= 1:
-                print(f"{highlight('info for')} {', '.join(self._requested_states.keys())}: {reduce_zero_dict(info)}")
+            #if self.params['verbose'] >= 1:
+            #    print(f"{highlight('info for')} {', '.join(self._requested_states.keys())}: {reduce_zero_dict(info)}")
 
             # Broadcast instructions
             self._instructions_confirmed = {aid: asyncio.Future() for _, aid in self.connected_agents}
@@ -328,7 +330,7 @@ class MosaikAgent(mango.Agent):
 
     def aggregate_states(self, requested_states, current_state=None):
         if callable(self.params['states_agg_method']):
-            return self.params['states_agg_method'](requested_states, current_state)
+            return self.params['states_agg_method'](self.aeid, self.aid, requested_states, current_state)
         else:
             raise AttributeError('States aggregation method is not defined!')
 
@@ -485,7 +487,7 @@ class MosaikAgents(mosaik_api.Simulator):
         self.current_time_step = -1
         self._steptime = []
         #self.first_step = True
-        self.converged = False
+        #self.converged = False
         #self.cached_solution = {}
         self.step_size = self.params.pop('step_size', 60*15)
         self.host = self.params.pop('host', '0.0.0.0')
