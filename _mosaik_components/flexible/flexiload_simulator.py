@@ -82,7 +82,7 @@ class FLSimulator(mosaik_api_v3.Simulator):
         result = self.entities[eid] + self.scale_factor[eid]
         if self.gen_neg:
             result = abs(result) * (-1)
-        #print('\nnflexil current', eid, result)
+        #print('\nnflexil output', self.entities[eid])
         return result
 
     def step(self, time, inputs, max_advance):

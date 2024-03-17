@@ -159,9 +159,9 @@ def input_to_state(aeid, aid, input_data, current_state, **kwargs):
                 state['production'].update(profile)
                 state['consumption'].update(profile) 
                 state['production']['min'] = 0
-                state['production']['max'] = value * 3 
+                state['production']['max'] = value * 1000
                 state['consumption']['min'] = 0
-                state['consumption']['max'] = abs(value) * 3
+                state['consumption']['max'] = abs(value) * 1000
             break 
             #print(eid, input_data, state)
     state['consumption']['scale_factor'] = current_state['consumption']['scale_factor']
@@ -284,10 +284,10 @@ def main():
                         step_size=STEP_SIZE,
                         sim_params=PVSIM_PARAMS,
                     )
-        #wsim = world.start('WecsSim', 
-        #                step_size=STEP_SIZE, 
-        #                wind_file=WIND_FILE,
-        #            )
+        wsim = world.start('WecsSim', 
+                        step_size=STEP_SIZE, 
+                        wind_file=WIND_FILE,
+                    )
     input_sim = world.start("InputSim", step_size=STEP_SIZE)   
     csv_sim_writer = world.start('CSV_writer', start_date = START_DATE,
                                             output_file=os.path.join(results_dir, args.output_file))
@@ -321,15 +321,15 @@ def main():
                     agents += masim.MosaikAgents.create(num=1, controller=hierarchical[-1].eid)
                     # 'type-index-bus-cell'
                     if e['type'] == 'StaticGen':
-                        #if '-7' in e['bus']: # wind at Bus-*-7                     
-                        #    wp += wsim.WECS.create(num=1, **WECS_CONFIG)
-                        #    e.update({'agent' : agents[-1], 'sim' : wp[-1]})   
-                        #    world.connect(e['sim'], csv_writer, 'P[MW]')   
-                        #    pass        
-                        #else: # PV
+                        if '-7' in e['bus']: # wind at Bus-*-7                     
+                            wp += wsim.WECS.create(num=1, **WECS_CONFIG)
+                            e.update({'agent' : agents[-1], 'sim' : wp[-1]})   
+                            #world.connect(e['sim'], csv_writer, 'P[MW]')   
+                            pass        
+                        else: # PV
                             pv += pvsim.PVSim.create(num=1, **PVMODEL_PARAMS)
                             e.update({'agent' : agents[-1], 'sim' : pv[-1]})     
-                            world.connect(e['sim'], csv_writer, 'P[MW]')  
+                            #world.connect(e['sim'], csv_writer, 'P[MW]')  
                             pass          
                     elif e['type'] == 'Load':
                         fl += flsim.FLSim.create(num=1)
@@ -351,10 +351,10 @@ def main():
                             world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
                             #world.connect(e['sim'], e['unit'], 'P[MW]')
                             world.connect(e['agent'], e['sim'], 'scale_factor', weak=True)
-                            #world.connect(e['sim'], csv_writer, 'P[MW]') 
+                            world.connect(e['sim'], csv_writer, 'P[MW]') 
                             #world.connect(e['agent'], csv_writer, 'current')
                             #world.connect(e['agent'], csv_writer, 'scale_factor')
-                    break
+                    #break
             hierarchical_controllers += hierarchical[1:]
     
     print('cell controllers:', len(cell_controllers))

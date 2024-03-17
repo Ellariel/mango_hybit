@@ -103,7 +103,7 @@ class PVGISSimulator(mosaik_api_v3.Simulator):
         production = self.entities[eid].iloc[idx] + self.scale_factor[eid]
         if self.gen_neg:
             production *= (-1)
-        #print('\npvgis_output production', eid, production)
+        #print('\npvgis_output production', self.entities[eid].iloc[idx])
         return production
 
     def step(self, time, inputs, max_advance):

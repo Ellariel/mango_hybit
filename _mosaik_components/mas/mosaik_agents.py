@@ -255,7 +255,7 @@ class MosaikAgent(mango.Agent):
         self.sid = self.params.pop('sid', None)
         self.aeid = self.params.pop('aeid', None)
         #print(self.sid, self.aeid, self.aid)
-        self.converged = False
+        self.converged = 0
         self.cached_solution = {}
         self.first_step = True
 
@@ -377,16 +377,22 @@ class MosaikAgent(mango.Agent):
                 
             if callable(self.params['execute_method']):
                 #print(self._aggregated_state)
-                if not self.converged:
+                #if not self.converged:
+                if self.converged < CONVERGENCE:
                     ok, self.cached_solution, state = self.params['execute_method'](self.aeid,
                                                                     self.aid, instruction=None, 
                                                                     current_state=self.state,
                                                             requested_states=self._requested_states,
                                                             **self.params)
-                    self.converged = self.converged or ok
+                    #self.converged = self.converged or ok
                     self.state = state
-                    if ok:
-                        return {}
+                    self.converged += (1 if ok else 0)
+                    #print('converged', self.converged)
+                    if self.converged >= CONVERGENCE:
+                        print(highlight('CONVERGED!', 'green'))
+                    #    return {}###############################################
+                    
+                
             else:
                 raise AttributeError('Redispatch method is not defined!')
             
@@ -598,10 +604,13 @@ class MosaikAgents(mosaik_api.Simulator):
 
         """
         if self.current_time_step != time:
+            print(highlight('\nNEW TIMESTEP:', 'white'), time)
             #self.converged = False  
             self._steptime = [] 
-            self.mosaik_agent.converged = False 
-            #self.first_step = True          
+            self.mosaik_agent.converged = 0 
+            #self.first_step = True        
+        else:
+            print(highlight('\nTIMESTEP:', 'white'), time)  
         self.current_time_step = time
 
         #print('\nagents', time)
@@ -610,11 +619,11 @@ class MosaikAgents(mosaik_api.Simulator):
         #global aid_to_eid
 
         if self.params['verbose'] >= 2:
-            print(highlight('\ninputs:'), inputs)
+            print(highlight('\nINPUT:'), inputs)
 
         #self.input_cache = copy.deepcopy(inputs)
 
-        if self.mosaik_agent.converged:
+        if self.mosaik_agent.converged >= CONVERGENCE:
             return time + self.step_size
 
         new_state = inputs.pop('MosaikAgent', {})
@@ -624,6 +633,7 @@ class MosaikAgents(mosaik_api.Simulator):
             self.mosaik_agent.state = copy.deepcopy(new_state)
 
         #self.input_cache['MosaikAgent'] = self.mosaik_agent.state
+        #print('external',self.mosaik_agent.state)
 
         #print('INPUT', inputs)
         #print('OUTPUT', self.output_cache)
@@ -632,16 +642,16 @@ class MosaikAgents(mosaik_api.Simulator):
         output = self.loop.run_until_complete(self.mosaik_agent.run_loop(inputs=inputs))
         steptime = t.time() - steptime
         output = {self.aid_to_eid[k]: v for k, v in output.items()}
-        output["MosaikAgent"] = self.mosaik_agent.state
+        #output["MosaikAgent"] = self.mosaik_agent.state
         #self.converged = self.converged or self.mosaik_agent.converged
 
         #if self.converged:
             
 
-        if not self.mosaik_agent.converged:
+        if self.mosaik_agent.converged < CONVERGENCE:
             self.output_cache = output
             #self.output_cache = {self.aid_to_eid[k]: v for k, v in self.output_cache.items()}
-            #self.output_cache["MosaikAgent"] = self.mosaik_agent.state
+            self.output_cache["MosaikAgent"] = self.mosaik_agent.state
             self._steptime += [steptime]       
         else:
             self.output_cache["MosaikAgent"] = self.mosaik_agent.state
@@ -677,9 +687,9 @@ class MosaikAgents(mosaik_api.Simulator):
             data["MosaikAgent"].update({'steptime' : sum(self._steptime)})
 
         if self.params['verbose'] >= 2:
-            print(highlight('\noutput'), data)
+            print(highlight('\nOUTPUT:'), data)
 
-        print(highlight('\noutput'), data)
+        #print(highlight('\nOUTPUT:'), data)
         return data
 
 

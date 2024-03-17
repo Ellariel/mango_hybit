@@ -3,7 +3,6 @@ import pandas as pd
 from _mosaik_components.mas.utils import *
 
 MAS_STATE = MAS_DEFAULT_STATE.copy()
-PRECISION = 10 ** -6
 
 def state_to_output(aeid, aid, attrs, current_state, converged, **kwargs):
 # inputs {'Agent_3': {'current': {'WecsSim-0.wecs-0': 147.26366926766127}},
@@ -31,7 +30,8 @@ def state_to_output(aeid, aid, attrs, current_state, converged, **kwargs):
         if 'current' == attr:
             data.update({'current' : current})
         elif 'scale_factor' == attr:
-            if abs(scale_factor) > PRECISION and not converged:
+            #if abs(scale_factor) > PRECISION and converged < 2:
+            if converged < CONVERGENCE:
                 data.update({'scale_factor' : scale_factor})
 
     #print(data)
@@ -105,8 +105,8 @@ def compute_instructions(current_state, **kwargs):
         
         return _agents_info, _delta
     
-    def compute_balance(external_network_state=copy.deepcopy(MAS_STATE), 
-                                    cells_aggregated_state=copy.deepcopy(MAS_STATE)):
+    def compute_balance(external_network_state,#=copy.deepcopy(MAS_STATE), 
+                                    cells_aggregated_state):#=copy.deepcopy(MAS_STATE)):
                 
                 #cells_aggregated_state = copy.deepcopy(cells_aggregated_state)
                 #external_network_state = copy.deepcopy(external_network_state)               
@@ -127,10 +127,9 @@ def compute_instructions(current_state, **kwargs):
                                                             external_network_min,
                                                             external_network_max)
                 if verbose >= 0:
-                    print()
                     print(highlight('cells balance:', 'red'), cell_balance)
-                    #print(highlight('cells expected balance:', 'red'), cell_expected_balance)
-                    #print(highlight('external network default balance:', 'blue'), external_network_default_balance)
+                    print(highlight('cells expected balance:', 'red'), cell_expected_balance)
+                    print(highlight('external network default balance:', 'blue'), external_network_default_balance)
                 #print('flexibility:')
                 #print('external_network_min', external_network_min)
                 #print('external_network_max', external_network_max)
@@ -339,18 +338,20 @@ def compute_instructions(current_state, **kwargs):
                 #print('external_network_delta', external_network_delta)
 
                 if verbose >= 0:
-                    #print(highlight('new cells balance:', 'red'), new_cell_balance)
+                    print(highlight('new cells balance:', 'red'), new_cell_balance)
                     print(highlight('external network balance:', 'blue'), new_external_network_balance)
+                    print()
                 #print('grid delta:', grid_delta)
                 #print('grid delta:', grid_delta)
 
-                ok = abs(cell_balance - cell_expected_balance) < PRECISION
-                if verbose >= 0:
-                    if ok:
-                        print(highlight('test convergence..', 'red'), highlight('CONVERGED!', 'green'))
-                    else:
-                        print(highlight('test convergence..', 'red'))
-                    print()
+                ok = abs(new_cell_balance - cell_expected_balance) < PRECISION
+                #ok = abs(cell_expected_balance*2 - new_cell_balance - cell_balance) < PRECISION
+                #if verbose >= 0:
+                #    if ok:
+                #        print(highlight('test convergence..', 'red'), highlight('CONVERGED!', 'green'))
+                #    else:
+                #        print(highlight('test convergence..', 'red'))
+                #    print()
                 return ok, cells_aggregated_state, cells_aggregated_delta, external_network_state, external_network_delta
 
     requested_states = kwargs.get('requested_states', {})
