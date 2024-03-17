@@ -90,7 +90,7 @@ class PVGISSimulator(mosaik_api_v3.Simulator):
                 production.iloc[new_index[i]:new_index[i+1]] = production.iloc[new_index[i]:new_index[i+1]].mean()
 
             self.entities[eid] = production / 10**6 # W per 1 kW peak -> MW
-            self.scale_factor[eid] = 1 # Default value
+            self.scale_factor[eid] = 0 # Default value
             entities.append({
                 "eid": eid,
                 "type": model,
@@ -100,23 +100,24 @@ class PVGISSimulator(mosaik_api_v3.Simulator):
     def get_production(self, eid, attr):
         idx = self.entities[eid].index.get_indexer([self.date.datetime], method='ffill')[0]
         #print('\nidx', idx)
-        production = self.entities[eid].iloc[idx] * self.scale_factor[eid]
+        production = self.entities[eid].iloc[idx] + self.scale_factor[eid]
         if self.gen_neg:
             production *= (-1)
-        print('\npvgis_output production', production)
+        #print('\npvgis_output production', eid, production)
         return production
 
     def step(self, time, inputs, max_advance):
-        print('\npvgis', time)
+        #print('\npvgis', time)
         if self.current_time > -1 and self.current_time != time:
             self.date = self.date.shift(seconds=self.step_size)
+            self.scale_factor = {k: 0 for k, v in self.scale_factor.items()}  
         self.current_time = time
 
         for eid, attrs in inputs.items():
             for attr, vals in attrs.items():
                 if attr == 'scale_factor':
                     self.scale_factor[eid] = list(vals.values())[0]
-                    print('\npvgis_input scale_factor', self.scale_factor[eid])
+                    #print('\npvgis_input scale_factor', eid, self.scale_factor[eid])
 
 
         return time + self.step_size

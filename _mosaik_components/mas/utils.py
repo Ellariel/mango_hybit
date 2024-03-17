@@ -9,14 +9,17 @@ MAS_DEFAULT_STATE = {
         'min' : 0,
         'max' : 0,
         'current' : 0,
-        'scale_factor' : 1,
+        'scale_factor' : 0,
     },
     'consumption' : {
         'min' : 0,
         'max' : 0,
         'current' : 0,
-        'scale_factor' : 1,
+        'scale_factor' : 0,
     },    
+    #'info' : {
+    #    'initial_state' : 0,
+    #},
 }
 
 MAS_DEFAULT_CONFIG = {

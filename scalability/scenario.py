@@ -66,7 +66,7 @@ else:
     with open(prof_file, 'r') as f:
         profiles = json.load(f)
 
-END = 3600 #* 2#* 24 * 1  # 1 day
+END = 3600 * 1#* 24 * 1  # 1 day
 START_DATE = '2014-01-01 08:00:00'
 DATE_FORMAT = 'YYYY-MM-DD hh:mm:ss'
 GRID_FILE = net_file
@@ -128,12 +128,17 @@ def input_to_state(aeid, aid, input_data, current_state, **kwargs):
     # state={'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0}}
     global cells
     #input Agent_3 {'current': {'FLSim-0.FLSim-0': 0.9}} {'production': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}, 'consumption': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}}
-    
+    #print('FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF')
     #cells = {}
     state = copy.deepcopy(MAS_STATE)
     profile = get_unit_profile(aeid, cells)
     #print('profile', profile)
-    #print(input_data, current_state)
+    print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!',input_data)
+    print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!',current_state)
+    #if current_state['info']['initial_state'] < PRECISION:
+    #    print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!', 'initial_state')
+    print()
+    #print('!!!!!!!!!!!!!',input_data)
     if 'current' in input_data:
         for eid, value in input_data['current'].items():
             if 'Load' in eid or 'FL' in eid: # check the type of connected unit and its profile
@@ -141,8 +146,8 @@ def input_to_state(aeid, aid, input_data, current_state, **kwargs):
                 state['consumption'].update(profile)
             elif 'Gen' in eid or 'PV' in eid or 'Wecs' in eid:
                 state['production']['current'] += abs(value)
-                #state['production'].update(profile)
-                state['production'].update({'max' : min(abs(value), profile['max'])})
+                state['production'].update(profile)
+                #state['production'].update({'max' : min(abs(value), profile['max'])})
                 #print('ppp',get_unit_profile(aeid, cells))
             elif 'ExternalGrid' in eid: #{'Grid-0.ExternalGrid-0': 45.30143468767862}} 
                 if value > 0: # check the convention here!
@@ -157,51 +162,56 @@ def input_to_state(aeid, aid, input_data, current_state, **kwargs):
                 state['consumption']['max'] = abs(value) * 3
                         
             #print(eid, input_data, state)
-    print(highlight('\ninput'), aeid, aid, input_data, current_state, state)
+    #print(highlight('\ninput'), aeid, aid, input_data, current_state, state)
+    #state['info'].update({'initial_state' : 1})
     return state
 
 def execute_instructions(aeid, aid, instruction, current_state, requested_states, **kwargs):
-    global cells
+    #global cells
     info = {}
+    ok = True
+    instructions = {aid : instruction}
     
-    #print('EXECUTION')
-    #print('instruction',instruction)
-    #print('current_state',current_state)
+    print('EXECUTION')
+    print('instruction',instruction)
+    print('current_state',current_state)
     #instruction = copy.deepcopy(instruction)
 
-    print('EXECUTION', aeid, aid, instruction['production']['scale_factor'] if instruction else None, 
-          instruction['consumption']['scale_factor'] if instruction else None, 
-          list(requested_states.keys()))
+    #print('EXECUTION', aeid, aid, instruction['production']['scale_factor'] if instruction else None, 
+    #      instruction['consumption']['scale_factor'] if instruction else None, 
+    #      list(requested_states.keys()))
     
-    print()
-    print('instruction', instruction)
-    print()
-    print('current_state', current_state)
-    print()
-    print('requested_states', requested_states)
+    #print()
+    #print('instruction', instruction)
+    #print()
+    #print('current_state', current_state)
+    #print()
+    #print('requested_states', requested_states)
 
 
 
-    if len(requested_states) == 0:
-        #print('LIST', aeid)
-        #profile = get_unit_profile(aeid, cells)
-        #print()
-        #print('profile', profile)
-        
-
-
-
-
-        instructions = {aid : instruction}
-    else:
-        instructions, info = compute_instructions(instruction=instruction, 
+    if not len(requested_states) == 0:
+        ok, instructions, info = compute_instructions(instruction=instruction, 
                                                                     current_state=current_state,
                                                             requested_states=requested_states)
+        #for k in requested_states:
+        #    if k in instructions:
+        #        instructions[k].update({'INITIAL' : {}})
+        
+    else:
+        #if (instruction['production'] + instruction['consumption']) < PRECISION:
+        pass
+        #print('FIIIIIIIIIRSTLISTTTT', instruction, current_state)
+        #    profile = get_unit_profile(aeid, cells)
+        #print()
+        #print('profile', profile)
+
+        
     #print()
-    #print('new instructions', instructions)
+    print('new instructions', instructions)
     #print()
     #print('info', info)
-    return instructions, info
+    return ok, instructions, info
     #global cells
 
     new = instruction['production']['current']
@@ -305,7 +315,6 @@ def main():
                         step_size=STEP_SIZE,
                         sim_params=PVSIM_PARAMS,
                     )
-        input_sim = world.start("InputSim", step_size=STEP_SIZE)
         flsim = world.start(
                         "FLSim",
                         step_size=STEP_SIZE,
@@ -315,7 +324,7 @@ def main():
         #                step_size=STEP_SIZE, 
         #                wind_file=WIND_FILE,
         #            )
-        
+    input_sim = world.start("InputSim", step_size=STEP_SIZE)   
     csv_sim_writer = world.start('CSV_writer', start_date = START_DATE,
                                             output_file=os.path.join(results_dir, args.output_file))
     
@@ -356,7 +365,7 @@ def main():
                         #else: # PV
                             pv += pvsim.PVSim.create(num=1, **PVMODEL_PARAMS)
                             e.update({'agent' : agents[-1], 'sim' : pv[-1]})     
-                            #world.connect(e['sim'], csv_writer, 'P[MW]')            
+                            world.connect(e['sim'], csv_writer, 'P[MW]')            
                     elif e['type'] == 'Load':
                         fl += flsim.FLSim.create(num=1)
                         fli = input_sim.Function.create(1, function=lambda x: x * len(fl)/1000)
@@ -380,15 +389,15 @@ def main():
                             #world.connect(e['sim'], csv_writer, 'P[MW]') 
                             #world.connect(e['agent'], csv_writer, 'current')
                             #world.connect(e['agent'], csv_writer, 'scale_factor')
-                    #break
+                    break
             hierarchical_controllers += hierarchical[1:]
     
     print('cell controllers:', len(cell_controllers))
     print('hierarchical controllers:', len(hierarchical_controllers))
     print('power unit agents:', len(agents))
 
-    print(cells['match_agent'])
-    print(cells['match_unit'])
+    #print(cells['match_agent'])
+    #print(cells['match_unit'])
     #sys.exit()
     print(f"Simulation started at {t.ctime()}")
     world.run(until=END)

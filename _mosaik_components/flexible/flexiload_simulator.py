@@ -57,8 +57,8 @@ class FLSimulator(mosaik_api_v3.Simulator):
         self.date = arrow.get(sim_params.get('start_date', '2016-01-01 00:00:00'), DATE_FORMAT)
         self.time_resolution = time_resolution
         self.step_size = step_size
-        self._first_step = True
-        #self._last_time = -1
+        #self._first_step = True
+        self.current_time = -1
         self.sid = sid
         self.entities = {}
         self.scale_factor = {}
@@ -69,7 +69,7 @@ class FLSimulator(mosaik_api_v3.Simulator):
         for n in range(len(self.entities), len(self.entities) + num):
             eid = f"{model}-{n}"
             self.entities[eid] = 0
-            self.scale_factor[eid] = 1 # Default value
+            self.scale_factor[eid] = 0 # Default value
             entities.append({
                 "eid": eid,
                 "type": model,
@@ -79,24 +79,27 @@ class FLSimulator(mosaik_api_v3.Simulator):
     def _get_data(self, eid, attr):
         if attr == 'scale_factor':
             return self.scale_factor[eid]
-        result = self.entities[eid] * self.scale_factor[eid]
+        result = self.entities[eid] + self.scale_factor[eid]
         if self.gen_neg:
             result = abs(result) * (-1)
+        #print('\nnflexil current', eid, result)
         return result
 
     def step(self, time, inputs, max_advance):
-        print('\nflexil', time)
-        if not self._first_step:
+        #print('\nflexil', time)
+        if self.current_time > -1 and self.current_time != time:
             self.date = self.date.shift(seconds=self.step_size)
-        self._first_step = False
+            self.scale_factor = {k: 0 for k, v in self.scale_factor.items()}               
+        self.current_time = time
         #print('\n!!FL input!!', inputs)
         for eid, attrs in inputs.items():
             for attr, vals in attrs.items():
                 if attr == 'P[MW]':
-                    self.entities[eid] = list(vals.values())[0] * self.scale_factor[eid] #
+                    #print('\nnflexil P[MW]P[MW]P[MW]', eid, list(vals.values())[0])
+                    self.entities[eid] = list(vals.values())[0]# + self.scale_factor[eid] #
                 elif attr == 'scale_factor':
                     self.scale_factor[eid] = list(vals.values())[0]
-                    print('\nscale_factor', self.scale_factor[eid])
+                    #print('\nnflexil scale_factor', eid, self.scale_factor[eid])
                 else:
                     pass
 

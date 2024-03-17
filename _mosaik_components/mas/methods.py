@@ -69,7 +69,7 @@ def _input_to_state(aeid, aid, input_data, current_state, **kwargs):
     print(highlight('\ninput'), aeid, aid, input_data, current_state, state)
     return state
 
-def state_to_output(aeid, aid, attrs, current_state, **kwargs):
+def state_to_output(aeid, aid, attrs, current_state, converged, **kwargs):
 # inputs {'Agent_3': {'current': {'WecsSim-0.wecs-0': 147.26366926766127}},
 # output_state: {'Agent_1': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 0.0}},
 # entities: {'Agent_3': 'WecsSim-0.wecs-0', 'Agent_4': 'Grid-0.Load-0',
@@ -78,14 +78,24 @@ def state_to_output(aeid, aid, attrs, current_state, **kwargs):
     #print(highlight('\noutputs:'), output_data)
     #print(new_timestep)
     #print(eid, attrs, current_state)
-    current = max(current_state['production']['current'], current_state['consumption']['current'])
-    scale_factor = current_state['production']['scale_factor'] * current_state['consumption']['scale_factor']
+
+    #print('converged', converged)
+
+    if abs(current_state['production']['current']) > PRECISION or abs(current_state['production']['scale_factor']) > PRECISION:
+        key = 'production'
+    elif abs(current_state['consumption']['current']) > PRECISION or abs(current_state['consumption']['scale_factor']) > PRECISION:
+        key = 'consumption'
+    else:
+        key = 'production'
+
+    current = current_state[key]['current']
+    scale_factor = current_state[key]['scale_factor']
 
     for attr in attrs:
         if 'current' == attr:
             data.update({'current' : current})
         elif 'scale_factor' == attr:
-            if abs(scale_factor - 1) > PRECISION:
+            if abs(scale_factor) > PRECISION and not converged:
                 data.update({'scale_factor' : scale_factor})
 
     '''
@@ -105,7 +115,7 @@ def state_to_output(aeid, aid, attrs, current_state, **kwargs):
             print(eid, 'scale_factor', scale_factor, 'current', current)
     '''
     #print(data)
-    print(highlight('\noutput'), aeid, aid, attrs, current_state, data)
+    #print(highlight('\noutput'), aeid, aid, attrs, current_state, data)
     return data
 
 '''
@@ -167,10 +177,13 @@ def aggregate_states(requested_states, current_state=MAS_STATE, **kwargs):
     for aid, state in requested_states.items():
         for i in current_state.keys():
             for j in current_state[i].keys():
-                if j == 'scale_factor':
-                    current_state[i][j] *= state[i][j]
-                else:
-                    current_state[i][j] += state[i][j]
+                #if j == 'scale_factor':
+                #    current_state[i][j] *= state[i][j]
+                #else:
+                    if isinstance(current_state[i][j], (int, float, list)):
+                        current_state[i][j] += state[i][j]
+                    else:
+                        print('NOAGGGGG')
     return current_state
 '''
 def execute_instructions(instruction, current_state, requested_states):
@@ -199,41 +212,48 @@ def compute_instructions(current_state, **kwargs):
             _new_state = copy.deepcopy(new_state)
             for i in new_state.keys():
                 for j in new_state[i].keys():
-                    _new_state[i][j] -= current_state[i][j]
+                    if isinstance(_new_state[i][j], (int, float)):
+                        _new_state[i][j] -= current_state[i][j]
+                    else:
+                        print('NONUM deta')
             return _new_state
-    def add_delta(current_state, delta):
-            new_state = copy.deepcopy(current_state)
-            for i in delta.keys():
-                for j in delta[i].keys():
-                    new_state[i][j] += delta[i][j]
-            return new_state
+    #def add_delta(current_state, delta):
+    #        new_state = copy.deepcopy(current_state)
+    #        for i in delta.keys():
+    #            for j in delta[i].keys():
+    #                new_state[i][j] += delta[i][j]
+    #        return new_state
     def compose_instructions(agents_info, delta):
         _delta = copy.deepcopy(delta)
         _agents_info = copy.deepcopy(agents_info)
         for aid, state in _agents_info.items():
             for i in _delta.keys():
-                max_inc = state[i]['max'] - state[i]['current']
-                max_dec = state[i]['current'] - state[i]['min']
-                if _delta[i]['current'] > PRECISION:
-                    if _delta[i]['current'] <= max_inc:
-                       state[i]['current'] += _delta[i]['current']
-                       _delta[i]['current'] = 0
-                    else:
-                       state[i]['current'] += max_inc
-                       _delta[i]['current'] -= max_inc
-                elif _delta[i]['current'] < PRECISION:            
-                    if abs(_delta[i]['current']) <= max_dec:
-                       state[i]['current'] += _delta[i]['current']
-                       _delta[i]['current'] = 0
-                    else:
-                       state[i]['current'] -= max_dec
-                       _delta[i]['current'] += max_dec
-                state[i]['scale_factor'] = state[i]['current'] / agents_info[aid][i]['current'] if agents_info[aid][i]['current'] > PRECISION else 1
+                if i != 'info':
+                    max_inc = state[i]['max'] - state[i]['current']
+                    max_dec = state[i]['current'] - state[i]['min']
+                    if _delta[i]['current'] > PRECISION:
+                        if _delta[i]['current'] <= max_inc:
+                            state[i]['current'] += _delta[i]['current']
+                            _delta[i]['current'] = 0
+                        else:
+                            state[i]['current'] += max_inc
+                            _delta[i]['current'] -= max_inc
+                    elif _delta[i]['current'] <= PRECISION:            
+                        if abs(_delta[i]['current']) <= max_dec:
+                            state[i]['current'] += _delta[i]['current']
+                            _delta[i]['current'] = 0
+                        else:
+                            state[i]['current'] -= max_dec
+                            _delta[i]['current'] += max_dec
+                    #state[i]['scale_factor'] = state[i]['current'] / agents_info[aid][i]['current'] if agents_info[aid][i]['current'] > PRECISION else 1
+                    state[i]['scale_factor'] = state[i]['current'] - agents_info[aid][i]['current'] #/ if agents_info[aid][i]['current'] > PRECISION else 1
         return _agents_info, _delta
     
     def compute_balance(external_network_state=copy.deepcopy(MAS_STATE), 
                                     cells_aggregated_state=copy.deepcopy(MAS_STATE)):
-
+                
+                #cells_aggregated_state = copy.deepcopy(cells_aggregated_state)
+                #external_network_state = copy.deepcopy(external_network_state)               
                 old_cells_aggregated_state = copy.deepcopy(cells_aggregated_state)
                 old_external_network_state = copy.deepcopy(external_network_state)
                 cell_balance = cells_aggregated_state['production']['current'] - cells_aggregated_state['consumption']['current']
@@ -495,12 +515,16 @@ def compute_instructions(current_state, **kwargs):
                 #print('grid delta:', grid_delta)
                 #print('grid delta:', grid_delta)
 
-                return cells_aggregated_state, cells_aggregated_delta, external_network_state, external_network_delta
+                ok = abs(cell_balance - cell_expected_balance) < PRECISION
+                if ok:
+                    print('CONVERGED')
+                return ok, cells_aggregated_state, cells_aggregated_delta, external_network_state, external_network_delta
 
     requested_states = kwargs.get('requested_states', {})
     instruction = kwargs.get('instruction', None)
 
     if instruction != None:
+        ok = True
         delta = calc_delta(current_state, instruction)
         instructions, remains = compose_instructions(requested_states, delta)
     else:
@@ -509,7 +533,7 @@ def compute_instructions(current_state, **kwargs):
             #print('\ngrid_state:', current_state)
             #print('aggregated_cell_state:', aggregated_state)
         #return cells_aggregated_state, cells_aggregated_delta, external_network_state, external_network_delta
-        _, cells_delta, delta, _ = compute_balance(current_state, cells_aggregated_state)
+        ok, _, cells_delta, delta, _ = compute_balance(current_state, cells_aggregated_state)
         #print('compute_delta_state')
         #print('grid_delta', grid_delta)
         #print('delta', delta)
@@ -518,4 +542,4 @@ def compute_instructions(current_state, **kwargs):
         print('info', reduce_zero_dict(delta))
         #sys.exit()
 
-    return instructions, delta
+    return ok, instructions, delta
