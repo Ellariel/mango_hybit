@@ -182,8 +182,8 @@ def aggregate_states(requested_states, current_state=MAS_STATE, **kwargs):
                 #else:
                     if isinstance(current_state[i][j], (int, float, list)):
                         current_state[i][j] += state[i][j]
-                    else:
-                        print('NOAGGGGG')
+                    #else:
+                    #    print('NOAGGGGG')
     return current_state
 '''
 def execute_instructions(instruction, current_state, requested_states):
@@ -214,8 +214,8 @@ def compute_instructions(current_state, **kwargs):
                 for j in new_state[i].keys():
                     if isinstance(_new_state[i][j], (int, float)):
                         _new_state[i][j] -= current_state[i][j]
-                    else:
-                        print('NONUM deta')
+                    #else:
+                    #    print('NONUM deta')
             return _new_state
     #def add_delta(current_state, delta):
     #        new_state = copy.deepcopy(current_state)
