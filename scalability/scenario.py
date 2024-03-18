@@ -7,6 +7,7 @@ script from the command line::
 """
 import os
 import sys
+import time
 import json
 import mosaik
 import random
@@ -74,26 +75,26 @@ STEP_SIZE = 60 * 15
 
 # simulators
 SIM_CONFIG = {
-    'Grid': {
-         'python': 'mosaik_components.pandapower:Simulator'
-    },
     'PVSim': {
-        'python': '_mosaik_components.pv.pvgis_simulator:PVGISSimulator',
+        'python': 'simulators.pv.pvgis_simulator:PVGISSimulator',
     },
     'FLSim': {
-        'python': '_mosaik_components.flexible.flexiload_simulator:FLSimulator',
+        'python': 'simulators.flexible.flexiload_simulator:FLSimulator',
     },
-    'WecsSim': {
-        'python': '_mosaik_components.wecssim.mosaik:WecsSim',
+    'WPSim': {
+        'python': 'simulators.wecssim.wind_simulator:WecsSim',
     },
     'MAS': {
         'python': '_mosaik_components.mas.mosaik_agents:MosaikAgents',
     },
-    'CSV_writer': {
+    'GridSim': {
+         'python': 'mosaik_components.pandapower:Simulator',
+    },
+    'OutputSim': {
         'python': 'mosaik_csv_writer:CSVWriter',
     },
     'InputSim': {
-        'python': 'mosaik.basic_simulators.input_simulator:InputSimulator', #mosaik_components
+        'python': 'mosaik.basic_simulators.input_simulator:InputSimulator',
     },
     'LoadSim': {
         'python': 'mosaik_csv:CSV'
@@ -183,27 +184,7 @@ def input_to_state(aeid, aid, input_data, current_state, current_time, first_tim
     #timestep = current_time_step
     return state
 
-def execute_instructions(aeid, aid, instruction, current_state, requested_states, **kwargs):
-    ok = True   
-    #print()
-    #print('EXECUTE')
-    #print(aeid, 'instruction', instruction)
-    #print()
-    #print(aeid, 'current_state', current_state)
 
-    if not len(requested_states) == 0:
-        ok, instructions, state = compute_instructions(instruction=instruction, 
-                                                                    current_state=current_state,
-                                                            requested_states=requested_states, **kwargs)
-        if aeid != 'MosaikAgent':
-            state = MAS_STATE.copy()
-    else:
-        instructions = {aid : instruction}
-        state = instruction
-
-    #print()
-    #print(aeid, 'final_state', state)
-    return ok, instructions, state
 
 
 # Multi-agent system (MAS) configuration
@@ -231,7 +212,7 @@ def main():
     set_random_seed(seed=args.seed)
     world = mosaik.World(SIM_CONFIG)
 
-    gridsim = world.start('Grid', step_size=STEP_SIZE)
+    gridsim = world.start('GridSim', step_size=STEP_SIZE)
     grid = gridsim.Grid(json=GRID_FILE)
 
     #loadsim = world.start("LoadSim", 
@@ -255,16 +236,16 @@ def main():
                         step_size=STEP_SIZE,
                         sim_params=PVSIM_PARAMS,
                     )
-        wsim = world.start('WecsSim', 
+        wsim = world.start('WPSim', 
                         step_size=STEP_SIZE, 
                         wind_file=WIND_FILE,
                     )
     input_sim = world.start("InputSim", step_size=STEP_SIZE)   
-    csv_sim_writer = world.start('CSV_writer', start_date = START_DATE,
+    output_sim = world.start('OutputSim', start_date = START_DATE,
                                             output_file=os.path.join(results_dir, args.output_file))
     
     
-    csv_writer = csv_sim_writer.CSVWriter(buff_size=STEP_SIZE)
+    report = output_sim.CSVWriter(buff_size=STEP_SIZE)
     mosaik_agent = masim.MosaikAgents() # core agent for the mosaik communication 
 
     cells = get_cells_data(grid, gridsim.get_extra_info(), profiles)
@@ -274,8 +255,8 @@ def main():
     ext_grids = [e for e in grid.children if e.type in ['ExternalGrid', 'Ext_grid']]
     world.connect(ext_grids[0], mosaik_agent, ('P[MW]', 'current'))
     cells['match_agent'].update({'MosaikAgent' : ext_grids[0].eid})
-    world.connect(mosaik_agent, csv_writer, 'steptime')
-    world.connect(mosaik_agent, csv_writer, 'current')
+    world.connect(mosaik_agent, report, 'steptime')
+    world.connect(mosaik_agent, report, 'current')
 
     #print(cells)
     #sys.exit()
@@ -328,7 +309,7 @@ def main():
                             world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
                             #world.connect(e['sim'], e['unit'], 'P[MW]')
                             world.connect(e['agent'], e['sim'], 'scale_factor', weak=True)
-                            world.connect(e['sim'], csv_writer, 'P[MW]') 
+                            world.connect(e['sim'], report, 'P[MW]') 
                             #world.connect(e['agent'], csv_writer, 'current')
                             #world.connect(e['agent'], csv_writer, 'scale_factor')
                     #break
@@ -341,9 +322,9 @@ def main():
     #print(cells['match_agent'])
     #print(cells['match_unit'])
     #sys.exit()
-    print(f"Simulation started at {t.ctime()}")
+    print(f"Simulation started at {time.ctime()}")
     world.run(until=END)
-    print(f"Simulation finished at {t.ctime()}")
+    print(f"Simulation finished at {time.ctime()}")
 
 if __name__ == '__main__':
     main()
