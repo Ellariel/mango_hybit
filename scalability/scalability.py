@@ -74,15 +74,11 @@ scalability_time = pd.DataFrame().from_dict(scalability_time).rename(columns={0:
                                                             1: 'cells_count',
                                                             2: 'hierarchy_depth',
                                                             3: 'agents_time'})
-# scalability_time['per_cell'] = scalability_time['agents_time'] / scalability_time['cells_count']
-# scalability_time['per_level'] = scalability_time['agents_time'] / scalability_time['hierarchy_depth']
 scalability_time.to_csv(scalability_time_filename, index=False)
 
 simulation_time = pd.DataFrame().from_dict(simulation_time).rename(columns={0: 'cells_count',
                                                                             1: 'hierarchy_depth',
                                                                             2: 'sim_time'})
-# simulation_time['per_cell'] = simulation_time['sim_time'] / simulation_time['cells_count']
-# simulation_time['per_level'] = simulation_time['sim_time'] / simulation_time['hierarchy_depth']
 simulation_time.to_csv(simulation_time_filename, index=False)
 
 print(f"Results were saved to {scalability_time_filename} and {simulation_time_filename}")

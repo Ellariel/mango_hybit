@@ -1,10 +1,8 @@
-import os
 import random
 import numpy as np
 from termcolor import colored
 from pandas.io.json._normalize import nested_to_record
 
-#CONVERGENCE = 1
 PRECISION = 10 ** -6
 
 MAS_DEFAULT_STATE = {
@@ -20,22 +18,21 @@ MAS_DEFAULT_STATE = {
         'current' : 0,
         'scale_factor' : 0,
     },    
-    #'info' : {
-    #    'initial_state' : 0,
-    #},
 }
 
-MAS_DEFAULT_CONFIG = {
+MAS_DEFAULT_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py 
     'verbose': 1, # 0 - no messages, 1 - basic agent comminication, 2 - full
-    'performance': True, # returns wall time of each mosaik step / the core loop execution time 
-                         # as a 'steptime' [sec] output attribute of MosaikAgent 
+    'performance': False, # returns wall time of each mosaik step / the core loop execution time 
+                                     # as a 'steptime' [sec] output attribute of MosaikAgent 
+    'convergence_steps' : 3, # higher value ensures convergence
+    'convegence_max_steps' : 5, # raise an error if there is no convergence
     'state_dict': MAS_DEFAULT_STATE, # how an agent state that are gathered and comunicated should look like
     'input_method': None, # method that transforms mosaik inputs dict to the agent state (see `update_state`, default: copy dict)
     'output_method': None, # method that transforms the agent state to mosaik outputs dict (default: copy dict)
     'states_agg_method': None, # method that aggregates gathered states to one top-level state
-    #'redispatch_method': None, # method that computes and decomposes the redispatch instructions 
-    #                           # that will be hierarchically transmitted from each agent to its connected peers
-    'execute_method': None,    # executes the received instructions internally
+    'execute_method': None,    # method that computes and decomposes the redispatch instructions 
+                                               # that will be hierarchically transmitted from each agent to its connected peers,
+                                               # executes the received instructions internally
 }
 
 def set_random_seed(seed=13):
@@ -70,25 +67,3 @@ def reduce_equal_dicts(a_dict, b_dict):
         if a_flattened == b_flattened:
             return colored('same', 'dark_grey')
     return a_dict
-
-def _hard_close_file_descriptors():
-    KEEP_FD = set([0, 1, 2])
-    if os.name == 'posix':
-        try:
-            for fd in os.listdir(os.path.join("/proc", str(os.getpid()), "fd")):
-                if int(fd) not in KEEP_FD:
-                    try:
-                        #print(os.readlink(f"/proc/self/fd/{fd}"))
-                        os.close(int(fd))
-                    except OSError:
-                        pass
-        except:
-            pass
-
-def _check_file_descriptors():
-    if os.name == 'posix':
-        try:
-            descs = os.listdir(os.path.join("/proc", str(os.getpid()), "fd"))
-            print(f"file descriptors in use: {len(descs)}")
-        except:
-            pass

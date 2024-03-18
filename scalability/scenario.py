@@ -111,7 +111,7 @@ PVSIM_PARAMS = {
 
 # For each PV
 PVMODEL_PARAMS = {
-    'scale_factor' : 100000,
+    'scale_factor' : 1000000,
     'lat' : 52.373,
     'lon' : 9.738,
     'optimal_both' : True,
@@ -123,28 +123,15 @@ WECS_CONFIG = {'P_rated': 7000,
                'v_min': 3.5, 
                'v_max': 25}
 
-#timestep = -1
-
 def input_to_state(aeid, aid, input_data, current_state, current_time, first_time_step, **kwargs):
-    # state={'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0}}
+    # aeid: Agent_3
+    # aid: agent3
+    # input_data: {'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0, 'FLSim-0.FLSim-0': 0.9}}
+    # current_state: {'production': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}, 
+    #                'consumption': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}}
     global cells
-    ##global timestep
-
-    #initial_input = bool(timestep != current_time_step)
-
-    #input Agent_3 {'current': {'FLSim-0.FLSim-0': 0.9}} {'production': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}, 'consumption': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}}
     state = copy.deepcopy(MAS_STATE)
     profile = get_unit_profile(aeid, cells)
-    #state['production'].update(profile)
-    #print('INPUT')
-    #print(aeid, 'input', input_data)
-    #print()
-    #print(aeid, 'current_state', current_state)
-    #print('!!!!!!!!!!!!!',input_data)
-    #print('INPUT')
-    #print(current_time_step)
-    #print(first_time_step)
-
     if 'current' in input_data:
         for eid, value in input_data['current'].items():
             if 'Load' in eid or 'FL' in eid: # check the type of connected unit and its profile
@@ -154,38 +141,18 @@ def input_to_state(aeid, aid, input_data, current_state, current_time, first_tim
                 state['production']['current'] += abs(value)
                 if first_time_step:
                     profile['max'] = min(abs(value), profile['max'])
-                    #print(input_data)
-                    #print(profile)
-                    #print(current_state)
-                    #print()
                 state['production'].update(profile)
-                #state['production'].update({'max' : min(abs(value), profile['max'])})
-                #print('ppp',get_unit_profile(aeid, cells))
-            elif 'ExternalGrid' in eid: #{'Grid-0.ExternalGrid-0': 45.30143468767862}} 
+            elif 'ExternalGrid' in eid:
                 if value > 0: # check the convention here!
                     state['production']['current'] += value
                 else:
                     state['consumption']['current'] += abs(value) 
                 state['production'].update(profile)
                 state['consumption'].update(profile) 
-                #print(profile)
-                #state['production']['min'] = 0
-                #state['production']['max'] = value * 5
-                #state['consumption']['min'] = 0
-                #state['consumption']['max'] = abs(value) * 5
             break 
-            #print(eid, input_data, state)
     state['consumption']['scale_factor'] = current_state['consumption']['scale_factor']
     state['production']['scale_factor'] = current_state['production']['scale_factor']
-    #print()
-    #print(aeid, 'final_state', state)
-    #print(highlight('\ninput'), aeid, aid, input_data, current_state, state)
-    #state['info'].update({'initial_state' : 1})
-    #timestep = current_time_step
     return state
-
-
-
 
 # Multi-agent system (MAS) configuration
 # User-defined methods are specified in methods.py to make scenario cleaner, 
@@ -194,16 +161,15 @@ MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py
     'verbose': args.verbose, # 0 - no messages, 1 - basic agent comminication, 2 - full
     'performance': args.performance, # returns wall time of each mosaik step / the core loop execution time 
                                      # as a 'steptime' [sec] output attribute of MosaikAgent 
-    'convergence_steps' : 3,
-    'convegence_max_steps' : 5,
-
+    'convergence_steps' : 3, # higher value ensures convergence
+    'convegence_max_steps' : 5, # raise an error if there is no convergence
     'state_dict': MAS_STATE, # how an agent state that are gathered and comunicated should look like
     'input_method': input_to_state, # method that transforms mosaik inputs dict to the agent state (see `update_state`, default: copy dict)
     'output_method': state_to_output, # method that transforms the agent state to mosaik outputs dict (default: copy dict)
     'states_agg_method': aggregate_states, # method that aggregates gathered states to one top-level state
-    #'redispatch_method': compute_instructions, # method that computes and decomposes the redispatch instructions 
-                                               # that will be hierarchically transmitted from each agent to its connected peers
-    'execute_method': execute_instructions,    # executes the received instructions internally
+    'execute_method': execute_instructions,    # method that computes and decomposes the redispatch instructions 
+                                               # that will be hierarchically transmitted from each agent to its connected peers,
+                                               # executes the received instructions internally
 }
 
 def main():
@@ -221,7 +187,6 @@ def main():
      #                     datafile=LOAD_FILE)
 
     with world.group():
-    #if True:
         masim = world.start('MAS', 
                             step_size=STEP_SIZE, 
                             **MAS_CONFIG,
@@ -243,26 +208,17 @@ def main():
     input_sim = world.start("InputSim", step_size=STEP_SIZE)   
     output_sim = world.start('OutputSim', start_date = START_DATE,
                                             output_file=os.path.join(results_dir, args.output_file))
-    
-    
     report = output_sim.CSVWriter(buff_size=STEP_SIZE)
     mosaik_agent = masim.MosaikAgents() # core agent for the mosaik communication 
 
     cells = get_cells_data(grid, gridsim.get_extra_info(), profiles)
     cells.setdefault('match_unit', {})
     cells.setdefault('match_agent', {})
-
     ext_grids = [e for e in grid.children if e.type in ['ExternalGrid', 'Ext_grid']]
-    world.connect(ext_grids[0], mosaik_agent, ('P[MW]', 'current'))
     cells['match_agent'].update({'MosaikAgent' : ext_grids[0].eid})
+    world.connect(ext_grids[0], mosaik_agent, ('P[MW]', 'current'))
     world.connect(mosaik_agent, report, 'steptime')
     world.connect(mosaik_agent, report, 'current')
-
-    #print(cells)
-    #sys.exit()
-    
-    #print(get_unit_profile('MosaikAgent', cells))
-    #sys.exit()
 
     pv = [] # PV simulators
     wp = [] # Wind power simulators
@@ -283,35 +239,30 @@ def main():
                     if e['type'] == 'StaticGen':
                         if '-7' in e['bus']: # wind at Bus-*-7                     
                             wp += wsim.WECS.create(num=1, **WECS_CONFIG)
-                            e.update({'agent' : agents[-1], 'sim' : wp[-1]})   
-                            #world.connect(e['sim'], csv_writer, 'P[MW]')   
-                            pass        
+                            e.update({'agent' : agents[-1], 'sim' : wp[-1]})         
                         else: # PV
                             pv += pvsim.PVSim.create(num=1, **PVMODEL_PARAMS)
-                            e.update({'agent' : agents[-1], 'sim' : pv[-1]})     
-                            #world.connect(e['sim'], csv_writer, 'P[MW]')  
-                            pass          
+                            e.update({'agent' : agents[-1], 'sim' : pv[-1]})             
                     elif e['type'] == 'Load':
                         fl += flsim.FLSim.create(num=1)
-                        fli = input_sim.Function.create(1, function=lambda x: x * len(fl)/1000)
+                        l = input_sim.Function.create(1, function=lambda x: x * len(fl)/1000)
                         #fli = loadsim.Braunschweig.create(1)
-                        #world.connect(fli[0], csv_writer, ('value', 'P[MW]'))
+                        #world.connect(l[0], csv_writer, ('value', 'P[MW]'))
                         e.update({'agent' : agents[-1], 'sim' : fl[-1]})
-                        world.connect(fli[0], e['sim'], ('value', 'P[MW]'))
+                        world.connect(l[0], e['sim'], ('value', 'P[MW]'))
                     else:
                         pass
                     
-
                     if 'sim' in e:
                         cells['match_unit'].update({e['sim'].eid : e['unit'].eid})
                         if 'agent' in e:
                             cells['match_agent'].update({e['agent'].eid : e['sim'].eid})
                             world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
-                            #world.connect(e['sim'], e['unit'], 'P[MW]')
                             world.connect(e['agent'], e['sim'], 'scale_factor', weak=True)
+                            #world.connect(e['sim'], e['unit'], 'P[MW]')
                             world.connect(e['sim'], report, 'P[MW]') 
-                            #world.connect(e['agent'], csv_writer, 'current')
-                            #world.connect(e['agent'], csv_writer, 'scale_factor')
+                            world.connect(e['agent'], report, 'current')
+                            world.connect(e['agent'], report, 'scale_factor')
                     #break
             hierarchical_controllers += hierarchical[1:]
     
@@ -319,9 +270,6 @@ def main():
     print('hierarchical controllers:', len(hierarchical_controllers))
     print('power unit agents:', len(agents))
 
-    #print(cells['match_agent'])
-    #print(cells['match_unit'])
-    #sys.exit()
     print(f"Simulation started at {time.ctime()}")
     world.run(until=END)
     print(f"Simulation finished at {time.ctime()}")

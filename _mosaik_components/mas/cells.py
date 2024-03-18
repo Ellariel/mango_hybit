@@ -1,4 +1,4 @@
-import os, sys
+import os
 import json
 import random
 import pandas as pd
@@ -95,13 +95,11 @@ def generate_profiles(net, dir='./', seed=13):
                 'min' : 0, #0.1 if unit['bus'] == 7 or unit['bus'] == 22 else 0
             }
     for _, unit in net.load.iterrows():
-        #print(unit['name'])
         profiles[unit['name']] = {
                 'max' : unit.p_mw * random.randrange(1, 4),
                 'min' : (unit.p_mw - unit.p_mw * random.randrange(1, 4) / 10) * random.randrange(0, 2),
             }
     for _, unit in net.res_ext_grid.iterrows():
-        #print(net.ext_grid.iloc[unit.name]['name'])
         profiles[net.ext_grid.iloc[unit.name]['name']] = {
                 'max' : unit.p_mw * 3,
                 'min' : 0,
@@ -110,7 +108,6 @@ def generate_profiles(net, dir='./', seed=13):
         dir = os.path.join(dir, "profiles.json")
         with open(dir, 'w') as f:
             json.dump(profiles, f)
-    #print(profiles)
     return profiles, dir
 
 
