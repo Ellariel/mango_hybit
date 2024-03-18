@@ -62,7 +62,7 @@ for i in tqdm(cells_count):
             generate_profiles(net, dir=data_dir, seed=seed)
             
             start_time = time.time()
-            os.system(f"python scenario.py --seed {seed} --dir {base_dir} --output_file {output_filename} --clean False --cells {i} --hierarchy {j} > {NULL if not stdout_logs else os.path.join(logs_dir, f'stdout_{i}_{j}_{seed}.log')} 2>&1")
+            os.system(f"python scenario.py --verbose 1 --seed {seed} --dir {base_dir} --output_file {output_filename} --clean False --cells {i} --hierarchy {j} > {NULL if not stdout_logs else os.path.join(logs_dir, f'stdout_{i}_{j}_{seed}.log')} 2>&1")
             simulation_time += [(i, j, time.time() - start_time)]
 
             r = pd.read_csv(temp_filename)

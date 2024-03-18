@@ -404,7 +404,8 @@ class MosaikAgent(mango.Agent):
                     self.converged += (1 if ok else 0)
                     #print('converged', self.converged)
                     if self.converged >= self.convergence_steps:
-                        print(highlight('CONVERGED!', 'green'))
+                        if self.params['verbose'] >= 1:
+                            print(highlight('CONVERGED!', 'green'))
                         #return {}###############################################
                     
                 
@@ -620,14 +621,16 @@ class MosaikAgents(mosaik_api.Simulator):
 
         """
         if self.mosaik_agent.current_time != time:
-            print(highlight('\nNEW TIMESTEP:', 'white'), time)
+            if self.params['verbose'] >= 1:
+                print(highlight('\nNEW TIMESTEP:', 'white'), time)
             #self.converged = False  
             self._steptime = [] 
             self.mosaik_agent.converged = 0 
             self.mosaik_agent.first_time_step = True
             #self.first_step = True        
         else:
-            print(highlight('\nTIMESTEP:', 'white'), time)  
+            if self.params['verbose'] >= 1:
+                print(highlight('\nTIMESTEP:', 'white'), time)  
         self.mosaik_agent.current_time = time
 
         #print('\nagents', time)

@@ -194,7 +194,7 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
     if not len(requested_states) == 0:
         ok, instructions, state = compute_instructions(instruction=instruction, 
                                                                     current_state=current_state,
-                                                            requested_states=requested_states)
+                                                            requested_states=requested_states, **kwargs)
         if aeid != 'MosaikAgent':
             state = MAS_STATE.copy()
     else:

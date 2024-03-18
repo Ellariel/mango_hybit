@@ -348,7 +348,7 @@ def compute_instructions(current_state, **kwargs):
                 if verbose >= 0:
                     if ok:
                        print(highlight('balanced solution', 'blue'))
-                    print()
+                    #print()
                 return ok, cells_aggregated_state, cells_aggregated_delta, external_network_state, external_network_delta
 
     requested_states = kwargs.get('requested_states', {})
