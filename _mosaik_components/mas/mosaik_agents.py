@@ -114,7 +114,7 @@ class Agent(mango.Agent):
                                                      self.aid, 
                                                      content.state, 
                                                      self.state,
-                                                     info['current_time_step'],
+                                                     info['current_time'],
                                                      info['first_time_step'],
                                                      **self.params)
         else:
@@ -267,7 +267,7 @@ class MosaikAgent(mango.Agent):
         self.convegence_max_steps = self.params.pop('convegence_max_steps', 5)
 
         self.cached_solution = {}
-        self.current_time_step = -1
+        self.current_time = -1
         self.first_time_step = True
 
         self.state = self.params.pop('initial_state', copy.deepcopy(self.params['state_dict']))
@@ -324,7 +324,7 @@ class MosaikAgent(mango.Agent):
         Update the agents with new data from mosaik.
         """
         info = {'MosaikAgent': {
-                        'current_time_step' : self.current_time_step,
+                        'current_time' : self.current_time,
                         'first_time_step' : self.first_time_step,
                     }}
         if self.params['verbose'] >= 1:
@@ -619,7 +619,7 @@ class MosaikAgents(mosaik_api.Simulator):
         mosaik to continue the simulation.
 
         """
-        if self.mosaik_agent.current_time_step != time:
+        if self.mosaik_agent.current_time != time:
             print(highlight('\nNEW TIMESTEP:', 'white'), time)
             #self.converged = False  
             self._steptime = [] 
@@ -628,7 +628,7 @@ class MosaikAgents(mosaik_api.Simulator):
             #self.first_step = True        
         else:
             print(highlight('\nTIMESTEP:', 'white'), time)  
-        self.mosaik_agent.current_time_step = time
+        self.mosaik_agent.current_time = time
 
         #print('\nagents', time)
         #print(highlight('\ninputs:'), inputs)
@@ -649,7 +649,7 @@ class MosaikAgents(mosaik_api.Simulator):
                                                                   'agent0', 
                                                                   new_state, 
                                                                   self.mosaik_agent.state,
-                                                                  self.mosaik_agent.current_time_step,
+                                                                  self.mosaik_agent.current_time,
                                                                   self.mosaik_agent.first_time_step,
                                                                   **self.params)
         else:
@@ -702,7 +702,7 @@ class MosaikAgents(mosaik_api.Simulator):
                                                          attrs, 
                                                          self.output_cache[aeid],
                                                          bool(self.mosaik_agent.converged >= self.mosaik_agent.convergence_steps),
-                                                         self.mosaik_agent.current_time_step,
+                                                         self.mosaik_agent.current_time,
                                                          self.mosaik_agent.first_time_step,
                                                          **self.params)
         else:

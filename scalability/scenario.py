@@ -49,14 +49,12 @@ print(f"cells count: {cells_count}")
 print(f"hierarchy depth: {hierarchy}")
 
 # loading network and flexibility profiles
-cells = {}
-
 net_file = os.path.join(data_dir, 'cells.json')
 if not os.path.exists(net_file) or args.clean:
     net, net_file = create_cells(cells_count=cells_count, dir=data_dir)
 else:
     net = pp.from_json(net_file)
-
+pp.runpp(net, numba=False)
 print(f"loads: {len(net.load)}, gens: {len(net.sgen)}")
 
 prof_file = os.path.join(data_dir, 'profiles.json')
@@ -66,7 +64,7 @@ else:
     with open(prof_file, 'r') as f:
         profiles = json.load(f)
 
-END = 3600 #* 24 * 1  # 1 day
+END = 3600 * 24 * 1  # 1 day
 START_DATE = '2014-01-01 08:00:00'
 DATE_FORMAT = 'YYYY-MM-DD hh:mm:ss'
 GRID_FILE = net_file
@@ -124,9 +122,15 @@ WECS_CONFIG = {'P_rated': 7000,
                'v_min': 3.5, 
                'v_max': 25}
 
-def input_to_state(aeid, aid, input_data, current_state, current_time_step, first_time_step, **kwargs):
+#timestep = -1
+
+def input_to_state(aeid, aid, input_data, current_state, current_time, first_time_step, **kwargs):
     # state={'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0}}
     global cells
+    ##global timestep
+
+    #initial_input = bool(timestep != current_time_step)
+
     #input Agent_3 {'current': {'FLSim-0.FLSim-0': 0.9}} {'production': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}, 'consumption': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}}
     state = copy.deepcopy(MAS_STATE)
     profile = get_unit_profile(aeid, cells)
@@ -147,6 +151,12 @@ def input_to_state(aeid, aid, input_data, current_state, current_time_step, firs
                 state['consumption'].update(profile)
             elif 'Gen' in eid or 'PV' in eid or 'Wecs' in eid:
                 state['production']['current'] += abs(value)
+                if first_time_step:
+                    profile['max'] = min(abs(value), profile['max'])
+                    #print(input_data)
+                    #print(profile)
+                    #print(current_state)
+                    #print()
                 state['production'].update(profile)
                 #state['production'].update({'max' : min(abs(value), profile['max'])})
                 #print('ppp',get_unit_profile(aeid, cells))
@@ -157,10 +167,11 @@ def input_to_state(aeid, aid, input_data, current_state, current_time_step, firs
                     state['consumption']['current'] += abs(value) 
                 state['production'].update(profile)
                 state['consumption'].update(profile) 
-                state['production']['min'] = 0
-                state['production']['max'] = value * 5
-                state['consumption']['min'] = 0
-                state['consumption']['max'] = abs(value) * 5
+                #print(profile)
+                #state['production']['min'] = 0
+                #state['production']['max'] = value * 5
+                #state['consumption']['min'] = 0
+                #state['consumption']['max'] = abs(value) * 5
             break 
             #print(eid, input_data, state)
     state['consumption']['scale_factor'] = current_state['consumption']['scale_factor']
@@ -169,6 +180,7 @@ def input_to_state(aeid, aid, input_data, current_state, current_time_step, firs
     #print(aeid, 'final_state', state)
     #print(highlight('\ninput'), aeid, aid, input_data, current_state, state)
     #state['info'].update({'initial_state' : 1})
+    #timestep = current_time_step
     return state
 
 def execute_instructions(aeid, aid, instruction, current_state, requested_states, **kwargs):
@@ -256,12 +268,20 @@ def main():
     mosaik_agent = masim.MosaikAgents() # core agent for the mosaik communication 
 
     cells = get_cells_data(grid, gridsim.get_extra_info(), profiles)
+    cells.setdefault('match_unit', {})
+    cells.setdefault('match_agent', {})
+
     ext_grids = [e for e in grid.children if e.type in ['ExternalGrid', 'Ext_grid']]
     world.connect(ext_grids[0], mosaik_agent, ('P[MW]', 'current'))
+    cells['match_agent'].update({'MosaikAgent' : ext_grids[0].eid})
     world.connect(mosaik_agent, csv_writer, 'steptime')
     world.connect(mosaik_agent, csv_writer, 'current')
 
     #print(cells)
+    #sys.exit()
+    
+    #print(get_unit_profile('MosaikAgent', cells))
+    #sys.exit()
 
     pv = [] # PV simulators
     wp = [] # Wind power simulators
@@ -300,11 +320,9 @@ def main():
                     else:
                         pass
                     
-                    cells.setdefault('match_unit', {})
-                    cells.setdefault('match_agent', {})
+
                     if 'sim' in e:
                         cells['match_unit'].update({e['sim'].eid : e['unit'].eid})
-                    
                         if 'agent' in e:
                             cells['match_agent'].update({e['agent'].eid : e['sim'].eid})
                             world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
