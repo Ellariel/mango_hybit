@@ -8,10 +8,10 @@ script from the command line::
 import os
 import time
 import argparse
-from tqdm import tqdm
 import pandas as pd
-from _mosaik_components.mas.cells import create_cells, generate_profiles
+from tqdm import tqdm
 from _mosaik_components.mas.utils import set_random_seed, get_random_seed
+from cells import create_cells, generate_profiles
 
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
