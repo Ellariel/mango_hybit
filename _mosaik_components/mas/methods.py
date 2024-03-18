@@ -4,7 +4,7 @@ from _mosaik_components.mas.utils import *
 
 MAS_STATE = MAS_DEFAULT_STATE.copy()
 
-def state_to_output(aeid, aid, attrs, current_state, converged, **kwargs):
+def state_to_output(aeid, aid, attrs, current_state, converged, current_time_step, first_time_step, **kwargs):
 # inputs {'Agent_3': {'current': {'WecsSim-0.wecs-0': 147.26366926766127}},
 # output_state: {'Agent_1': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 0.0}},
 # entities: {'Agent_3': 'WecsSim-0.wecs-0', 'Agent_4': 'Grid-0.Load-0',
@@ -15,6 +15,9 @@ def state_to_output(aeid, aid, attrs, current_state, converged, **kwargs):
     #print(eid, attrs, current_state)
 
     #print('converged', converged)
+    #print('OUTPUT')
+    #print(current_time_step)
+    #print(first_time_step)
 
     if abs(current_state['production']['current']) > PRECISION or abs(current_state['production']['scale_factor']) > PRECISION:
         key = 'production'
@@ -31,7 +34,7 @@ def state_to_output(aeid, aid, attrs, current_state, converged, **kwargs):
             data.update({'current' : current})
         elif 'scale_factor' == attr:
             #if abs(scale_factor) > PRECISION and converged < 2:
-            if converged < CONVERGENCE:
+            if not converged:
                 data.update({'scale_factor' : scale_factor})
 
     #print(data)
@@ -76,7 +79,7 @@ def compute_instructions(current_state, **kwargs):
         _agents_info = copy.deepcopy(agents_info)
         for aid, state in _agents_info.items():
             for i in _delta.keys():
-                if i != 'info':
+                #if i != 'info':
                     max_inc = state[i]['max'] - state[i]['current']
                     max_dec = state[i]['current'] - state[i]['min']
                     if _delta[i]['current'] > PRECISION:
@@ -93,16 +96,13 @@ def compute_instructions(current_state, **kwargs):
                         else:
                             state[i]['current'] -= max_dec
                             _delta[i]['current'] += max_dec
-                    #state[i]['scale_factor'] = state[i]['current'] / agents_info[aid][i]['current'] if agents_info[aid][i]['current'] > PRECISION else 1
+                    #print()
+                    #print('INSTRUCTION', i)
+                    #print(aid, 'current state', agents_info[aid][i]['current'], agents_info[aid][i]['scale_factor'])
+                    #print(aid, 'instruction', state[i]['current'], state[i]['scale_factor'])
                     
-                    #print(aid, 'scale_factor old', agents_info[aid][i]['scale_factor'], ' current', agents_info[aid][i]['current'])
-                    
-                    #state[i]['scale_factor'] = state[i]['current'] - (agents_info[aid][i]['current'] - agents_info[aid][i]['scale_factor'])#/ if agents_info[aid][i]['current'] > PRECISION else 1
                     state[i]['scale_factor'] = state[i]['current'] - agents_info[aid][i]['current']#/ if agents_info[aid][i]['current'] > PRECISION else 1
 
-
-                    #print(aid, 'scale_factor new', state[i]['scale_factor'], ' current', state[i]['current'])
-        
         return _agents_info, _delta
     
     def compute_balance(external_network_state,#=copy.deepcopy(MAS_STATE), 
@@ -123,7 +123,7 @@ def compute_instructions(current_state, **kwargs):
 
                 external_network_min = external_network_state['consumption']['max'] * (-1)
                 external_network_max = external_network_state['production']['max']
-                external_network_default_balance = np.clip(external_network_state['production']['current'] - external_network_state['consumption']['current'] - cell_balance,
+                external_network_default_balance = np.clip(external_network_state['production']['current'] - external_network_state['consumption']['current'],# - cell_balance,
                                                             external_network_min,
                                                             external_network_max)
                 if verbose >= 0:
@@ -340,18 +340,15 @@ def compute_instructions(current_state, **kwargs):
                 if verbose >= 0:
                     print(highlight('new cells balance:', 'red'), new_cell_balance)
                     print(highlight('external network balance:', 'blue'), new_external_network_balance)
-                    print()
                 #print('grid delta:', grid_delta)
                 #print('grid delta:', grid_delta)
 
                 ok = abs(new_cell_balance - cell_expected_balance) < PRECISION
                 #ok = abs(cell_expected_balance*2 - new_cell_balance - cell_balance) < PRECISION
-                #if verbose >= 0:
-                #    if ok:
-                #        print(highlight('test convergence..', 'red'), highlight('CONVERGED!', 'green'))
-                #    else:
-                #        print(highlight('test convergence..', 'red'))
-                #    print()
+                if verbose >= 0:
+                    if ok:
+                       print(highlight('balanced solution', 'blue'))
+                    print()
                 return ok, cells_aggregated_state, cells_aggregated_delta, external_network_state, external_network_delta
 
     requested_states = kwargs.get('requested_states', {})

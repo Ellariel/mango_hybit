@@ -124,23 +124,22 @@ WECS_CONFIG = {'P_rated': 7000,
                'v_min': 3.5, 
                'v_max': 25}
 
-def input_to_state(aeid, aid, input_data, current_state, **kwargs):
+def input_to_state(aeid, aid, input_data, current_state, current_time_step, first_time_step, **kwargs):
     # state={'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0}}
     global cells
     #input Agent_3 {'current': {'FLSim-0.FLSim-0': 0.9}} {'production': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}, 'consumption': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}}
-    #print('FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF')
-    #cells = {}
     state = copy.deepcopy(MAS_STATE)
     profile = get_unit_profile(aeid, cells)
     #state['production'].update(profile)
-    #state['consumption'].update(profile) 
-    #print('profile', profile)
-    #print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!',input_data)
-    #print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!',current_state)
-    #if current_state['info']['initial_state'] < PRECISION:
-    #    print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!', 'initial_state')
+    #print('INPUT')
+    #print(aeid, 'input', input_data)
     #print()
+    #print(aeid, 'current_state', current_state)
     #print('!!!!!!!!!!!!!',input_data)
+    #print('INPUT')
+    #print(current_time_step)
+    #print(first_time_step)
+
     if 'current' in input_data:
         for eid, value in input_data['current'].items():
             if 'Load' in eid or 'FL' in eid: # check the type of connected unit and its profile
@@ -159,83 +158,40 @@ def input_to_state(aeid, aid, input_data, current_state, **kwargs):
                 state['production'].update(profile)
                 state['consumption'].update(profile) 
                 state['production']['min'] = 0
-                state['production']['max'] = value * 1000
+                state['production']['max'] = value * 5
                 state['consumption']['min'] = 0
-                state['consumption']['max'] = abs(value) * 1000
+                state['consumption']['max'] = abs(value) * 5
             break 
             #print(eid, input_data, state)
     state['consumption']['scale_factor'] = current_state['consumption']['scale_factor']
     state['production']['scale_factor'] = current_state['production']['scale_factor']
+    #print()
+    #print(aeid, 'final_state', state)
     #print(highlight('\ninput'), aeid, aid, input_data, current_state, state)
     #state['info'].update({'initial_state' : 1})
     return state
 
 def execute_instructions(aeid, aid, instruction, current_state, requested_states, **kwargs):
-    #global cells
-    
-    ok = True
-    #state = None
-    
-    
-    #print('EXECUTION')
-    #print('instruction',instruction)
-    #print('current_state',current_state)
-    #instruction = copy.deepcopy(instruction)
-
-    #print('EXECUTION', aeid, aid)#, instruction['production']['scale_factor'] if instruction else None, 
-    #      instruction['consumption']['scale_factor'] if instruction else None, 
-    #      list(requested_states.keys()))
-    
+    ok = True   
     #print()
-    #print('instruction', instruction)
+    #print('EXECUTE')
+    #print(aeid, 'instruction', instruction)
     #print()
-    #print('current_state', current_state)
-    #print()
-    #print('requested_states', requested_states)
-
-
+    #print(aeid, 'current_state', current_state)
 
     if not len(requested_states) == 0:
         ok, instructions, state = compute_instructions(instruction=instruction, 
                                                                     current_state=current_state,
                                                             requested_states=requested_states)
-        #for k in requested_states:
-        #    if k in instructions:
-        #        instructions[k].update({'INITIAL' : {}})
         if aeid != 'MosaikAgent':
             state = MAS_STATE.copy()
     else:
         instructions = {aid : instruction}
         state = instruction
-        
-    #else:
-        #if (instruction['production'] + instruction['consumption']) < PRECISION:
-    #    print(instruction)
-        #print('FIIIIIIIIIRSTLISTTTT', instruction, current_state)
-        #    profile = get_unit_profile(aeid, cells)
-        #print()
-        #print('profile', profile)
 
-        
     #print()
-    #print('new instructions', instructions)
-    #print()
-    #print('info', info)
+    #print(aeid, 'final_state', state)
     return ok, instructions, state
-    #global cells
-
-    new = instruction['production']['current']
-    current = current_state['production']['current']
-    instruction['production']['scale_factor'] = new / current if current > PRECISION else 1
-
-    new = instruction['consumption']['current']
-    current = current_state['consumption']['current']
-    instruction['consumption']['scale_factor'] = new / current if current > PRECISION else 1
-
-    #print('instruction', instruction)
-    print('EXECUTION', aeid, aid, instruction['production']['scale_factor'], instruction['consumption']['scale_factor'], list(requested_states.keys()))
-
-    return instruction
 
 
 # Multi-agent system (MAS) configuration
@@ -245,6 +201,9 @@ MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py
     'verbose': args.verbose, # 0 - no messages, 1 - basic agent comminication, 2 - full
     'performance': args.performance, # returns wall time of each mosaik step / the core loop execution time 
                                      # as a 'steptime' [sec] output attribute of MosaikAgent 
+    'convergence_steps' : 3,
+    'convegence_max_steps' : 5,
+
     'state_dict': MAS_STATE, # how an agent state that are gathered and comunicated should look like
     'input_method': input_to_state, # method that transforms mosaik inputs dict to the agent state (see `update_state`, default: copy dict)
     'output_method': state_to_output, # method that transforms the agent state to mosaik outputs dict (default: copy dict)

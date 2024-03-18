@@ -107,9 +107,16 @@ class Agent(mango.Agent):
         :param meta: the meta information dict
         """
         
+        info = content.state.pop('MosaikAgent', {})
 
         if callable(self.params['input_method']):
-            self.state = self.params['input_method'](self.aeid, self.aid, content.state, self.state, **self.params)
+            self.state = self.params['input_method'](self.aeid, 
+                                                     self.aid, 
+                                                     content.state, 
+                                                     self.state,
+                                                     info['current_time_step'],
+                                                     info['first_time_step'],
+                                                     **self.params)
         else:
             self.state = copy.deepcopy(content.state)
 
@@ -256,8 +263,12 @@ class MosaikAgent(mango.Agent):
         self.aeid = self.params.pop('aeid', None)
         #print(self.sid, self.aeid, self.aid)
         self.converged = 0
+        self.convergence_steps = self.params.pop('convergence_steps', 2)
+        self.convegence_max_steps = self.params.pop('convegence_max_steps', 5)
+
         self.cached_solution = {}
-        self.first_step = True
+        self.current_time_step = -1
+        self.first_time_step = True
 
         self.state = self.params.pop('initial_state', copy.deepcopy(self.params['state_dict']))
         self.connected_agents = []
@@ -312,13 +323,17 @@ class MosaikAgent(mango.Agent):
         """
         Update the agents with new data from mosaik.
         """
+        info = {'MosaikAgent': {
+                        'current_time_step' : self.current_time_step,
+                        'first_time_step' : self.first_time_step,
+                    }}
         if self.params['verbose'] >= 1:
             print(f"BROADCAST UPDATES: {', '.join([f'{eid}->{self._all_agents[eid][1]}' for eid in data.keys()])}")
         self._updates_received = {eid: asyncio.Future() for eid in data.keys()}
         futs = [self.schedule_instant_task(self.container.send_acl_message(
                     receiver_addr=self._all_agents[mosaik_eid][0],
                     receiver_id=self._all_agents[mosaik_eid][1],
-                    content=create_msg_content(UpdateStateMessage, state=input_data),
+                    content=create_msg_content(UpdateStateMessage, state={**input_data, **info}),
                     acl_metadata={'conversation_id': mosaik_eid,
                                   'sender_id': self.aid},
             ))
@@ -378,7 +393,7 @@ class MosaikAgent(mango.Agent):
             if callable(self.params['execute_method']):
                 #print(self._aggregated_state)
                 #if not self.converged:
-                if self.converged < CONVERGENCE:
+                if self.converged < self.convergence_steps:
                     ok, self.cached_solution, state = self.params['execute_method'](self.aeid,
                                                                     self.aid, instruction=None, 
                                                                     current_state=self.state,
@@ -388,9 +403,9 @@ class MosaikAgent(mango.Agent):
                     self.state = state
                     self.converged += (1 if ok else 0)
                     #print('converged', self.converged)
-                    if self.converged >= CONVERGENCE:
+                    if self.converged >= self.convergence_steps:
                         print(highlight('CONVERGED!', 'green'))
-                    #    return {}###############################################
+                        #return {}###############################################
                     
                 
             else:
@@ -490,7 +505,6 @@ class MosaikAgents(mosaik_api.Simulator):
         self.sid = sid
         self.loop = asyncio.get_event_loop()
         self.params = sim_params
-        self.current_time_step = -1
         self._steptime = []
         #self.first_step = True
         #self.converged = False
@@ -500,6 +514,8 @@ class MosaikAgents(mosaik_api.Simulator):
         self.port = self.params.pop('port', 5678)
         self.params.setdefault('verbose', 1)
         self.params.setdefault('performance', True)
+        self.params.setdefault('convergence_steps', 2)
+        self.params.setdefault('convegence_max_steps', 5)
         return META
 
     async def _create_container(self, host, port, **params):
@@ -603,15 +619,16 @@ class MosaikAgents(mosaik_api.Simulator):
         mosaik to continue the simulation.
 
         """
-        if self.current_time_step != time:
+        if self.mosaik_agent.current_time_step != time:
             print(highlight('\nNEW TIMESTEP:', 'white'), time)
             #self.converged = False  
             self._steptime = [] 
             self.mosaik_agent.converged = 0 
+            self.mosaik_agent.first_time_step = True
             #self.first_step = True        
         else:
             print(highlight('\nTIMESTEP:', 'white'), time)  
-        self.current_time_step = time
+        self.mosaik_agent.current_time_step = time
 
         #print('\nagents', time)
         #print(highlight('\ninputs:'), inputs)
@@ -623,12 +640,18 @@ class MosaikAgents(mosaik_api.Simulator):
 
         #self.input_cache = copy.deepcopy(inputs)
 
-        if self.mosaik_agent.converged >= CONVERGENCE:
+        if self.mosaik_agent.converged >= self.mosaik_agent.convergence_steps:
             return time + self.step_size
 
         new_state = inputs.pop('MosaikAgent', {})
         if callable(self.params['input_method']):
-            self.mosaik_agent.state = self.params['input_method']('MosaikAgent', 'agent0', new_state, self.mosaik_agent.state, **self.params)
+            self.mosaik_agent.state = self.params['input_method']('MosaikAgent', 
+                                                                  'agent0', 
+                                                                  new_state, 
+                                                                  self.mosaik_agent.state,
+                                                                  self.mosaik_agent.current_time_step,
+                                                                  self.mosaik_agent.first_time_step,
+                                                                  **self.params)
         else:
             self.mosaik_agent.state = copy.deepcopy(new_state)
 
@@ -648,7 +671,7 @@ class MosaikAgents(mosaik_api.Simulator):
         #if self.converged:
             
 
-        if self.mosaik_agent.converged < CONVERGENCE:
+        if self.mosaik_agent.converged < self.mosaik_agent.convergence_steps:
             self.output_cache = output
             #self.output_cache = {self.aid_to_eid[k]: v for k, v in self.output_cache.items()}
             self.output_cache["MosaikAgent"] = self.mosaik_agent.state
@@ -678,7 +701,9 @@ class MosaikAgents(mosaik_api.Simulator):
                 data[aeid] = self.params['output_method'](aeid, aid,
                                                          attrs, 
                                                          self.output_cache[aeid],
-                                                         self.mosaik_agent.converged,
+                                                         bool(self.mosaik_agent.converged >= self.mosaik_agent.convergence_steps),
+                                                         self.mosaik_agent.current_time_step,
+                                                         self.mosaik_agent.first_time_step,
                                                          **self.params)
         else:
             data = self.output_cache
@@ -690,6 +715,7 @@ class MosaikAgents(mosaik_api.Simulator):
             print(highlight('\nOUTPUT:'), data)
 
         #print(highlight('\nOUTPUT:'), data)
+        self.mosaik_agent.first_time_step = False
         return data
 
 

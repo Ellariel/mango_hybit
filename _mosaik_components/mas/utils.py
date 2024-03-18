@@ -4,7 +4,7 @@ import numpy as np
 from termcolor import colored
 from pandas.io.json._normalize import nested_to_record
 
-CONVERGENCE = 3
+#CONVERGENCE = 1
 PRECISION = 10 ** -6
 
 MAS_DEFAULT_STATE = {
