@@ -1,5 +1,4 @@
-import copy, sys
-import pandas as pd
+import copy
 from _mosaik_components.mas.utils import *
 
 MAS_STATE = MAS_DEFAULT_STATE.copy()

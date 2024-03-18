@@ -22,10 +22,10 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 import pandapower.auxiliary
 pandapower.auxiliary._check_if_numba_is_installed = lambda x: x
 
-from _mosaik_components.mas.cells import create_cells, generate_profiles, get_cells_data, get_unit_profile
 from _mosaik_components.mas.utils import set_random_seed
 from _mosaik_components.mas.mosaik_agents import *
-from _mosaik_components.mas.methods import *
+from cells import *
+from methods import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--cells', default=2, type=int)
