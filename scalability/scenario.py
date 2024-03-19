@@ -22,8 +22,6 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 import pandapower.auxiliary
 pandapower.auxiliary._check_if_numba_is_installed = lambda x: x
 
-from _mosaik_components.mas.utils import set_random_seed
-from _mosaik_components.mas.mosaik_agents import *
 from cells import *
 from methods import *
 

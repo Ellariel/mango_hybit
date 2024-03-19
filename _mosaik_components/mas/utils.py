@@ -35,21 +35,6 @@ MAS_DEFAULT_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py
                                                # executes the received instructions internally
 }
 
-def set_random_seed(seed=13):
-    random.seed(seed)
-    np.random.seed(seed)
-    return seed
-
-def get_random_seed(base_seed=None, fixed_range=1000):
-    if base_seed:
-        set_random_seed(base_seed)
-    return random.randint(0, fixed_range)
-
-def chunks(lst, n):
-    """Yield successive n-sized chunks from lst."""
-    for i in range(0, len(lst), n):
-        yield lst[i:i + n]
-
 def highlight(s, color='green'):
     return colored(s, color)
 

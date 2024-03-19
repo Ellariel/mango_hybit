@@ -17,6 +17,16 @@ Cell based grid generating script
 
 '''
 
+def set_random_seed(seed=13):
+    random.seed(seed)
+    np.random.seed(seed)
+    return seed
+
+def get_random_seed(base_seed=None, fixed_range=1000):
+    if base_seed:
+        set_random_seed(base_seed)
+    return random.randint(0, fixed_range)
+
 def get_cell():
     '''
     https://pandapower.readthedocs.io/en/v2.10.0/networks/cigre.html#medium-voltage-distribution-network-with-pv-and-wind-der

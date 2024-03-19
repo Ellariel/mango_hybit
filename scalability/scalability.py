@@ -10,8 +10,8 @@ import time
 import argparse
 import pandas as pd
 from tqdm import tqdm
-from _mosaik_components.mas.utils import set_random_seed, get_random_seed
-from cells import create_cells, generate_profiles
+
+from cells import create_cells, generate_profiles, set_random_seed, get_random_seed
 
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
