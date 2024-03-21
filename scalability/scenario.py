@@ -102,7 +102,7 @@ SIM_CONFIG = {
 # PV simulator
 PVSIM_PARAMS = {
     'start_date' : START_DATE,
-    'cache_dir' : os.path.join(base_dir, 'data/'), # it caches PVGIS API requests
+    'cache_dir' : data_dir, # it caches PVGIS API requests
     'verbose' : False, # print PVGIS parameters and requests
     'gen_neg' : False, # return negative P
 }
@@ -259,8 +259,8 @@ def main():
                             world.connect(e['agent'], e['sim'], 'scale_factor', weak=True)
                             #world.connect(e['sim'], e['unit'], 'P[MW]')
                             world.connect(e['sim'], report, 'P[MW]') 
-                            world.connect(e['agent'], report, 'current')
-                            world.connect(e['agent'], report, 'scale_factor')
+                            #world.connect(e['agent'], report, 'current')
+                            #world.connect(e['agent'], report, 'scale_factor')
                     #break
             hierarchical_controllers += hierarchical[1:]
     

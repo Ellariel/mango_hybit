@@ -48,6 +48,9 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Switch to the non-privileged user to run the application.
 #USER appuser
 #USER myuser
+RUN apt update -y && apt-get clean && apt-get install -y git
+RUN python -m pip install git+https://gitlab.com/mosaik/components/energy/mosaik-pandapower-2
+RUN python -m pip install git+https://gitlab.com/mosaik/mosaik
 
 # Copy the source code into the container.
 COPY . .

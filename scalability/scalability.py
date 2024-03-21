@@ -42,7 +42,7 @@ scalability_time_filename = 'scalability_time.csv'
 simulation_time_filename = 'simulation_time.csv'
 net_file = os.path.join(data_dir, 'cells.json')
 prof_file = os.path.join(data_dir, 'profiles.json')
-temp_filename = os.path.join(data_dir, output_filename)
+temp_filename = os.path.join(results_dir, output_filename)
 scalability_time_filename = os.path.join(results_dir, scalability_time_filename)
 simulation_time_filename = os.path.join(results_dir, simulation_time_filename)
 
