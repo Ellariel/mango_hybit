@@ -21,7 +21,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--dir', default='./', type=str)
 parser.add_argument('--attempts', default=5, type=int)
 parser.add_argument('--seed', default=13, type=int)
-parser.add_argument('--log', default=True, type=bool)
+parser.add_argument('--log', default=False, type=bool)
 args = parser.parse_args()
 
 base_dir = args.dir
