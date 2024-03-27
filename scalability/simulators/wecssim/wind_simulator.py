@@ -153,8 +153,6 @@ class WecsSim(mosaik_api.Simulator):
             }
 
         """
-        #print('\nwecs', time)
-        #print(inputs)
         # Generate a new vector with P_Max values.  Use P_rated as default and
         # override the default value if necessary:
         P_max = self.sim.P_rated.copy()
@@ -174,13 +172,10 @@ class WecsSim(mosaik_api.Simulator):
             if 'scale_factor' in wecs_inputs:
                 factor = wecs_inputs.get('scale_factor', {'default' : 0})
                 self.scale_factor[eid] = list(factor.values())[0]
-            #print('scale_factors in', self.scale_factors[eid])
 
         if self.current_time != time:
-            #self.date = self.date.shift(seconds=self.step_size)
             self.scale_factor = {k: 0 for k, v in self.scale_factor.items()}               
         
-
             # Set the P_max vector to the simulator:
             self.sim.set_P_max(P_max)
             # Get current wind velocities from the file and step the sim:
@@ -196,7 +191,7 @@ class WecsSim(mosaik_api.Simulator):
         self.current_time = time
 
         # We want to do our next step in STEP_SIZE minutes:
-        return time + self.step_size #(STEP_SIZE * 60)
+        return time + self.step_size
 
     def get_data(self, outputs):
         data = {}
@@ -210,10 +205,8 @@ class WecsSim(mosaik_api.Simulator):
                 if attr not in self.meta['models']['WECS']['attrs']:
                     raise AttributeError('Attribute "%s" not available' % attr)
                 elif attr == 'P[MW]':
-                    #print(float(getattr(self.sim, 'P')[idx]))
-                    #print('scale_factors out', self.scale_factors[eid])
                     data[eid][attr] = self.scale_factor[eid] + (float(getattr(self.sim, 'P')[idx]) / 10**3)
-        #print(data)
+
         return data
 
 def main():

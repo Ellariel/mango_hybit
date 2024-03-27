@@ -57,7 +57,6 @@ class FLSimulator(mosaik_api_v3.Simulator):
         self.date = arrow.get(sim_params.get('start_date', '2016-01-01 00:00:00'), DATE_FORMAT)
         self.time_resolution = time_resolution
         self.step_size = step_size
-        #self._first_step = True
         self.current_time = -1
         self.sid = sid
         self.entities = {}
@@ -82,24 +81,19 @@ class FLSimulator(mosaik_api_v3.Simulator):
         result = self.entities[eid] + self.scale_factor[eid]
         if self.gen_neg:
             result = abs(result) * (-1)
-        #print('\nnflexil output', self.entities[eid])
         return result
 
     def step(self, time, inputs, max_advance):
-        #print('\nflexil', time)
         if self.current_time > -1 and self.current_time != time:
             self.date = self.date.shift(seconds=self.step_size)
             self.scale_factor = {k: 0 for k, v in self.scale_factor.items()}               
         self.current_time = time
-        #print('\n!!FL input!!', inputs)
         for eid, attrs in inputs.items():
             for attr, vals in attrs.items():
                 if attr == 'P[MW]':
-                    #print('\nnflexil P[MW]P[MW]P[MW]', eid, list(vals.values())[0])
-                    self.entities[eid] = list(vals.values())[0]# + self.scale_factor[eid] #
+                    self.entities[eid] = list(vals.values())[0]
                 elif attr == 'scale_factor':
                     self.scale_factor[eid] = list(vals.values())[0]
-                    #print('\nnflexil scale_factor', eid, self.scale_factor[eid])
                 else:
                     pass
 

@@ -99,15 +99,12 @@ class PVGISSimulator(mosaik_api_v3.Simulator):
     
     def get_production(self, eid, attr):
         idx = self.entities[eid].index.get_indexer([self.date.datetime], method='ffill')[0]
-        #print('\nidx', idx)
         production = self.entities[eid].iloc[idx] + self.scale_factor[eid]
         if self.gen_neg:
             production *= (-1)
-        #print('\npvgis_output production', self.entities[eid].iloc[idx])
         return production
 
     def step(self, time, inputs, max_advance):
-        #print('\npvgis', time)
         if self.current_time > -1 and self.current_time != time:
             self.date = self.date.shift(seconds=self.step_size)
             self.scale_factor = {k: 0 for k, v in self.scale_factor.items()}  
@@ -117,8 +114,6 @@ class PVGISSimulator(mosaik_api_v3.Simulator):
             for attr, vals in attrs.items():
                 if attr == 'scale_factor':
                     self.scale_factor[eid] = list(vals.values())[0]
-                    #print('\npvgis_input scale_factor', eid, self.scale_factor[eid])
-
 
         return time + self.step_size
      

@@ -10,6 +10,7 @@ import sys
 import time
 import json
 import mosaik
+import mosaik.util
 import random
 import argparse
 import numpy as np
@@ -27,7 +28,7 @@ from methods import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--cells', default=2, type=int)
-parser.add_argument('--verbose', default=0, type=int)
+parser.add_argument('--verbose', default=-1, type=int)
 parser.add_argument('--clean', default=True, type=bool)
 parser.add_argument('--dir', default='./', type=str)
 parser.add_argument('--seed', default=13, type=int)
@@ -63,7 +64,7 @@ else:
     with open(prof_file, 'r') as f:
         profiles = json.load(f)
 
-END = 3600 * 24 * 1  # 1 day
+END = 3600 #* 24 * 1  # 1 day
 START_DATE = '2014-01-01 08:00:00'
 DATE_FORMAT = 'YYYY-MM-DD hh:mm:ss'
 GRID_FILE = net_file
@@ -197,7 +198,7 @@ def main():
         flsim = world.start(
                         "FLSim",
                         step_size=STEP_SIZE,
-                        sim_params=PVSIM_PARAMS,
+                        sim_params=dict(gen_neg=True),
                     )
         wsim = world.start('WPSim', 
                         step_size=STEP_SIZE, 
@@ -213,8 +214,9 @@ def main():
     cells.setdefault('match_unit', {})
     cells.setdefault('match_agent', {})
     ext_grids = [e for e in grid.children if e.type in ['ExternalGrid', 'Ext_grid']]
+    buses = [e for e in grid.children if e.type in ['Bus']]
     cells['match_agent'].update({'MosaikAgent' : ext_grids[0].eid})
-    world.connect(ext_grids[0], mosaik_agent, ('P[MW]', 'current'))
+    world.connect(ext_grids[0], mosaik_agent, ('P[MW]', 'current'), time_shifted=True, initial_data={'P[MW]': 45})
     world.connect(mosaik_agent, report, 'steptime')
     world.connect(mosaik_agent, report, 'current')
 
@@ -234,42 +236,46 @@ def main():
             for e in subset:
                     agents += masim.MosaikAgents.create(num=1, controller=hierarchical[-1].eid)
                     # 'type-index-bus-cell'
+                    bus_eid = '-'.join(e['bus'].split('-', )[:-1])
+                    bus = [i for i in buses if i.eid == bus_eid][0]
+
                     if e['type'] == 'StaticGen':
                         if '-7' in e['bus']: # wind at Bus-*-7                     
                             wp += wsim.WECS.create(num=1, **WECS_CONFIG)
                             e.update({'agent' : agents[-1], 'sim' : wp[-1]})         
                         else: # PV
                             pv += pvsim.PVSim.create(num=1, **PVMODEL_PARAMS)
-                            e.update({'agent' : agents[-1], 'sim' : pv[-1]})             
+                            e.update({'agent' : agents[-1], 'sim' : pv[-1]})   
+                        world.connect(e['sim'], bus, ('P[MW]', 'P_gen[MW]'))         
                     elif e['type'] == 'Load':
                         fl += flsim.FLSim.create(num=1)
                         l = input_sim.Function.create(1, function=lambda x: x * len(fl)/1000)
+                        #q = input_sim.Function.create(1, function=lambda x: -1000000000)
                         #fli = loadsim.Braunschweig.create(1)
-                        #world.connect(l[0], csv_writer, ('value', 'P[MW]'))
                         e.update({'agent' : agents[-1], 'sim' : fl[-1]})
                         world.connect(l[0], e['sim'], ('value', 'P[MW]'))
+                        world.connect(e['sim'], bus, ('P[MW]', 'P_load[MW]'))
                     else:
                         pass
                     
-                    if 'sim' in e:
-                        cells['match_unit'].update({e['sim'].eid : e['unit'].eid})
-                        if 'agent' in e:
-                            cells['match_agent'].update({e['agent'].eid : e['sim'].eid})
-                            world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
-                            world.connect(e['agent'], e['sim'], 'scale_factor', weak=True)
-                            #world.connect(e['sim'], e['unit'], 'P[MW]')
-                            world.connect(e['sim'], report, 'P[MW]') 
-                            world.connect(e['agent'], report, 'current')
-                            world.connect(e['agent'], report, 'scale_factor')
-                    #break
+                    world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
+                    world.connect(e['agent'], e['sim'], 'scale_factor', weak=True)
+                    world.connect(e['sim'], report, 'P[MW]') 
+                    world.connect(e['agent'], report, 'current')
+                    world.connect(e['agent'], report, 'scale_factor')
+
+                    cells['match_unit'].update({e['sim'].eid : e['unit'].eid})
+                    cells['match_agent'].update({e['agent'].eid : e['sim'].eid})
+
             hierarchical_controllers += hierarchical[1:]
     
     print('cell controllers:', len(cell_controllers))
     print('hierarchical controllers:', len(hierarchical_controllers))
     print('power unit agents:', len(agents))
-
+    if args.performance:
+        mosaik.util.plot_dataflow_graph(world, hdf5path=os.path.join(results_dir, '.hdf5'), show_plot=False)
     print(f"Simulation started at {time.ctime()}")
-    world.run(until=END)
+    world.run(until=END, print_progress='individual' if args.performance else True)
     print(f"Simulation finished at {time.ctime()}")
 
 if __name__ == '__main__':
