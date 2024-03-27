@@ -259,8 +259,8 @@ def main():
                             world.connect(e['agent'], e['sim'], 'scale_factor', weak=True)
                             #world.connect(e['sim'], e['unit'], 'P[MW]')
                             world.connect(e['sim'], report, 'P[MW]') 
-                            #world.connect(e['agent'], report, 'current')
-                            #world.connect(e['agent'], report, 'scale_factor')
+                            world.connect(e['agent'], report, 'current')
+                            world.connect(e['agent'], report, 'scale_factor')
                     #break
             hierarchical_controllers += hierarchical[1:]
     

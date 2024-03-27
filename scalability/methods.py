@@ -9,14 +9,6 @@ def state_to_output(aeid, aid, attrs, current_state, converged, current_time_ste
 # entities: {'Agent_3': 'WecsSim-0.wecs-0', 'Agent_4': 'Grid-0.Load-0',
 # Agent_6 ['scale_factor'] {'production': {'min': 0, 'max': 0.02, 'current': 0.02, 'scale_factor': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}}
     data = {}
-    #print(highlight('\noutputs:'), output_data)
-    #print(new_timestep)
-    #print(eid, attrs, current_state)
-
-    #print('converged', converged)
-    #print('OUTPUT')
-    #print(current_time_step)
-    #print(first_time_step)
 
     if abs(current_state['production']['current']) > PRECISION or abs(current_state['production']['scale_factor']) > PRECISION:
         key = 'production'
@@ -36,8 +28,6 @@ def state_to_output(aeid, aid, attrs, current_state, converged, current_time_ste
             if not converged:
                 data.update({'scale_factor' : scale_factor})
 
-    #print(data)
-    #print(highlight('\noutput'), aeid, aid, attrs, current_state, data)
     return data
 
 
@@ -46,13 +36,8 @@ def aggregate_states(aeid, aid, requested_states, current_state=MAS_STATE, **kwa
     for aid, state in requested_states.items():
         for i in current_state.keys():
             for j in current_state[i].keys():
-                #if j == 'scale_factor':
-                #    current_state[i][j] *= state[i][j]
-                #else:
                     if isinstance(current_state[i][j], (int, float, list)):
                         current_state[i][j] += state[i][j]
-                    #else:
-                    #    print('NOAGGGGG')
     return current_state
 
 def compute_instructions(current_state, **kwargs):
@@ -377,11 +362,6 @@ def compute_instructions(current_state, **kwargs):
 
 def execute_instructions(aeid, aid, instruction, current_state, requested_states, **kwargs):
     ok = True   
-    #print()
-    #print('EXECUTE')
-    #print(aeid, 'instruction', instruction)
-    #print()
-    #print(aeid, 'current_state', current_state)
 
     if not len(requested_states) == 0:
         ok, instructions, state = compute_instructions(instruction=instruction, 
@@ -393,6 +373,4 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
         instructions = {aid : instruction}
         state = instruction
 
-    #print()
-    #print(aeid, 'final_state', state)
     return ok, instructions, state
