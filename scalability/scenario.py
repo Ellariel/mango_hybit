@@ -64,12 +64,13 @@ else:
     with open(prof_file, 'r') as f:
         profiles = json.load(f)
 
-END = 3600 #* 24 * 1  # 1 day
-START_DATE = '2014-01-01 08:00:00'
-DATE_FORMAT = 'YYYY-MM-DD hh:mm:ss'
+END = 3600 * 24 * 1  # 1 day
+START_DATE = '2014-01-01 00:00:00'
+DATE_FORMAT = 'mixed' #'YYYY-MM-DD hh:mm:ss'
 GRID_FILE = net_file
 WIND_FILE = os.path.join(data_dir, 'wind_speed_m-s_15min.csv')
-LOAD_FILE = os.path.join(data_dir, 'Braunschweig_meteodata_2020_15min.csv')
+LOAD_FILE = os.path.join(data_dir, 'syntetic_loads_15min.zip')
+# LOAD_FILE = os.path.join(data_dir, 'syntetic_loads_15min_csv.csv')
 STEP_SIZE = 60 * 15
 
 # simulators
@@ -160,7 +161,7 @@ MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py
     'verbose': args.verbose, # 0 - no messages, 1 - basic agent comminication, 2 - full
     'performance': args.performance, # returns wall time of each mosaik step / the core loop execution time 
                                      # as a 'steptime' [sec] output attribute of MosaikAgent 
-    'convergence_steps' : 3, # higher value ensures convergence
+    'convergence_steps' : 2, # higher value ensures convergence
     'convegence_max_steps' : 5, # raise an error if there is no convergence
     'state_dict': MAS_STATE, # how an agent state that are gathered and comunicated should look like
     'input_method': input_to_state, # method that transforms mosaik inputs dict to the agent state (see `update_state`, default: copy dict)
@@ -180,11 +181,6 @@ def main():
     gridsim = world.start('GridSim', step_size=STEP_SIZE)
     grid = gridsim.Grid(json=GRID_FILE)
 
-    #loadsim = world.start("LoadSim", 
-    #                      sim_start=START_DATE, 
-    ##                      date_format=DATE_FORMAT,
-     #                     datafile=LOAD_FILE)
-
     with world.group():
         masim = world.start('MAS', 
                             step_size=STEP_SIZE, 
@@ -198,13 +194,18 @@ def main():
         flsim = world.start(
                         "FLSim",
                         step_size=STEP_SIZE,
+                        csv_file=LOAD_FILE,
                         sim_params=dict(gen_neg=True),
                     )
         wsim = world.start('WPSim', 
                         step_size=STEP_SIZE, 
                         wind_file=WIND_FILE,
                     )
-    input_sim = world.start("InputSim", step_size=STEP_SIZE)   
+    #load_sim = world.start("LoadSim", 
+    #                      sim_start=START_DATE, 
+    #                      date_format=DATE_FORMAT,
+    #                      datafile=LOAD_FILE)
+    #loads = load_sim.Loads.create(1)[0]
     output_sim = world.start('OutputSim', start_date = START_DATE,
                                             output_file=os.path.join(results_dir, args.output_file))
     report = output_sim.CSVWriter(buff_size=STEP_SIZE)
@@ -249,11 +250,8 @@ def main():
                         world.connect(e['sim'], bus, ('P[MW]', 'P_gen[MW]'))         
                     elif e['type'] == 'Load':
                         fl += flsim.FLSim.create(num=1)
-                        l = input_sim.Function.create(1, function=lambda x: x * len(fl)/1000)
-                        #q = input_sim.Function.create(1, function=lambda x: -1000000000)
-                        #fli = loadsim.Braunschweig.create(1)
                         e.update({'agent' : agents[-1], 'sim' : fl[-1]})
-                        world.connect(l[0], e['sim'], ('value', 'P[MW]'))
+                        #world.connect(loads, e['sim'], (e['sim'].eid, 'P[MW]'))
                         world.connect(e['sim'], bus, ('P[MW]', 'P_load[MW]'))
                     else:
                         pass
@@ -261,8 +259,8 @@ def main():
                     world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
                     world.connect(e['agent'], e['sim'], 'scale_factor', weak=True)
                     world.connect(e['sim'], report, 'P[MW]') 
-                    world.connect(e['agent'], report, 'current')
-                    world.connect(e['agent'], report, 'scale_factor')
+                    #world.connect(e['agent'], report, 'current')
+                    #world.connect(e['agent'], report, 'scale_factor')
 
                     cells['match_unit'].update({e['sim'].eid : e['unit'].eid})
                     cells['match_agent'].update({e['agent'].eid : e['sim'].eid})

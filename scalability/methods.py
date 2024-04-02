@@ -24,7 +24,6 @@ def state_to_output(aeid, aid, attrs, current_state, converged, current_time_ste
         if 'current' == attr:
             data.update({'current' : current})
         elif 'scale_factor' == attr:
-            #if abs(scale_factor) > PRECISION and converged < 2:
             if not converged:
                 data.update({'scale_factor' : scale_factor})
 
@@ -49,15 +48,8 @@ def compute_instructions(current_state, **kwargs):
                 for j in new_state[i].keys():
                     if isinstance(_new_state[i][j], (int, float)):
                         _new_state[i][j] -= current_state[i][j]
-                    #else:
-                    #    print('NONUM deta')
             return _new_state
-    #def add_delta(current_state, delta):
-    #        new_state = copy.deepcopy(current_state)
-    #        for i in delta.keys():
-    #            for j in delta[i].keys():
-    #                new_state[i][j] += delta[i][j]
-    #        return new_state
+
     def compose_instructions(agents_info, delta):
         _delta = copy.deepcopy(delta)
         _agents_info = copy.deepcopy(agents_info)
@@ -80,10 +72,6 @@ def compute_instructions(current_state, **kwargs):
                         else:
                             state[i]['current'] -= max_dec
                             _delta[i]['current'] += max_dec
-                    #print()
-                    #print('INSTRUCTION', i)
-                    #print(aid, 'current state', agents_info[aid][i]['current'], agents_info[aid][i]['scale_factor'])
-                    #print(aid, 'instruction', state[i]['current'], state[i]['scale_factor'])
                     
                     state[i]['scale_factor'] = state[i]['current'] - agents_info[aid][i]['current']#/ if agents_info[aid][i]['current'] > PRECISION else 1
 
@@ -168,8 +156,6 @@ def compute_instructions(current_state, **kwargs):
                         #grid_dec_production = 0
                         #grid_inc_consumption = 0
                         #grid_dec_consumption = 0
-                    #elif abs(cell_expected_balance) <= cell_inc_production + cell_dec_consumption + grid_inc_production:
-                    #    grid_inc_production = abs(cell_expected_balance) - cell_inc_production - cell_dec_consumption
                     elif abs(cell_expected_balance) <= cell_inc_production + cell_dec_consumption + grid_inc:
                         grid_inc = abs(cell_expected_balance) - cell_inc_production - cell_dec_consumption
                         #cell_inc_production = 0
@@ -183,8 +169,6 @@ def compute_instructions(current_state, **kwargs):
                         #grid_dec_production = 0
                         #grid_inc_consumption = 0
                         #grid_dec_consumption = 0
-                    #elif abs(cell_expected_balance) <= cell_inc_production + cell_dec_consumption + grid_inc_production + grid_dec_consumption:
-                    #    grid_dec_consumption = abs(cell_expected_balance) - cell_inc_production - cell_dec_consumption - grid_inc_production
                     elif abs(cell_expected_balance) <= cell_inc_production + cell_dec_consumption + grid_inc + grid_dec:
                         grid_dec = abs(cell_expected_balance) - cell_inc_production - cell_dec_consumption - grid_inc
                         #cell_inc_production = 0
@@ -239,8 +223,6 @@ def compute_instructions(current_state, **kwargs):
                         #grid_dec_production = 0
                         #grid_inc_consumption = 0
                         #grid_dec_consumption = 0
-                    #elif abs(cell_expected_balance) <= cell_dec_production + cell_inc_consumption + grid_dec_production:
-                    #    grid_dec_production = abs(cell_expected_balance) - cell_dec_production - cell_inc_consumption
                     elif abs(cell_expected_balance) <= cell_dec_production + cell_inc_consumption + grid_dec:
                         grid_dec = abs(cell_expected_balance) - cell_dec_production - cell_inc_consumption
                         cell_inc_production = 0
@@ -253,8 +235,6 @@ def compute_instructions(current_state, **kwargs):
                         #grid_dec_production = 0
                         #grid_inc_consumption = 0
                         #grid_dec_consumption = 0
-                    #elif abs(cell_expected_balance) <= cell_dec_production + cell_inc_consumption + grid_dec_production + grid_inc_consumption:
-                    #    grid_inc_consumption = abs(cell_expected_balance) - cell_dec_production - cell_inc_consumption - grid_dec_production
                     elif abs(cell_expected_balance) <= cell_dec_production + cell_inc_consumption + grid_dec + grid_inc:
                         grid_inc = abs(cell_expected_balance) - cell_dec_production - cell_inc_consumption - grid_dec
                         cell_inc_production = 0
@@ -303,8 +283,6 @@ def compute_instructions(current_state, **kwargs):
                 cells_aggregated_state['consumption']['current'] = cells_aggregated_state['consumption']['current'] + cell_inc_consumption - cell_dec_consumption     
                 new_cell_balance = cells_aggregated_state['production']['current'] - cells_aggregated_state['consumption']['current']
                 
-                #external_network_state['production']['current'] = external_network_state['production']['current'] + grid_inc - grid_dec
-                #external_network_state['consumption']['current'] = external_network_state['consumption']['current'] + grid_inc - grid_dec
                 new_external_network_balance = external_network_default_balance + grid_inc - grid_dec
                 if new_external_network_balance > PRECISION:
                     external_network_state['production']['current'] = new_external_network_balance
@@ -324,15 +302,13 @@ def compute_instructions(current_state, **kwargs):
                 if verbose >= 0:
                     print(highlight('new cells balance:', 'red'), new_cell_balance)
                     print(highlight('external network balance:', 'blue'), new_external_network_balance)
-                #print('grid delta:', grid_delta)
-                #print('grid delta:', grid_delta)
 
                 ok = abs(new_cell_balance - cell_expected_balance) < PRECISION
-                #ok = abs(cell_expected_balance*2 - new_cell_balance - cell_balance) < PRECISION
+                #ok = abs(cell_balance - cell_expected_balance) < PRECISION
+                #ok = abs(cell_balance - new_cell_balance) < PRECISION
                 if verbose >= 0:
                     if ok:
                        print(highlight('balanced solution', 'blue'))
-                    #print()
                 return ok, cells_aggregated_state, cells_aggregated_delta, external_network_state, external_network_delta
 
     requested_states = kwargs.get('requested_states', {})
@@ -345,18 +321,8 @@ def compute_instructions(current_state, **kwargs):
         instructions, remains = compose_instructions(requested_states, delta)
     else:
         cells_aggregated_state = aggregate_states(None, None, requested_states)
-        #if True:# verbose:
-            #print('\ngrid_state:', current_state)
-            #print('aggregated_cell_state:', aggregated_state)
-        #return cells_aggregated_state, cells_aggregated_delta, external_network_state, external_network_delta
         ok, _, cells_delta, state, _ = compute_balance(current_state, cells_aggregated_state)
-        #print('compute_delta_state')
-        #print('grid_delta', grid_delta)
-        #print('delta', delta)
         instructions, remains = compose_instructions(requested_states, cells_delta)
-        #print('instructions', instructions)
-        #print('info', reduce_zero_dict(delta))
-        #sys.exit()
 
     return ok, instructions, state
 

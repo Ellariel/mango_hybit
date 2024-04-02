@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import arrow
+import arrow, os
 import pandas as pd
 from os.path import abspath
 from pathlib import Path
@@ -52,9 +52,16 @@ class FLSimulator(mosaik_api_v3.Simulator):
     def __init__(self) -> None:
         super().__init__(META)
     
-    def init(self, sid: str, time_resolution: float = 1, step_size: int = STEP_SIZE, sim_params: Dict = {}):
+    def init(self, sid: str, time_resolution: float = 1, step_size: int = STEP_SIZE, csv_file = None, sim_params: Dict = {}):
         self.gen_neg = sim_params.get('gen_neg', False)
         self.date = arrow.get(sim_params.get('start_date', '2016-01-01 00:00:00'), DATE_FORMAT)
+
+        self.csv_file = None
+        if csv_file and os.path.exists(csv_file):
+            self.csv_file = pd.read_csv(csv_file, compression='zip')
+            self.csv_file['Time'] = pd.to_datetime(self.csv_file['Time'], format='mixed', utc=True)
+            self.csv_file.set_index('Time',inplace=True)
+
         self.time_resolution = time_resolution
         self.step_size = step_size
         self.current_time = -1
@@ -69,6 +76,10 @@ class FLSimulator(mosaik_api_v3.Simulator):
             eid = f"{model}-{n}"
             self.entities[eid] = 0
             self.scale_factor[eid] = 0 # Default value
+
+            if isinstance(self.csv_file, pd.DataFrame):
+                self.entities[eid] = self.csv_file[eid]
+
             entities.append({
                 "eid": eid,
                 "type": model,
@@ -78,7 +89,15 @@ class FLSimulator(mosaik_api_v3.Simulator):
     def _get_data(self, eid, attr):
         if attr == 'scale_factor':
             return self.scale_factor[eid]
-        result = self.entities[eid] + self.scale_factor[eid]
+        
+        if isinstance(self.entities[eid], pd.Series):
+            idx = self.entities[eid].index.get_indexer([self.date.datetime], method='ffill')[0]
+            result = self.entities[eid].iloc[idx]
+        else:
+            result = self.entities[eid]
+
+        result += self.scale_factor[eid]
+
         if self.gen_neg:
             result = abs(result) * (-1)
         return result
@@ -91,7 +110,8 @@ class FLSimulator(mosaik_api_v3.Simulator):
         for eid, attrs in inputs.items():
             for attr, vals in attrs.items():
                 if attr == 'P[MW]':
-                    self.entities[eid] = list(vals.values())[0]
+                    if not isinstance(self.entities[eid], pd.Series):
+                        self.entities[eid] = list(vals.values())[0]
                 elif attr == 'scale_factor':
                     self.scale_factor[eid] = list(vals.values())[0]
                 else:

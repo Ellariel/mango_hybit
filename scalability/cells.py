@@ -100,18 +100,21 @@ def generate_profiles(net, dir='./', seed=13):
     random.seed(seed)
     np.random.seed(seed)
     for _, unit in net.sgen.iterrows():
+        p = unit.p_mw * random.randrange(1, 4)
         profiles[unit['name']] = {
-                'max' : unit.p_mw * random.randrange(1, 4),
-                'min' : 0, #0.1 if unit['bus'] == 7 or unit['bus'] == 22 else 0
+                'max' : p,
+                'min' : 0,
             }
     for _, unit in net.load.iterrows():
+        p = unit.p_mw * random.randrange(1, 4)
         profiles[unit['name']] = {
-                'max' : unit.p_mw * random.randrange(1, 4),
-                'min' : (unit.p_mw - unit.p_mw * random.randrange(1, 4) / 10) * random.randrange(0, 2),
+                'max' : p,
+                'min' : (p - p * random.randrange(1, 100) / 100) * random.randrange(0, 1) + random.randrange(0, 5) / 10,
             }
     for _, unit in net.res_ext_grid.iterrows():
+        p = unit.p_mw
         profiles[net.ext_grid.iloc[unit.name]['name']] = {
-                'max' : unit.p_mw * 3,
+                'max' : p * 50,
                 'min' : 0,
             }
     if dir:
