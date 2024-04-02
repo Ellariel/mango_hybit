@@ -13,7 +13,6 @@ import mosaik
 import mosaik.util
 import random
 import argparse
-import numpy as np
 import more_itertools as mit
 import pandapower as pp
 
@@ -93,12 +92,9 @@ SIM_CONFIG = {
     'OutputSim': {
         'python': 'mosaik_csv_writer:CSVWriter',
     },
-    'InputSim': {
-        'python': 'mosaik.basic_simulators.input_simulator:InputSimulator',
-    },
-    'LoadSim': {
-        'python': 'mosaik_csv:CSV'
-    },  
+    #'LoadSim': {
+    #    'python': 'mosaik_csv:CSV'
+    #},  
 }
 
 # PV simulator
@@ -270,8 +266,8 @@ def main():
     print('cell controllers:', len(cell_controllers))
     print('hierarchical controllers:', len(hierarchical_controllers))
     print('power unit agents:', len(agents))
-    if args.performance:
-        mosaik.util.plot_dataflow_graph(world, hdf5path=os.path.join(results_dir, '.hdf5'), show_plot=False)
+    #if args.performance:
+    #    mosaik.util.plot_dataflow_graph(world, hdf5path=os.path.join(results_dir, '.hdf5'), show_plot=False)
     print(f"Simulation started at {time.ctime()}")
     world.run(until=END, print_progress='individual' if args.performance else True)
     print(f"Simulation finished at {time.ctime()}")
