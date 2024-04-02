@@ -17,7 +17,9 @@ tqdm
 #mosaik_api==3.0.3
 #mosaik-pandapower-2==0.3.0
 #mosaik-pvgis
-git+https://gitlab.com/mosaik/mosaik.git@9000cf0bf4fa9156d18cf81f74aaea119bb6494f
-git+https://gitlab.com/mosaik/components/energy/mosaik-pandapower-2.git@fcf3f40db322181928c1053d0e93cbb1952c611f
+git+https://gitlab.com/mosaik/mosaik.git
+#@9000cf0bf4fa9156d18cf81f74aaea119bb6494f
+git+https://gitlab.com/mosaik/components/energy/mosaik-pandapower-2.git
+#@fcf3f40db322181928c1053d0e93cbb1952c611f
 
 
