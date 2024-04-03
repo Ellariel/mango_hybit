@@ -9,6 +9,14 @@ packages = [{include = "mosaik_components"}]
 
 [tool.poetry.dependencies]
 python = "^3.9"
+mango_agents = "^1.1.2"
+mosaik = "^3.2.0"
+mosaik_api_v3 = "^3.0.7"
+nest_asyncio = "^1.5.8"
+termcolor = "^2.4.0"
+networkx = "^2.5"
+pandas = "^2.2.1"
+numpy = "^1.26.4"
 
 [build-system]
 requires = ["poetry-core"]
