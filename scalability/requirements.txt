@@ -16,4 +16,3 @@ pandapower
 mosaik-csv
 pyarrow
 tqdm
-git+https://gitlab.com/mosaik/mosaik
