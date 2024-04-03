@@ -19,8 +19,8 @@ import pandapower as pp
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
-import pandapower.auxiliary
-pandapower.auxiliary._check_if_numba_is_installed = lambda x: x
+#import pandapower.auxiliary
+#pandapower.auxiliary._check_if_numba_is_installed = lambda x: x
 
 from cells import *
 from methods import *
@@ -84,10 +84,10 @@ SIM_CONFIG = {
         'python': 'simulators.wecssim.wind_simulator:WecsSim',
     },
     'MAS': {
-        'python': 'mosaik_components.mas.mosaik_agents:MosaikAgents',
+        'python': 'mosaik_components.mas:MosaikAgents',
     },
     'GridSim': {
-         'python': 'mosaik_components.pandapower.simulator:Simulator',
+         'python': 'mosaik_components.pandapower:Simulator',
     },
     'OutputSim': {
         'python': 'mosaik_csv_writer:CSVWriter',
@@ -262,15 +262,16 @@ def main():
                     cells['match_agent'].update({e['agent'].eid : e['sim'].eid})
 
             hierarchical_controllers += hierarchical[1:]
-    
+
+    gridsim.disable_elements(cells['match_unit'].values())
+
     print('cell controllers:', len(cell_controllers))
     print('hierarchical controllers:', len(hierarchical_controllers))
     print('power unit agents:', len(agents))
-    #if args.performance:
-    #    mosaik.util.plot_dataflow_graph(world, hdf5path=os.path.join(results_dir, '.hdf5'), show_plot=False)
+    if args.performance:
+        mosaik.util.plot_dataflow_graph(world, hdf5path=os.path.join(results_dir, '.hdf5'), show_plot=False)
     print(f"Simulation started at {time.ctime()}")
-    #world.run(until=END, print_progress='individual' if args.performance else True)
-    world.run(until=END, print_progress=True)
+    world.run(until=END, print_progress='individual' if args.performance else True)
     print(f"Simulation finished at {time.ctime()}")
 
 if __name__ == '__main__':

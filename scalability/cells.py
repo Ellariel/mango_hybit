@@ -9,8 +9,8 @@ from pandapower.toolbox import merge_nets
 
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
-import pandapower.auxiliary
-pandapower.auxiliary._check_if_numba_is_installed = lambda x: x
+#import pandapower.auxiliary
+#pandapower.auxiliary._check_if_numba_is_installed = lambda x: x
 
 '''
 Cell based grid generating script
