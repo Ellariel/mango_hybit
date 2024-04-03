@@ -84,10 +84,10 @@ SIM_CONFIG = {
         'python': 'simulators.wecssim.wind_simulator:WecsSim',
     },
     'MAS': {
-        'python': '_mosaik_components.mas.mosaik_agents:MosaikAgents',
+        'python': 'mosaik_components.mas.mosaik_agents:MosaikAgents',
     },
     'GridSim': {
-         'python': 'mosaik_components.pandapower:Simulator',
+         'python': 'mosaik_components.pandapower.simulator:Simulator',
     },
     'OutputSim': {
         'python': 'mosaik_csv_writer:CSVWriter',

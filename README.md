@@ -51,7 +51,7 @@ In this scenario agents observe the power output and flexibility provided by ass
 
 ### Time complexity
 
-Since the aggregation function at each hierarchical level is simply the summation of flexibility measurements that are passed as agent states, and the scenario itself has no recursion (or at least no somehow increasing recursion depending on the number of cells), the time complexity must be *O(n)*. According to the hierarchy of a multi-agent system, there is usually one top agent per cell (cell agent) and a number of agents below it, so the complexity is ~ *O(2\*n)* where *n* is the number of agents. In the case of a deep hierarchy, the complexity will be as BFS *O(b^d)*, where *b* is the branching factor and *d* is the depth of the hierarchy.
+Since the aggregation function at each hierarchical level is simply the summation of flexibility measurements that are passed as agent states, and the scenario itself has no recursion (or at least no somehow increasing recursion depending on the number of cells), the time complexity must be *O(n)*. In the case of a deep hierarchy, the complexity will be as BFS *O(b^h)*, where *b* is the branching factor and *h* is the depth of the hierarchy.
 
 ## Installation and execution
 
@@ -83,7 +83,7 @@ SIM_CONFIG = {
          'python': 'mosaik_components.pandapower:Simulator'
     },
     'MAS': {
-        'python': 'mosaik_agents:MosaikAgents'
+        'python': 'mosaik_components.mas.mosaik_agents:MosaikAgents'
     },
 ...
 }
@@ -92,22 +92,26 @@ SIM_CONFIG = {
 Initialize the pandapower grid and MAS simulator:
 ```
     gridsim = world.start('Grid', step_size=STEP_SIZE)
-    masim = world.start('MAS', step_size=STEP_SIZE, **MAS_CONFIG)     
+    massim = world.start('MAS', step_size=STEP_SIZE, **MAS_CONFIG)     
 ```
 
 Instantiate model entities and agents:
 ```
     grid = gridsim.Grid(json=GRID_FILE)
-    mosaik_agent = masim.MosaikAgents() # core agent for the mosaik communication
+    mosaik_agent = massim.MosaikAgents() # core agent for the mosaik communication
+    
+    cell_controllers = [] # top-level agents that are named as cell_controllers, one per cell
+    cell_controllers += massim.MosaikAgents.create(num=1, controller=None)
 
-
-
+    agents = [] # one simple agent per unit (sgen, load)
+    agents += massim.MosaikAgents.create(num=1, controller=cell_controllers[-1].eid)
 ```
 
 Connect and run:
 ```
+    world.connect(sim, agents[-1], ('P[MW]', 'current'))
+    world.connect(agents[-1], sim, 'scale_factor', weak=True)
 
-
-
+    world.run(until=END, print_progress=True)
 ```
 

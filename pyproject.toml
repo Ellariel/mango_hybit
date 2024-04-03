@@ -1,6 +1,15 @@
-[project]
-name = "mosaik-cells"
+[tool.poetry]
+name = "massca"
 version = "0.1.0"
+description = "Scalable multi-agent system framework for power cell co-simulation"
+authors = ["Danila Valko <mosaik@offis.de>"]
+license = "LICENSE.txt"
+readme = ["README.md", "CHANGELOG.txt", "AUTHORS.txt"]
+packages = [{include = "mosaik_components"}]
 
-[tool.setuptools]
-packages = ["_mosaik_components"]
+[tool.poetry.dependencies]
+python = "^3.9"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

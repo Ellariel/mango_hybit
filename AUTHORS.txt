@@ -1,0 +1,4 @@
+Authors
+=======
+
+The solution was initially developed by Danila Valko.

@@ -1,5 +1,6 @@
 import copy
-from _mosaik_components.mas.utils import *
+import numpy as np
+from mosaik_components.mas.utils import *
 
 MAS_STATE = MAS_DEFAULT_STATE.copy()
 

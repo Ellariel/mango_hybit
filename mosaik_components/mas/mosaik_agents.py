@@ -11,8 +11,8 @@ import time
 import sys
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 import mosaik_api_v3 as mosaik_api
-from _mosaik_components.mas.agent_messages import *
-from _mosaik_components.mas.utils import *
+from mosaik_components.mas.agent_messages import *
+from mosaik_components.mas.utils import *
 
 # to run asyncio loop with updated mosaik
 import nest_asyncio

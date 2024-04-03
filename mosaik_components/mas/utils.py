@@ -1,5 +1,3 @@
-import random
-import numpy as np
 from termcolor import colored
 from pandas.io.json._normalize import nested_to_record
 
