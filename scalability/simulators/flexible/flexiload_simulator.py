@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import arrow, os
-import pandas as pd
 from os.path import abspath
 from pathlib import Path
+import pandas as pd
+import arrow, os
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
-import mosaik_api_v3
+import mosaik_api_v3 as mosaik_api
 from mosaik_api_v3.types import (
     CreateResult,
     CreateResultChild,
@@ -34,7 +34,7 @@ STEP_SIZE = 60*60
 CACHE_DIR = Path(abspath(__file__)).parent
 DATE_FORMAT = "YYYY-MM-DD HH:mm:ss"
 
-class FLSimulator(mosaik_api_v3.Simulator):
+class FLSimulator(mosaik_api.Simulator):
     _sid: str
     """This simulator's ID."""
     _step_size: Optional[int]

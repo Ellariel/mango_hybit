@@ -16,21 +16,6 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /
 
-# Create a non-privileged user that the app will run under.
-# See https://docs.docker.com/develop/develop-images/dockerfile_best-practices/#user
-# ARG UID=10001
-# RUN adduser \
-#    --disabled-password \
-#    --gecos "" \
-#    --home "/nonexistent" \
-#    --shell "/sbin/nologin" \
-#    --no-create-home \
-#    --uid "${UID}" \
-#    --root \
-#    appuser
-
-#RUN groupadd -r myuser && useradd -r -g myuser myuser
-
 USER root
 
 # Download dependencies as a separate step to take advantage of Docker's caching.
@@ -38,23 +23,13 @@ USER root
 # Leverage a bind mount to requirements.txt to avoid having to copy them into
 # into this layer.
 
-## add missing packages
-#RUN apt update -y && apt-get clean
 RUN apt update -y && apt-get clean && apt-get install -y git
 RUN --mount=type=cache,target=/root/.cache/pip \
     --mount=type=bind,source=requirements.txt,target=requirements.txt \
     python -m pip install -r requirements.txt
 
-# Switch to the non-privileged user to run the application.
-#USER appuser
-#USER myuser
-#RUN apt update -y && apt-get clean && apt-get install -y git
-
 # Copy the source code into the container.
 COPY . .
 
-# Expose the port that the application listens on.
-#EXPOSE 8080
-
 # Run the application. #python scalability.py --dir ./scalability --log True
-CMD python -m pip install -e ./repo && python scalability.py --dir ./repo/scalability
+CMD python -m pip install ./repo && python scalability.py --dir ./repo/scalability

@@ -6,10 +6,9 @@ Implementation of the `mosaik API`_ for the WECS sim.
 
 """
 from collections import namedtuple
-import io
-
-import mosaik_api
+import mosaik_api_v3 as mosaik_api
 import numpy as np
+import io
 
 from .wecs import WECS
 

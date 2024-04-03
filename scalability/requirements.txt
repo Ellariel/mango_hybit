@@ -11,8 +11,9 @@ pandas>=2.2.1
 mosaik-pandapower-2
 more_itertools
 mosaik>=3.2.0
+matplotlib
 pandapower
 mosaik-csv
 pyarrow
 tqdm
-
+git+https://gitlab.com/mosaik/mosaik
