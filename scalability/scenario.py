@@ -213,7 +213,7 @@ def main():
     ext_grids = [e for e in grid.children if e.type in ['ExternalGrid', 'Ext_grid']]
     buses = [e for e in grid.children if e.type in ['Bus']]
     cells['match_agent'].update({'MosaikAgent' : ext_grids[0].eid})
-    world.connect(ext_grids[0], mosaik_agent, ('P[MW]', 'current'), time_shifted=True, initial_data={'P[MW]': 45})
+    world.connect(ext_grids[0], mosaik_agent, ('P[MW]', 'current'), time_shifted=True, initial_data={'P[MW]': 0})
     world.connect(mosaik_agent, report, 'steptime')
     world.connect(mosaik_agent, report, 'current')
 
