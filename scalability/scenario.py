@@ -268,10 +268,11 @@ def main():
     print('cell controllers:', len(cell_controllers))
     print('hierarchical controllers:', len(hierarchical_controllers))
     print('power unit agents:', len(agents))
-    if args.performance:
-        mosaik.util.plot_dataflow_graph(world, hdf5path=os.path.join(results_dir, '.hdf5'), show_plot=False)
+    #if args.performance:
+    #    mosaik.util.plot_dataflow_graph(world, hdf5path=os.path.join(results_dir, '.hdf5'), show_plot=False)
     print(f"Simulation started at {time.ctime()}")
-    world.run(until=END, print_progress='individual' if args.performance else True)
+    #world.run(until=END, print_progress='individual' if args.performance else True)
+    world.run(until=END, print_progress=True)
     print(f"Simulation finished at {time.ctime()}")
 
 if __name__ == '__main__':
