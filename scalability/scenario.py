@@ -32,7 +32,7 @@ parser.add_argument('--clean', default=True, type=bool)
 parser.add_argument('--dir', default='./', type=str)
 parser.add_argument('--seed', default=13, type=int)
 parser.add_argument('--output_file', default='results.csv', type=str)
-parser.add_argument('--performance', default=True, type=bool)
+parser.add_argument('--performance', default=False, type=bool)
 parser.add_argument('--hierarchy', default=1, type=int)
 args = parser.parse_args()
 
@@ -215,7 +215,8 @@ def main():
     cells['match_agent'].update({'MosaikAgent' : ext_grids[0].eid})
     world.connect(ext_grids[0], mosaik_agent, ('P[MW]', 'current'), time_shifted=True, initial_data={'P[MW]': 0})
     world.connect(mosaik_agent, report, 'steptime')
-    world.connect(mosaik_agent, report, 'current')
+    #world.connect(mosaik_agent, report, 'current')
+    world.connect(ext_grids[0], report, 'P[MW]')
 
     pv = [] # PV simulators
     wp = [] # Wind power simulators
@@ -268,11 +269,11 @@ def main():
     print('cell controllers:', len(cell_controllers))
     print('hierarchical controllers:', len(hierarchical_controllers))
     print('power unit agents:', len(agents))
-    #if args.performance:
-    #    mosaik.util.plot_dataflow_graph(world, hdf5path=os.path.join(results_dir, '.hdf5'), show_plot=False)
+    if args.performance:
+        mosaik.util.plot_dataflow_graph(world, hdf5path=os.path.join(results_dir, '.hdf5'), show_plot=False)
     print(f"Simulation started at {time.ctime()}")
-    #world.run(until=END, print_progress='individual' if args.performance else True)
-    world.run(until=END, print_progress=True)
+    world.run(until=END, print_progress='individual' if args.performance else True)
+    #world.run(until=END, print_progress=True)
     print(f"Simulation finished at {time.ctime()}")
 
 if __name__ == '__main__':
