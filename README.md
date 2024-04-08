@@ -153,7 +153,7 @@ or use a docker setup:
 
 4) Check out the results in `results` folder.
 
-**Note** Some Linux systems may have a user or system limit on open file descriptors. The simulation may reach this limit due to file descriptors consumed by the *mango* agents scheduler. Therefore, if you encounter this error, check `$ ulimit -a` and increase it accordingly, using e.g. `$ ulimit -n 65535`.
+**Note.** Some Linux systems may have a user or system limit on open file descriptors. The simulation may reach this limit due to file descriptors consumed by the *mango* agents scheduler. Therefore, if you encounter this error, check `$ ulimit -a` and increase it accordingly, using e.g. `$ ulimit -n 65535`.
 
 
 
