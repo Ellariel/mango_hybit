@@ -99,7 +99,25 @@ Connect and run:
 
 ## How to cite
 
-TODO
+#### BibTeX format
+
+```tex
+@software{TODO,
+author = {TODO, TODO},
+license = {Apache-2.0},
+month = {10},
+title = {{TODO}},
+url = {https://github.com/TODO},
+version = {0.1.0},
+year = {2024}
+}
+```
+
+#### APA-like format
+
+```
+TODO, R. (2024). TODO (Version 1.0.0) [Computer software]. https://github.com/TODO
+```
 
 ## The example scenario and scalability experiments
 ### Scenario
