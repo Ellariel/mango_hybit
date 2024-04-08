@@ -1,15 +1,14 @@
-# The mosaik power cell agents
+# Scalable multi-agent system framework for power cell co-simulation (MASSCA)
 
-It is a prototype of multi-agent system simulator for the cellular approach (MASSCA) combining [mango](https://mango-agents.readthedocs.io/en/latest/) agents and [mosaik](https://mosaik.readthedocs.io/en/latest/) co-simulaion framework for the sake of implementing the power cell model. It was inspired by [mosaik-mango-demo](https://gitlab.com/mosaik/examples/mosaik-mango-demo), we also integrated a PV and wind power simulators that are available on mosaik [ecosystem](https://gitlab.com/mosaik/components).
+It is a prototype of multi-agent system (MAS) simulator for the cellular approach combining *[mango](https://mango-agents.readthedocs.io/en/latest/)* agents and *[mosaik](https://mosaik.readthedocs.io/en/latest/)* co-simulaion framework for the sake of implementing the power cell model. It was inspired by [mosaik-mango-demo](https://gitlab.com/mosaik/examples/mosaik-mango-demo), we also integrated a PV and wind power simulators that are available in *mosaik* [ecosystem](https://gitlab.com/mosaik/components).
 
 ## Content
 
 * The power cell concept explained
 * The multi-agent system architecture explained
-* The example scenario explained
-* Installation and execution
 * How to use
-
+* How to cite
+* The example scenario and scalability experiments
 
 ## The power cell concept
 
@@ -24,72 +23,55 @@ The controller might be local which is localized on the top of some cell compone
 * [[VDE](https://www.vde.com/resource/blob/1884494/98f96973fcdba70777654d0f40c179e5/studie---zellulares-energiesystem-data.pdf)] An energy cell (EC) is a kind of logically isolated energy infrastructure including all equipment used for energy conversion, transportation, distribution and storage. ECs are used to build an energy system of any scope and the cell structure is repeated at all levels of the energy system. Neighboring cells can be arranged hierarchically, so there are cells at the same level as well as superimposed and subordinate levels. 
 The control of a power cell includes all the technological control equipment, including the necessary communication technologies. Control is generally performed to maintain the operational state of the network (network protection, voltage regulation, etc.) as well as to maintain the energy balance. This can, for example, be done periodically or dynamically and result in three states: balanced, oversupplied or undersupplied across all available forms of energy. The cell control is also responsible for implementing measures to prevent network outages, as well as for carrying out necessary load reductions and energy reductions, and for fault-related switching.
 
-## The multi-agent system explained
+## The multi-agent system architecture
 
-The multi-agent system simulator (MASS) is located in `mosaik_agents.py`. It contains the entry point for starting the MAS. Apart from the class `MosaikAgents` which implements [mosaik-high-level-api](https://mosaik.readthedocs.io/en/latest/mosaik-api/high-level.html), there is also a class `MosaikAgent` which supports the communication between the mosaik and MASS itself.
+The multi-agent system simulator (MASS) is located in `mosaik_agents.py`. It contains the entry point for starting the MAS. Apart from the class `MosaikAgents` which implements [mosaik-high-level-api](https://mosaik.readthedocs.io/en/latest/mosaik-api/high-level.html), there is also a class `MosaikAgent` which supports the communication between *mosaik* and MASS itself.
 
-MASS in the general case consists of several `Agent`'s, one for each modeled entity (power unit) and one for each modeled power cell. For simplicity, all agents run in the same mango container. 
+MASS in the general case consists of several `Agent`'s, one for each modeled entity (power unit) and one for each modeled power cell. For simplicity, all agents run in the same *mango* container. 
 
-The following diagram describes the message exchange between the agents during every mosaik step.
+The following diagram describes the message exchange between the agents during every *mosaik* step.
 
 ![](misc/mas.msg.drawio.png)
 
-The following diagram describes the core flow and the following loops.
+The following diagram describes the core flow and the related loops.
 
 ![](misc/mas.flow.drawio.png)
 
-## The example scenario
-
-### Scenario
-
-A simple simulation scenario consists of two components:
-
-* A power network that is modeled with pandapower and a set of PV/Wind power simulators that are linked to generators in the network. 
-* A multi-agent system with one agent for each simulated entity, *n* agents representing the aggregate (cellular) level, and one core agent serving the mosaik interface (created by default).
-
-In this scenario agents observe the power output and flexibility provided by associated entities such as generator, load etc. Cell agents aggregate the output from connected agents and then pass it among themselves to develop internal instructions. The mosaik agent provides updates from entities to its associated agents, triggers a communication cycle, and broadcasts instructions. For simplicity, the mosaik synchronously updates the agents with data from associated entities.
-
-### Time complexity
-
-Since the aggregation function at each hierarchical level is simply the summation of flexibility measurements that are passed as agent states, and the scenario itself has no recursion (or at least no somehow increasing recursion depending on the number of cells), the time complexity must be *O(n)*. In the case of a deep hierarchy, the complexity will be as BFS *O(b^h)*, where *b* is the branching factor and *h* is the depth of the hierarchy.
-
-## Installation and execution
-
-Install all requirements:
-
-`$ pip install -r requirements.txt`
-
-Run an example scenario by executing:
-
-`$ python scenario.py`
-
-The output should look like this:
->Starting "WecsSim" as "WecsSim-0" ...  
-Starting "Grid" as "Grid-0" ...  
-Starting "MAS" as "MAS-0" ...  
-...
-Starting simulation.  
-Simulation finished successfully.  
-
 ## How to use
+### Installation
+
+Install directly from PyPi:
+
+`$ pip install massca`
+
+or from cloned repository folder:
+
+`$ pip install .`
+
+### Usage
 
 Import modules and specify simulators configurations within your scenario script:
 ```
-from mosaik_agents import *
-from utils import *
-
 SIM_CONFIG = {
     'Grid': {
          'python': 'mosaik_components.pandapower:Simulator'
     },
     'MAS': {
-        'python': 'mosaik_components.mas.mosaik_agents:MosaikAgents'
+        'python': 'mosaik_components.mas:MosaikAgents'
     },
 ...
 }
+
+# Multi-agent system (MAS) configuration
+# Demo user-defined methods are specified in methods.py to make scenario cleaner
+# See MAS_DEFAULT_CONFIG in utils.py 
+MAS_CONFIG = {
+    'verbose': args.verbose, # 0 - no messages, 1 - basic agent comminication, 2 - full
+    ...
+}
 ```
 
-Initialize the pandapower grid and MAS simulator:
+Initialize the pandapower network and MAS simulator:
 ```
     gridsim = world.start('Grid', step_size=STEP_SIZE)
     massim = world.start('MAS', step_size=STEP_SIZE, **MAS_CONFIG)     
@@ -114,4 +96,46 @@ Connect and run:
 
     world.run(until=END, print_progress=True)
 ```
+
+## How to cite
+
+TODO
+
+## The example scenario and scalability experiments
+### Scenario
+
+A simple simulation scenario consists of two components:
+
+* A power network that is modeled with *pandapower* and a set of PV/Wind power simulators that are linked to generators in the network as well as flxible load simulators. 
+* A multi-agent system with one (intra-cell) agent for each simulated entity, a number of (top-level) agents representing the aggregate (cellular) level, and one core *mosaik agent* serving the *mosaik* interface.
+
+In this scenario agents observe the power output and flexibility provided by associated entities such as generator, load etc. Cell agents aggregate the output from connected agents and then pass it among themselves to develop internal instructions. The mosaik agent provides updates from entities to its associated agents, triggers a communication cycle, and broadcasts instructions. For simplicity, *mosaik* synchronously updates the agents with data from associated entities.
+
+### Time complexity note
+
+Since for demonstration purpose the aggregation function at each hierarchical level is simply the summation of flexibility measurements that are passed as agent states, and the scenario itself has no recursion (or at least no somehow increasing recursion depending on the number of cells), the time complexity must be *O(n)*. In the case of a deep hierarchy, the complexity will be as Breadth First Search *O(b^h)*, where *b* is the branching factor and *h* is the depth of the hierarchy.
+
+### Scalablility experiments
+
+1) To run the experiments one should go to the `scalability` folder and  install the required packages:
+
+`$ pip install -r requirements.txt`
+
+2) Test the scenario:
+
+`$ python scenario.py`
+
+3) Run the experiment sequence script:
+
+`$ python scalability.py`
+
+or use a docker setup:
+
+`$ docker compose up --build`
+
+4) Check out the results in `results` folder.
+
+
+
+
 

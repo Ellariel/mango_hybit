@@ -43,7 +43,7 @@ META = {
 WecsConfig = namedtuple('WecsConfig', 'P_rated, v_rated, v_min, v_max')
 
 
-class WecsSim(mosaik_api.Simulator):
+class Simulator(mosaik_api.Simulator):
     """This class implements the mosaik API."""
     def __init__(self):
         # We need to pass the META data to the parent class which will extend
@@ -56,7 +56,6 @@ class WecsSim(mosaik_api.Simulator):
         self.sim = None  # WECS sim instance
         self.scale_factor = {}
         self.current_time = -1
-        #self.values_cache = {}
 
     def init(self, sid, time_resolution=1., **sim_params):
         """*wind_file* is a CSV file containing one or more time series for
@@ -209,8 +208,8 @@ class WecsSim(mosaik_api.Simulator):
         return data
 
 def main():
-    """Run our simulator and expose the "WecsSim"."""
-    return mosaik_api.start_simulation(WecsSim(), 'WECS simulator')
+    """Run our simulator"""
+    return mosaik_api.start_simulation(Simulator(), 'WECS Simulator')
 
 if __name__ == '__main__':
     main()

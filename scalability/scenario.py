@@ -75,19 +75,19 @@ STEP_SIZE = 60 * 15
 # simulators
 SIM_CONFIG = {
     'PVSim': {
-        'python': 'simulators.pv.pvgis_simulator:PVGISSimulator',
+        'python': 'simulators.pv:Simulator',
     },
     'FLSim': {
-        'python': 'simulators.flexible.flexiload_simulator:FLSimulator',
+        'python': 'simulators.flexible:Simulator',
     },
     'WPSim': {
-        'python': 'simulators.wecssim.wind_simulator:WecsSim',
-    },
-    'MAS': {
-        'python': 'mosaik_components.mas:MosaikAgents',
+        'python': 'simulators.wecssim:Simulator',
     },
     'GridSim': {
          'python': 'mosaik_components.pandapower:Simulator',
+    },
+    'MAS': {
+        'python': 'mosaik_components.mas:MosaikAgents',
     },
     'OutputSim': {
         'python': 'mosaik_csv_writer:CSVWriter',
@@ -269,11 +269,11 @@ def main():
     print('cell controllers:', len(cell_controllers))
     print('hierarchical controllers:', len(hierarchical_controllers))
     print('power unit agents:', len(agents))
-    #if args.performance:
-    #    mosaik.util.plot_dataflow_graph(world, hdf5path=os.path.join(results_dir, '.hdf5'), show_plot=False)
+    if args.performance:
+        mosaik.util.plot_dataflow_graph(world, hdf5path=os.path.join(results_dir, '.hdf5'), show_plot=False)
     print(f"Simulation started at {time.ctime()}")
-    #world.run(until=END, print_progress='individual' if args.performance else True)
-    world.run(until=END, print_progress=True)
+    world.run(until=END, print_progress='individual' if args.performance else True)
+    #world.run(until=END, print_progress=True)
     print(f"Simulation finished at {time.ctime()}")
 
 if __name__ == '__main__':

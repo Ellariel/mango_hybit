@@ -38,7 +38,7 @@ STEP_SIZE = 60*60
 CACHE_DIR = Path(abspath(__file__)).parent
 DATE_FORMAT = "YYYY-MM-DD HH:mm:ss"
 
-class PVGISSimulator(mosaik_api.Simulator):
+class Simulator(mosaik_api.Simulator):
     _sid: str
     """This simulator's ID."""
     _step_size: Optional[int]
@@ -122,3 +122,10 @@ class PVGISSimulator(mosaik_api.Simulator):
         return {eid: {attr: self.get_production(eid, attr) 
                             for attr in attrs
                                 } for eid, attrs in outputs.items()}
+    
+def main():
+    """Run our simulator"""
+    return mosaik_api.start_simulation(Simulator(), 'PVGIS Simulator')
+
+if __name__ == '__main__':
+    main()
