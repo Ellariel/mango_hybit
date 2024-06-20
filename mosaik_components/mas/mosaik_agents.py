@@ -527,6 +527,8 @@ class MosaikAgents(mosaik_api.Simulator):
             print('entities:', self.entities)
 
     def finalize(self):
+        pending = asyncio.all_tasks()
+        self.loop.run_until_complete(asyncio.gather(*pending))
         self.loop.run_until_complete(self._shutdown(self.main_container))
 
     @staticmethod
@@ -534,9 +536,9 @@ class MosaikAgents(mosaik_api.Simulator):
         futs = []
         for arg in args:
             futs.append(arg.shutdown())
-        print('Going to shutdown agents and container... ', end='')
+        #print('Going to shutdown agents and container... ', end='')
         await asyncio.gather(*futs)
-        print('done.')
+        #print('done.')
 
     def step(self, current_time, inputs, max_advance):
         """Send the inputs of the controlled unites to our agents and get new
