@@ -4,9 +4,9 @@ import mosaik_api_v3 as mosaik_api
 from mosaik_cohda.des_flex.flex_class import Flexibility
 from mosaik_cohda.start_values import StartValues
 from mosaik_cohda.cohda_simulator import CohdaSimulator
-from mango.core.agent import Agent
-from mango.core.container import Container
-from mango.role.core import RoleAgent
+from mango import Agent
+#from mango.core.container import Container
+from mango import RoleAgent
 from mosaik_cohda.agent_roles import FlexReceiverRole, FlexCohdaRole, \
     FlexTerminationRole, FlexNegotiationStarterRole, TerminationData
 from mosaik_cohda.start_values import StartValues, SolutionSchedule
@@ -23,20 +23,19 @@ class FlexReceiverRoleModified(FlexReceiverRole):
             schedule = self.context.data.current_cohda_solution.solution_candidate.candidate[self.id]
             solution = SolutionSchedule(schedule)
             self.context.schedule_instant_task(
-                self.context.send_message(
+                self.context.send_acl_message(
                     receiver_addr=self._mosaik_agent_address[0],
                     receiver_id=self._mosaik_agent_address[1],
                     content=solution,
                     acl_metadata={'conversation_id':
                                       self._mosaik_agent_address[1],
                                   'sender_id': self.context.aid},
-                    create_acl=True,
                 )
             )
 
 class Simulator(CohdaSimulator):
 
-    async def create_flex_agent(self, container: Container,
+    async def create_flex_agent(self, container,#: Container,
                                 time_resolution, initiator: bool = False) -> Agent:
         a = RoleAgent(container)
         a.add_role(CoalitionParticipantRole())

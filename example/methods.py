@@ -1,6 +1,7 @@
 import copy
 import numpy as np
 from mosaik_components.mas.utils import *
+from mosaik_components.mas.lib.cohda import COHDA
 
 MAS_STATE = MAS_DEFAULT_STATE.copy()
 
@@ -334,6 +335,7 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
         ok, instructions, state = compute_instructions(instruction=instruction, 
                                                                     current_state=current_state,
                                                             requested_states=requested_states, **kwargs)
+        
         if aeid != 'MosaikAgent':
             state = MAS_STATE.copy()
     else:

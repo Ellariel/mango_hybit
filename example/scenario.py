@@ -27,7 +27,7 @@ from methods import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--cells', default=2, type=int)
-parser.add_argument('--verbose', default=-1, type=int)
+parser.add_argument('--verbose', default=0, type=int)
 parser.add_argument('--clean', default=True, type=bool)
 parser.add_argument('--dir', default='./', type=str)
 parser.add_argument('--seed', default=13, type=int)
