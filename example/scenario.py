@@ -15,12 +15,12 @@ import random
 import argparse
 import more_itertools as mit
 import pandapower as pp
+import nest_asyncio
+nest_asyncio.apply()
 
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
-#import pandapower.auxiliary
-#pandapower.auxiliary._check_if_numba_is_installed = lambda x: x
 
 from cells import *
 from methods import *
@@ -163,6 +163,8 @@ MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py
     'execute_method': execute_instructions,    # method that computes and decomposes the redispatch instructions 
                                                # that will be hierarchically transmitted from each agent to its connected peers,
                                                # executes the received instructions internally
+    'initialize' : initialize,
+    'finalize' : finalize,
 }
 
 def main():
@@ -194,11 +196,7 @@ def main():
                         step_size=STEP_SIZE, 
                         wind_file=WIND_FILE,
                     )
-    #load_sim = world.start("LoadSim", 
-    #                      sim_start=START_DATE, 
-    #                      date_format=DATE_FORMAT,
-    #                      datafile=LOAD_FILE)
-    #loads = load_sim.Loads.create(1)[0]
+
     output_sim = world.start('OutputSim', start_date = START_DATE,
                                             output_file=os.path.join(results_dir, args.output_file))
     report = output_sim.CSVWriter(buff_size=STEP_SIZE)

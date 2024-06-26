@@ -4,6 +4,15 @@ from mosaik_components.mas.utils import *
 from mosaik_components.mas.lib.cohda import COHDA
 
 MAS_STATE = MAS_DEFAULT_STATE.copy()
+cohda = None
+
+def initialize(**kwargs):
+    global cohda
+    cohda = COHDA(muted=False)
+
+def finalize(**kwargs):
+    global cohda
+    del cohda
 
 def state_to_output(aeid, aid, attrs, current_state, converged, current_time_step, first_time_step, **kwargs):
 # inputs {'Agent_3': {'current': {'WecsSim-0.wecs-0': 147.26366926766127}},
@@ -329,14 +338,34 @@ def compute_instructions(current_state, **kwargs):
     return ok, instructions, state
 
 def execute_instructions(aeid, aid, instruction, current_state, requested_states, **kwargs):
+    global cohda
     ok = True   
 
-    if not len(requested_states) == 0:
+    if not len(requested_states) == 0: # not a leaf agent
         ok, instructions, state = compute_instructions(instruction=instruction, 
                                                                     current_state=current_state,
                                                             requested_states=requested_states, **kwargs)
-        
-        if aeid != 'MosaikAgent':
+        if aeid == 'MosaikAgent':
+            #print(instruction, current_state, requested_states)
+            #cells_aggregated_state = aggregate_states(None, None, requested_states)
+            #ok, _, cells_delta, state, _ = compute_balance(current_state, cells_aggregated_state)
+            #instructions, remains = compose_instructions(requested_states, cells_delta)
+            #print(instructions)
+
+
+            n_agents = 3
+
+            target_schedule = [0.5, 2.0, 5.0]
+            flex = {'flex_max_power': [3.0, 3.0, 3.0],
+                    'flex_min_power': [0.1, 0.2, 0.3],
+                    }
+            print('target_schedule:', target_schedule)
+            print('flexibility:', flex)
+            print(cohda.execute(target_schedule=target_schedule,
+                                flexibility=[flex for i in range(n_agents)]))
+
+        else:
+        #if aeid != 'MosaikAgent':
             state = MAS_STATE.copy()
     else:
         instructions = {aid : instruction}

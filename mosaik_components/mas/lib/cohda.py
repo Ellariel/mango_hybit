@@ -1,17 +1,19 @@
+import sys, os
+old_stdout = sys.stdout
+sys.stdout = open(os.devnull, "w")
 import logging
 import asyncio
+import nest_asyncio
 import mosaik_api_v3 as mosaik_api
+from mango import Agent, RoleAgent
 from mosaik_cohda.des_flex.flex_class import Flexibility
 from mosaik_cohda.start_values import StartValues
 from mosaik_cohda.cohda_simulator import CohdaSimulator
-from mango import Agent
-#from mango.core.container import Container
-from mango import RoleAgent
 from mosaik_cohda.agent_roles import FlexReceiverRole, FlexCohdaRole, \
     FlexTerminationRole, FlexNegotiationStarterRole, TerminationData
 from mosaik_cohda.start_values import StartValues, SolutionSchedule
 from mosaik_cohda.mango_library.coalition.core import CoalitionParticipantRole
-import nest_asyncio
+sys.stdout = old_stdout
 
 class FlexReceiverRoleModified(FlexReceiverRole):
     def setup(self) -> None:
@@ -35,7 +37,7 @@ class FlexReceiverRoleModified(FlexReceiverRole):
 
 class Simulator(CohdaSimulator):
 
-    async def create_flex_agent(self, container,#: Container,
+    async def create_flex_agent(self, container,
                                 time_resolution, initiator: bool = False) -> Agent:
         a = RoleAgent(container)
         a.add_role(CoalitionParticipantRole())
@@ -56,8 +58,8 @@ class Simulator(CohdaSimulator):
 
     def finalize(self):
         try:
-            pending = asyncio.all_tasks()
-            self.loop.run_until_complete(asyncio.gather(*pending))
+            #pending = asyncio.all_tasks()
+            #self.loop.run_until_complete(asyncio.gather(*pending))
             self.loop.run_until_complete(
                 self._shutdown(self.main_container, 
                                self.agent_container, 
@@ -66,11 +68,12 @@ class Simulator(CohdaSimulator):
             pass
         
 class COHDA():
-    def __init__(self, step_size=15*60, time_resolution=1., host='localhost', base_port=6060, **sim_params):
+    def __init__(self, step_size=15*60, time_resolution=1., host='localhost', base_port=6060, muted=False, **sim_params):
         self.step_size = step_size
         self.sim_params = sim_params
         self.time_resolution = time_resolution
         self.host = host
+        self.muted = muted
         self.base_port = base_port
         self.time_step = 0
 
@@ -90,6 +93,9 @@ class COHDA():
         self.simulator.setup_done()
 
     def execute(self, target_schedule, flexibility):
+            if self.muted:
+                old_stdout = sys.stdout
+                sys.stdout = open(os.devnull, "w")
             
             n_agents = len(flexibility)
             participants = list(range(n_agents))
@@ -119,6 +125,9 @@ class COHDA():
             output_data = self.simulator.schedules
             self.simulator.finalize()
             del self.simulator
+
+            if self.muted:
+                sys.stdout = old_stdout
 
             return output_data
 

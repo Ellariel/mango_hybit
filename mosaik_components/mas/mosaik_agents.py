@@ -526,10 +526,16 @@ class MosaikAgents(mosaik_api.Simulator):
         if self.params['verbose'] >= 2:
             print('entities:', self.entities)
 
+        if callable(self.params['initialize']):
+            self.params['initialize'](**self.params)
+
     def finalize(self):
-        pending = asyncio.all_tasks()
-        self.loop.run_until_complete(asyncio.gather(*pending))
+        # pending = asyncio.all_tasks()
+        # self.loop.run_until_complete(asyncio.gather(*pending))
         self.loop.run_until_complete(self._shutdown(self.main_container))
+
+        if callable(self.params['finalize']):
+            self.params['finalize'](**self.params)
 
     @staticmethod
     async def _shutdown(*args):

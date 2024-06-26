@@ -31,6 +31,9 @@ MAS_DEFAULT_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py
     'execute_method': None,    # method that computes and decomposes the redispatch instructions 
                                                # that will be hierarchically transmitted from each agent to its connected peers,
                                                # executes the received instructions internally
+    'initialize' : None,
+    'finalize' : None,
+
 }
 
 def highlight(s, color='green'):
