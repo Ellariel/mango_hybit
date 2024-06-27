@@ -177,6 +177,7 @@ class Agent(mango.Agent):
         :param content: The content including instructions to execute
         :param meta: The meta information dict
         """
+        ok = False
         instructions = content.instructions
         instruction = instructions[self.aid]
 
@@ -588,9 +589,9 @@ class MosaikAgents(mosaik_api.Simulator):
         steptime = time.time()
         output = self.loop.run_until_complete(self.mosaik_agent.run_loop(inputs=inputs))
         steptime = time.time() - steptime
-        output = {self.aid_to_eid[k]: v for k, v in output.items()}           
+        output = {self.aid_to_eid[k]: v for k, v in output.items()}    
 
-        if self.mosaik_agent.converged < self.mosaik_agent.convergence_steps:
+        if self.mosaik_agent.converged <= self.mosaik_agent.convergence_steps:
             self.output_cache = output
             self.output_cache["MosaikAgent"] = self.mosaik_agent.state
             self._steptime += [steptime]       
@@ -627,6 +628,7 @@ class MosaikAgents(mosaik_api.Simulator):
             print(highlight('\nOUTPUT:'), data)
 
         self.mosaik_agent.first_time_step = False
+        
         return data
 
 

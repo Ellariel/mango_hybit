@@ -63,7 +63,7 @@ else:
     with open(prof_file, 'r') as f:
         profiles = json.load(f)
 
-END = 3600 * 1#24 * 1  # 1 day
+END = 60*15*2#3600 * 24 * 1  # 1 day
 START_DATE = '2014-01-01 00:00:00'
 DATE_FORMAT = 'mixed' #'YYYY-MM-DD hh:mm:ss'
 GRID_FILE = net_file
@@ -154,7 +154,7 @@ MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py
     'verbose': args.verbose, # 0 - no messages, 1 - basic agent comminication, 2 - full
     'performance': args.performance, # returns wall time of each mosaik step / the core loop execution time 
                                      # as a 'steptime' [sec] output attribute of MosaikAgent 
-    'convergence_steps' : 2, # higher value ensures convergence
+    'convergence_steps' : 1, # higher value ensures convergence
     'convegence_max_steps' : 5, # raise an error if there is no convergence
     'state_dict': MAS_STATE, # how an agent state that are gathered and comunicated should look like
     'input_method': input_to_state, # method that transforms mosaik inputs dict to the agent state (see `update_state`, default: copy dict)
@@ -210,7 +210,7 @@ def main():
     cells['match_agent'].update({'MosaikAgent' : ext_grids[0].eid})
     world.connect(ext_grids[0], mosaik_agent, ('P[MW]', 'current'), time_shifted=True, initial_data={'P[MW]': 0})
     world.connect(mosaik_agent, report, 'steptime')
-    #world.connect(mosaik_agent, report, 'current')
+    world.connect(mosaik_agent, report, 'current')
     world.connect(ext_grids[0], report, 'P[MW]')
 
     pv = [] # PV simulators
@@ -231,31 +231,34 @@ def main():
                     # 'type-index-bus-cell'
                     bus_eid = '-'.join(e['bus'].split('-', )[:-1])
                     bus = [i for i in buses if i.eid == bus_eid][0]
-
                     if e['type'] == 'StaticGen':
                         if '-7' in e['bus']: # wind at Bus-*-7                     
                             wp += wsim.WECS.create(num=1, **WECS_CONFIG)
-                            e.update({'agent' : agents[-1], 'sim' : wp[-1]})         
+                            e.update({'agent' : agents[-1], 'sim' : wp[-1]}) 
+                            world.connect(e['sim'], bus, ('P[MW]', 'P_gen[MW]'))       
+                        elif '-9' in e['bus']:  
+                            pass
                         else: # PV
                             pv += pvsim.PVSim.create(num=1, **PVMODEL_PARAMS)
                             e.update({'agent' : agents[-1], 'sim' : pv[-1]})   
-                        world.connect(e['sim'], bus, ('P[MW]', 'P_gen[MW]'))         
+                            world.connect(e['sim'], bus, ('P[MW]', 'P_gen[MW]'))         
                     elif e['type'] == 'Load':
-                        fl += flsim.FLSim.create(num=1)
-                        e.update({'agent' : agents[-1], 'sim' : fl[-1]})
-                        #world.connect(loads, e['sim'], (e['sim'].eid, 'P[MW]'))
-                        world.connect(e['sim'], bus, ('P[MW]', 'P_load[MW]'))
+                        if 'Bus-3' in e['bus']:
+                            fl += flsim.FLSim.create(num=1)
+                            e.update({'agent' : agents[-1], 'sim' : fl[-1]})
+                            world.connect(e['sim'], bus, ('P[MW]', 'P_load[MW]'))
                     else:
                         pass
                     
-                    world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
-                    world.connect(e['agent'], e['sim'], 'scale_factor', weak=True)
-                    world.connect(e['sim'], report, 'P[MW]') 
-                    #world.connect(e['agent'], report, 'current')
-                    #world.connect(e['agent'], report, 'scale_factor')
+                    if 'sim' in e:
+                        world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
+                        world.connect(e['agent'], e['sim'], 'scale_factor', weak=True)
+                        world.connect(e['sim'], report, 'P[MW]') 
+                        #world.connect(e['agent'], report, 'current')
+                        #world.connect(e['agent'], report, 'scale_factor')
 
-                    cells['match_unit'].update({e['sim'].eid : e['unit'].eid})
-                    cells['match_agent'].update({e['agent'].eid : e['sim'].eid})
+                        cells['match_unit'].update({e['sim'].eid : e['unit'].eid})
+                        cells['match_agent'].update({e['agent'].eid : e['sim'].eid})
 
             hierarchical_controllers += hierarchical[1:]
 

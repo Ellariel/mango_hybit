@@ -1,4 +1,4 @@
-import copy
+import copy, sys
 import numpy as np
 from mosaik_components.mas.utils import *
 from mosaik_components.mas.lib.cohda import COHDA
@@ -8,7 +8,7 @@ cohda = None
 
 def initialize(**kwargs):
     global cohda
-    cohda = COHDA(muted=False)
+    cohda = COHDA(muted=True)
 
 def finalize(**kwargs):
     global cohda
@@ -20,6 +20,9 @@ def state_to_output(aeid, aid, attrs, current_state, converged, current_time_ste
 # entities: {'Agent_3': 'WecsSim-0.wecs-0', 'Agent_4': 'Grid-0.Load-0',
 # Agent_6 ['scale_factor'] {'production': {'min': 0, 'max': 0.02, 'current': 0.02, 'scale_factor': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}}
     data = {}
+
+    if aeid == 'MosaikAgent':
+       print('MosaikAgent', current_state, attrs)
 
     if abs(current_state['production']['current']) > PRECISION or abs(current_state['production']['scale_factor']) > PRECISION:
         key = 'production'
@@ -37,7 +40,6 @@ def state_to_output(aeid, aid, attrs, current_state, converged, current_time_ste
         elif 'scale_factor' == attr:
             if not converged:
                 data.update({'scale_factor' : scale_factor})
-
     return data
 
 
@@ -50,10 +52,7 @@ def aggregate_states(aeid, aid, requested_states, current_state=MAS_STATE, **kwa
                         current_state[i][j] += state[i][j]
     return current_state
 
-def compute_instructions(current_state, **kwargs):
-
-    verbose = kwargs.get('verbose', 0)
-    def calc_delta(current_state, new_state):
+def calc_delta(current_state, new_state):
             _new_state = copy.deepcopy(new_state)
             for i in new_state.keys():
                 for j in new_state[i].keys():
@@ -61,7 +60,7 @@ def compute_instructions(current_state, **kwargs):
                         _new_state[i][j] -= current_state[i][j]
             return _new_state
 
-    def compose_instructions(agents_info, delta):
+def compose_instructions(agents_info, delta):
         _delta = copy.deepcopy(delta)
         _agents_info = copy.deepcopy(agents_info)
         for aid, state in _agents_info.items():
@@ -87,7 +86,25 @@ def compute_instructions(current_state, **kwargs):
                     state[i]['scale_factor'] = state[i]['current'] - agents_info[aid][i]['current']#/ if agents_info[aid][i]['current'] > PRECISION else 1
 
         return _agents_info, _delta
-    
+
+def adjust_instruction(current_state, new_state):
+        _current_state = copy.deepcopy(current_state)
+        if abs(new_state['production']['current']) > PRECISION or abs(new_state['production']['scale_factor']) > PRECISION:
+            key = 'production'
+        elif abs(new_state['consumption']['current']) > PRECISION or abs(new_state['consumption']['scale_factor']) > PRECISION:
+            key = 'consumption'
+        else:
+            key = 'production'
+
+        _current_state[key]['scale_factor'] = current_state[key]['current'] - new_state[key]['current']
+        _current_state[key]['current'] = new_state[key]['current']
+
+        return _current_state
+
+def compute_instructions(current_state, **kwargs):
+
+    verbose = kwargs.get('verbose', 0)
+
     def compute_balance(external_network_state,#=copy.deepcopy(MAS_STATE), 
                                     cells_aggregated_state):#=copy.deepcopy(MAS_STATE)):
                 
@@ -342,31 +359,73 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
     ok = True   
 
     if not len(requested_states) == 0: # not a leaf agent
-        ok, instructions, state = compute_instructions(instruction=instruction, 
+        if not aeid == 'MosaikAgent':
+            ok, instructions, state = compute_instructions(instruction=instruction, 
                                                                     current_state=current_state,
                                                             requested_states=requested_states, **kwargs)
-        if aeid == 'MosaikAgent':
+            print('instructions', instructions)
+            state = MAS_STATE.copy()
+        else:
             #print(instruction, current_state, requested_states)
+            print('instruction', instruction)
+            print('current_state', current_state)
+            print('requested_states', requested_states)
+            print('len(requested_states)', len(requested_states))
             #cells_aggregated_state = aggregate_states(None, None, requested_states)
             #ok, _, cells_delta, state, _ = compute_balance(current_state, cells_aggregated_state)
             #instructions, remains = compose_instructions(requested_states, cells_delta)
             #print(instructions)
 
 
-            n_agents = 3
+            
+            flexibility = [{'flex_max_power': [current_state['production']['max']],
+                            'flex_min_power': [current_state['production']['min']]}]
 
-            target_schedule = [0.5, 2.0, 5.0]
-            flex = {'flex_max_power': [3.0, 3.0, 3.0],
-                    'flex_min_power': [0.1, 0.2, 0.3],
-                    }
+            total_consumption = 0
+            for s in requested_states.values():
+                flexibility.append({'flex_max_power': [s['production']['max']],
+                                    'flex_min_power': [s['production']['min']]})
+                total_consumption += s['consumption']['current']
+
+            target_schedule = [total_consumption]
+
+
+
+            #target_schedule = [0.5, 2.0, 5.0]
+            #flex = {'flex_max_power': [3.0, 3.0, 3.0],
+            #        'flex_min_power': [0.1, 0.2, 0.3],
+            #        }
             print('target_schedule:', target_schedule)
-            print('flexibility:', flex)
-            print(cohda.execute(target_schedule=target_schedule,
-                                flexibility=[flex for i in range(n_agents)]))
+            print('flexibility:', flexibility)
+            #sys.exit()
+            schedules = cohda.execute(target_schedule=target_schedule,
+                                            flexibility=flexibility)
+            print('schedules:', schedules)
 
-        else:
-        #if aeid != 'MosaikAgent':
-            state = MAS_STATE.copy()
+            state = current_state.copy()
+            value = schedules.pop('Agent_0', {})['FlexSchedules'][0]
+            state['production']['scale_factor'] = value - state['production']['current']
+            state['production']['current'] = value
+
+            print('state', state)
+
+            print('requested_states', requested_states)
+            instructions = {}
+            for (agent_, state_), schedule_ in zip(requested_states.items(), schedules.values()):
+                state__ = state_.copy()
+                state__['production']['current'] = schedule_['FlexSchedules'][0]
+                instructions[agent_] = adjust_instruction(state_, state__)
+
+            print('instructions', instructions)
+
+            
+
+
+            
+
+
+            #sys.exit()
+
     else:
         instructions = {aid : instruction}
         state = instruction
