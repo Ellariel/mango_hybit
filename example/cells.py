@@ -1,5 +1,6 @@
 import os
 import json
+import arrow
 import random
 import pandas as pd
 import numpy as np
@@ -9,8 +10,6 @@ from pandapower.toolbox import merge_nets
 
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
-#import pandapower.auxiliary
-#pandapower.auxiliary._check_if_numba_is_installed = lambda x: x
 
 '''
 Cell based grid generating script
@@ -29,16 +28,14 @@ def get_random_seed(base_seed=None, fixed_range=1000):
 
 def get_cell():
     '''
-    https://pandapower.readthedocs.io/en/v2.10.0/networks/cigre.html#medium-voltage-distribution-network-with-pv-and-wind-der
+    https://pandapower.readthedocs.io/en/v2.10.0/networks/cigre.html#medium-voltage-distribution-network-with-all-der
     This pandapower network includes the following parameter tables:
-    - switch (8 elements)
-    - load (18 elements)
-    - ext_grid (1 elements)
-    - sgen (9 elements)
-    - line (15 elements)
-    - trafo (2 elements)
-    - bus (15 elements)
-    - bus_geodata (15 elements)
+    8 photovoltaic generators
+    1 wind turbine
+    2 Batteries
+    2 residential fuel cells
+    1 CHP diesel
+    1 CHP fuel cell
     '''
     def _switch(net, type='CB', et='t', element=1, bus=0, closed=False): 
         net.switch.loc[(net.switch['type'] == type) &
@@ -46,7 +43,7 @@ def get_cell():
                        (net.switch['element'] == element) &
                        (net.switch['bus'] == bus), 'closed']  = closed
     
-    net = pn.create_cigre_network_mv(with_der="pv_wind") # gets a cell subnetwork
+    net = pn.create_cigre_network_mv(with_der="all") # gets a cell subnetwork
     _switch(net, closed=False) # switching off the right part (trafo 1, see the scheme) of the subnetwork
     return net
 
@@ -95,7 +92,19 @@ def create_cells(cells_count=2, dir='./', validation=False):
         pp.to_json(net, dir)
     return net, dir
 
-def generate_profiles(net, dir='./', seed=13):
+def _randomize_timeseries(start='2016-01-01 00:00:00', end=60*15*1, step_size=60*15, target_value=2, name='FLSim', dir='./', seed=13):
+    random.seed(seed)
+    np.random.seed(seed)
+    date_start = arrow.get(start, 'YYYY-MM-DD hh:mm:ss')
+    date_end = date_start.shift(seconds=end)
+    date_list = [i.format('YYYY-MM-DD HH:mm:ss') for i in list(arrow.Arrow.range('minute', date_start, date_end))[::int(step_size/60)]]
+    d = pd.Series(date_list).rename('Time') #pd.to_datetime(date_list, format='mixed')
+    loads = [pd.Series([random.uniform(target_value*0.05, target_value) for i in d]).rename(name)]
+    data = pd.concat([d] + loads, axis=1).to_dict() #.set_index('Time')
+    #print(data)
+    return data
+
+def generate_profiles(net, dir='./', start='2016-01-01 00:00:00', end=60*15*1, step_size=60*15, seed=13):
     profiles = {}
     random.seed(seed)
     np.random.seed(seed)
@@ -104,12 +113,15 @@ def generate_profiles(net, dir='./', seed=13):
         profiles[unit['name']] = {
                 'max' : p,
                 'min' : 0,
+                'current' : _randomize_timeseries(start=start, end=end, name=unit['name'], target_value=p, dir=dir, seed=seed)
             }
     for _, unit in net.load.iterrows():
         p = unit.p_mw #* random.randrange(1, 4)
+        p_max = (p + p * random.randrange(1, 95) / 100)
         profiles[unit['name']] = {
-                'max' : p,
-                'min' : (p - p * random.randrange(1, 95) / 100) #,* random.randrange(0, 1) + random.randrange(0, 5) / 10,
+                'max' : p_max,
+                'min' : p, 
+                'current' : _randomize_timeseries(start=start, end=end, name=unit['name'], target_value=p_max, dir=dir, seed=seed)
             }
     for _, unit in net.res_ext_grid.iterrows():
         p = unit.p_mw
@@ -141,6 +153,7 @@ def get_cells_data(grid, grid_extra_info, profiles):
                     cells['match_cell'].update({e.eid : id[3]})
                     cells[id[3]].setdefault(id[0], {})
                     cells[id[3]][id[0]].update({e.eid : {
+                        'name' : name,
                         'unit' : e,
                         'type' : id[0],
                         'index' : id[1],

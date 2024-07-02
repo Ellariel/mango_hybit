@@ -21,8 +21,8 @@ def state_to_output(aeid, aid, attrs, current_state, converged, current_time_ste
 # Agent_6 ['scale_factor'] {'production': {'min': 0, 'max': 0.02, 'current': 0.02, 'scale_factor': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}}
     data = {}
 
-    if aeid == 'MosaikAgent':
-       print('MosaikAgent', current_state, attrs)
+    #if aeid == 'MosaikAgent':
+    #   print('MosaikAgent', current_state, attrs)
 
     if abs(current_state['production']['current']) > PRECISION or abs(current_state['production']['scale_factor']) > PRECISION:
         key = 'production'
@@ -48,7 +48,7 @@ def aggregate_states(aeid, aid, requested_states, current_state=MAS_STATE, **kwa
     for aid, state in requested_states.items():
         for i in current_state.keys():
             for j in current_state[i].keys():
-                    if isinstance(current_state[i][j], (int, float, list)):
+                    if isinstance(current_state[i][j], (int, float, list)) and isinstance(state[i][j], (int, float, list)):
                         current_state[i][j] += state[i][j]
     return current_state
 
@@ -363,14 +363,14 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
             ok, instructions, state = compute_instructions(instruction=instruction, 
                                                                     current_state=current_state,
                                                             requested_states=requested_states, **kwargs)
-            print('instructions', instructions)
+            #print('instructions', instructions)
             state = MAS_STATE.copy()
         else:
             #print(instruction, current_state, requested_states)
-            print('instruction', instruction)
-            print('current_state', current_state)
-            print('requested_states', requested_states)
-            print('len(requested_states)', len(requested_states))
+            #print('instruction', instruction)
+            #print('current_state', current_state)
+            #print('requested_states', requested_states)
+            #print('len(requested_states)', len(requested_states))
             #cells_aggregated_state = aggregate_states(None, None, requested_states)
             #ok, _, cells_delta, state, _ = compute_balance(current_state, cells_aggregated_state)
             #instructions, remains = compose_instructions(requested_states, cells_delta)
@@ -407,16 +407,16 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
             state['production']['scale_factor'] = value - state['production']['current']
             state['production']['current'] = value
 
-            print('state', state)
+            #print('state', state)
 
-            print('requested_states', requested_states)
+            #print('requested_states', requested_states)
             instructions = {}
             for (agent_, state_), schedule_ in zip(requested_states.items(), schedules.values()):
                 state__ = state_.copy()
                 state__['production']['current'] = schedule_['FlexSchedules'][0]
                 instructions[agent_] = adjust_instruction(state_, state__)
 
-            print('instructions', instructions)
+            #print('instructions', instructions)
 
             
 
