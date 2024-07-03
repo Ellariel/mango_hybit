@@ -416,16 +416,6 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
                 state__['production']['current'] = schedule_['FlexSchedules'][0]
                 instructions[agent_] = adjust_instruction(state_, state__)
 
-            #print('instructions', instructions)
-
-            
-
-
-            
-
-
-            #sys.exit()
-
     else:
         instructions = {aid : instruction}
         state = instruction

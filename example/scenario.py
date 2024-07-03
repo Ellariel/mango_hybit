@@ -34,7 +34,7 @@ parser.add_argument('--clean', default=True, type=bool)
 parser.add_argument('--dir', default='./', type=str)
 parser.add_argument('--seed', default=13, type=int)
 parser.add_argument('--output_file', default='results.csv', type=str)
-parser.add_argument('--performance', default=True, type=bool)
+parser.add_argument('--performance', default=False, type=bool)
 parser.add_argument('--hierarchy', default=1, type=int)
 args = parser.parse_args()
 
@@ -63,7 +63,7 @@ print(f"loads: {len(net.load)}, gens: {len(net.sgen)}")
 #print(_randomize())
 #sys.exit()
 
-END = 60*15*1#3600 * 24 * 1  # 1 day
+END = 60*15#3600 * 24 * 1  # 1 day
 START_DATE = '2014-07-01 12:00:00'
 DATE_FORMAT = 'mixed' #'YYYY-MM-DD hh:mm:ss'
 STEP_SIZE = 60 * 15
