@@ -74,6 +74,8 @@ class COHDA():
         self.time_resolution = time_resolution
         self.host = host
         self.muted = muted
+        if self.muted:
+            logging.disable()
         self.base_port = base_port
         self.time_step = 0
 

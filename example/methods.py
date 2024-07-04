@@ -418,6 +418,10 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
 
     else:
         instructions = {aid : instruction}
+        #print(aid)
+        #print(current_state)
+        #print(instruction)
+        #print()
         state = instruction
 
     return ok, instructions, state

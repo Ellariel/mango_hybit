@@ -110,6 +110,7 @@ def generate_profiles(net, dir='./', start='2016-01-01 00:00:00', end=60*15*1, s
     np.random.seed(seed)
     for _, unit in net.sgen.iterrows():
         p = unit.p_mw #* random.randrange(1, 10)
+        #print(unit['name'], p)
         profiles[unit['name']] = {
                 'max' : p,
                 'min' : 0,

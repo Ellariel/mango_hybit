@@ -38,6 +38,8 @@ parser.add_argument('--performance', default=False, type=bool)
 parser.add_argument('--hierarchy', default=1, type=int)
 args = parser.parse_args()
 
+set_random_seed(seed=args.seed)
+
 base_dir = args.dir
 data_dir = os.path.join(base_dir, 'data')
 results_dir = os.path.join(base_dir, 'results')
@@ -164,12 +166,14 @@ def input_to_state(aeid, aid, input_data, current_state, current_time, first_tim
         for eid, value in input_data['current'].items():
             if 'Load' in eid or 'FL' in eid: # check the type of connected unit and its profile in eid or 'FL' 
                 state['consumption'] = _update(state['consumption'], profile)
-                state['consumption']['current'] += abs(value)
+                value = np.clip(abs(value), profile['min'], profile['max'])
+                state['consumption']['current'] += value
             elif 'Gen' in eid or 'PV' in eid or 'Wecs' in eid: #in eid or 'PV' in eid or 'Wecs'
-                state['production'] = _update(state['production'], profile)
-                state['production']['current'] += abs(value)
                 if first_time_step:
                     profile['max'] = min(abs(value), profile['max'])
+                value = np.clip(abs(value), profile['min'], profile['max'])
+                state['production'] = _update(state['production'], profile)
+                state['production']['current'] += value
             elif 'ExternalGrid' in eid:
                 state['production'] = _update(state['production'], profile)
                 state['consumption'] = _update(state['consumption'], profile)
@@ -182,13 +186,15 @@ def input_to_state(aeid, aid, input_data, current_state, current_time, first_tim
         for eid, value in input_data.items():
             value = list(value.values())[0]
             if 'Load' in eid: # check the type of connected unit and its profile in eid or 'FL' 
+                value = np.clip(abs(value), profile['min'], profile['max'])
                 state['consumption'] = _update(state['consumption'], profile)
-                state['consumption']['current'] += abs(value)
+                state['consumption']['current'] += value
             elif 'Gen' in eid: #in eid or 'PV' in eid or 'Wecs'
-                state['production'] = _update(state['production'], profile)
-                state['production']['current'] += abs(value)
                 if first_time_step:
                     profile['max'] = min(abs(value), profile['max'])
+                value = np.clip(abs(value), profile['min'], profile['max'])
+                state['production'] = _update(state['production'], profile)
+                state['production']['current'] += value
             elif 'ExternalGrid' in eid:
                 state['production'] = _update(state['production'], profile)
                 state['consumption'] = _update(state['consumption'], profile)
@@ -225,7 +231,6 @@ MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py
 def main():
     """Compose the mosaik scenario and run the simulation."""
     global cells, profiles, net
-    set_random_seed(seed=args.seed)
     world = mosaik.World(SIM_CONFIG)
     gridsim = world.start('GridSim', step_size=STEP_SIZE)
     grid = gridsim.Grid(json=GRID_FILE)
