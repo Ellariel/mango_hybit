@@ -9,10 +9,11 @@ It is a prototype of multi-agent system (MAS) simulator for the cellular approac
 * How to use
 * How to cite
 * The example scenario and scalability experiments
+* Sources and references
 
-## The power cell concept
+## The cell concept
 
-In implementing the power cell model and its communication layer, we followed the general concept of an energy/power cell, which is described in:
+In implementing the cell model and its communication layer, we followed the general concept of an energy/power cell, which is described in:
 * [https://doi.org/10.1049/iet-gtd.2019.0991] A smart power cell (SPC) is a grid subsection composed of a set of power conversion units interconnected by a 3-phase AC-grid. The monitoring and control system can supervise the behavior of SPCs only taking aggregated information regarding their interfaces into account and issue aggregated control instructions when the behavior of a particular SPC at a particular transmission network bus needs to be adjusted to influence the operating state of the transmission network.
 The main internal objectives: to supervise the voltage profiles, loading limits, local stability limits, to optimize the operation of the SPC according to technical and economic criteria.
 The main external objectives: to coordinate the dynamic behavior in a supportive way, the flexibility to deliberately influence the active and reactive power exchange with the transmission network, to estimate and provide forecasts of the available flexibility, to adjust the active and reactive power flow exchanged with the transmission network etc.
@@ -154,6 +155,10 @@ or use a docker setup:
 4) Check out the results in `results` folder.
 
 **Note.** Some Linux systems may have a user or system limit on open file descriptors. The simulation may reach this limit due to file descriptors consumed by the *mango* agents scheduler. Therefore, if you encounter this error, check `$ ulimit -a` and increase it accordingly, using e.g. `$ ulimit -n 65535`.
+
+## Sources and references
+
+* COHDA implementation has been adapted and [forked](https://gitlab.com/mosaik/examples/mosaik-cohda) from the [ZDIN-ZLE project](https://gitlab.com/zdin-zle/models/mosaik-cohda).
 
 
 
