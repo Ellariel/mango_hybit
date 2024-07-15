@@ -92,14 +92,14 @@ def create_cells(cells_count=2, dir='./', validation=False):
         pp.to_json(net, dir)
     return net, dir
 
-def _randomize_timeseries(start='2016-01-01 00:00:00', end=60*15*1, step_size=60*15, target_value=2, name='FLSim', dir='./', seed=13):
+def _randomize_timeseries(start='2016-01-01 00:00:00', end=60*15*1, step_size=60*15, target_value_min=0.01, target_value_max=2, name='FLSim', dir='./', seed=13):
     random.seed(seed)
     np.random.seed(seed)
     date_start = arrow.get(start, 'YYYY-MM-DD hh:mm:ss')
     date_end = date_start.shift(seconds=end)
     date_list = [i.format('YYYY-MM-DD HH:mm:ss') for i in list(arrow.Arrow.range('minute', date_start, date_end))[::int(step_size/60)]]
     d = pd.Series(date_list).rename('Time') #pd.to_datetime(date_list, format='mixed')
-    loads = [pd.Series([random.uniform(target_value*0.05, target_value) for i in d]).rename(name)]
+    loads = [pd.Series([random.uniform(target_value_min, target_value_max) for i in d]).rename(name)]
     data = pd.concat([d] + loads, axis=1).to_dict() #.set_index('Time')
     #print(data)
     return data
@@ -114,16 +114,18 @@ def generate_profiles(net, dir='./', start='2016-01-01 00:00:00', end=60*15*1, s
         profiles[unit['name']] = {
                 'max' : p,
                 'min' : 0,
-                'current' : _randomize_timeseries(start=start, end=end, name=unit['name'], target_value=p, dir=dir, seed=seed)
+                'current' : _randomize_timeseries(start=start, end=end, name=unit['name'], dir=dir, seed=seed, target_value_min=0, target_value_max=p)
             }
+        #print(profiles[unit['name']])
     for _, unit in net.load.iterrows():
         p = unit.p_mw #* random.randrange(1, 4)
         p_max = (p + p * random.randrange(1, 95) / 100)
         profiles[unit['name']] = {
                 'max' : p_max,
                 'min' : p, 
-                'current' : _randomize_timeseries(start=start, end=end, name=unit['name'], target_value=p_max, dir=dir, seed=seed)
+                'current' : _randomize_timeseries(start=start, end=end, name=unit['name'], dir=dir, seed=seed, target_value_min=p, target_value_max=p_max)
             }
+        #print(unit['name'], profiles[unit['name']])
     for _, unit in net.res_ext_grid.iterrows():
         p = unit.p_mw
         profiles[net.ext_grid.iloc[unit.name]['name']] = {

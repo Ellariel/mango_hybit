@@ -28,7 +28,7 @@ from cells import *
 from methods import *
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--cells', default=2, type=int)
+parser.add_argument('--cells', default=3, type=int)
 parser.add_argument('--verbose', default=0, type=int)
 parser.add_argument('--clean', default=True, type=bool)
 parser.add_argument('--dir', default='./', type=str)
@@ -65,7 +65,7 @@ print(f"loads: {len(net.load)}, gens: {len(net.sgen)}")
 #print(_randomize())
 #sys.exit()
 
-END = 60*15#3600 * 24 * 1  # 1 day
+END = 60*15 * 5#3600 * 24 * 1  # 1 day 
 START_DATE = '2014-07-01 12:00:00'
 DATE_FORMAT = 'mixed' #'YYYY-MM-DD hh:mm:ss'
 STEP_SIZE = 60 * 15
@@ -168,6 +168,8 @@ def input_to_state(aeid, aid, input_data, current_state, current_time, first_tim
                 state['consumption'] = _update(state['consumption'], profile)
                 value = np.clip(abs(value), profile['min'], profile['max'])
                 state['consumption']['current'] += value
+                #print('Load', state, profile)
+                #print('input0','Load', profile, state)
             elif 'Gen' in eid or 'PV' in eid or 'Wecs' in eid: #in eid or 'PV' in eid or 'Wecs'
                 if first_time_step:
                     profile['max'] = min(abs(value), profile['max'])
@@ -186,15 +188,18 @@ def input_to_state(aeid, aid, input_data, current_state, current_time, first_tim
         for eid, value in input_data.items():
             value = list(value.values())[0]
             if 'Load' in eid: # check the type of connected unit and its profile in eid or 'FL' 
+                #print('input', eid, value,'Load', profile, state)
                 value = np.clip(abs(value), profile['min'], profile['max'])
                 state['consumption'] = _update(state['consumption'], profile)
                 state['consumption']['current'] += value
+                #print('Load', state)
             elif 'Gen' in eid: #in eid or 'PV' in eid or 'Wecs'
                 if first_time_step:
                     profile['max'] = min(abs(value), profile['max'])
                 value = np.clip(abs(value), profile['min'], profile['max'])
                 state['production'] = _update(state['production'], profile)
                 state['production']['current'] += value
+                #print('Gen', state)
             elif 'ExternalGrid' in eid:
                 state['production'] = _update(state['production'], profile)
                 state['consumption'] = _update(state['consumption'], profile)
@@ -286,6 +291,8 @@ def main():
 
     for i in [i for i in cells.keys() if 'match' not in i]:
         cell_controllers += masim.MosaikAgents.create(num=1, controller=None)
+        world.connect(cell_controllers[-1], report, 'current')
+
         entities = list(cells[i]['StaticGen'].values()) + list(cells[i]['Load'].values())
         random.shuffle(entities)
         hierarchical = [cell_controllers[-1]]
@@ -327,6 +334,7 @@ def main():
                             world.connect(e['sim'], bus, (e['name'], 'P_load[MW]'))
                             world.connect(e['sim'], e['agent'], e['name'])#(e['name'], 'current'))
                             world.connect(e['sim'], report, e['name'])#(e['name'], 'P[MW]'))
+
                             
 
 
@@ -348,12 +356,18 @@ def main():
                         
                         #world.connect(e['agent'], report, 'current')
                         #world.connect(e['agent'], report, 'scale_factor')
-
-                        cells['match_unit'].update({e['sim'].eid : e['unit'].eid})
-                        cells['match_agent'].update({e['agent'].eid : e['sim'].eid})
+                        if e['sim'] == inputs:
+                            cells['match_unit'].update({e['name'] : e['unit'].eid})
+                            cells['match_agent'].update({e['agent'].eid : e['name']})
+                        else:
+                            cells['match_unit'].update({e['sim'].eid : e['unit'].eid})
+                            cells['match_agent'].update({e['agent'].eid : e['sim'].eid})
+                        
 
             hierarchical_controllers += hierarchical[1:]
-
+    #print(cells['match_unit'])
+    #print(cells['match_agent'])
+    #sys.exit()
     gridsim.disable_elements(cells['match_unit'].values())
 
     print('cell controllers:', len(cell_controllers))
@@ -362,7 +376,10 @@ def main():
     if args.performance:
         mosaik.util.plot_dataflow_graph(world, hdf5path=os.path.join(results_dir, '.hdf5'), show_plot=False)
     print(f"Simulation started at {time.ctime()}")
-    world.run(until=END, print_progress='individual' if args.performance else True)
+    try:
+        world.run(until=END, print_progress='individual' if args.performance else True)
+    except:
+        pass
     #world.run(until=END, print_progress=True)
     print(f"Simulation finished at {time.ctime()}")
 

@@ -1,4 +1,4 @@
-import copy, sys
+import copy, time, sys
 import numpy as np
 from mosaik_components.mas.utils import *
 from mosaik_components.mas.lib.cohda import COHDA
@@ -89,13 +89,16 @@ def compose_instructions(agents_info, delta):
 
 def adjust_instruction(current_state, new_state):
         _current_state = copy.deepcopy(current_state)
-        if abs(new_state['production']['current']) > PRECISION or abs(new_state['production']['scale_factor']) > PRECISION:
-            key = 'production'
-        elif abs(new_state['consumption']['current']) > PRECISION or abs(new_state['consumption']['scale_factor']) > PRECISION:
-            key = 'consumption'
-        else:
-            key = 'production'
-
+        #if abs(new_state['production']['current']) > PRECISION or abs(new_state['production']['scale_factor']) > PRECISION:
+        #    key = 'production'
+        #elif abs(new_state['consumption']['current']) > PRECISION or abs(new_state['consumption']['scale_factor']) > PRECISION:
+        #    key = 'consumption'
+        #else:
+        #    key = 'production'
+        key = 'consumption'
+        _current_state[key]['scale_factor'] = current_state[key]['current'] - new_state[key]['current']
+        _current_state[key]['current'] = new_state[key]['current']
+        key = 'production'
         _current_state[key]['scale_factor'] = current_state[key]['current'] - new_state[key]['current']
         _current_state[key]['current'] = new_state[key]['current']
 
@@ -387,6 +390,9 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
                                     'flex_min_power': [s['production']['min']]})
                 total_consumption += s['consumption']['current']
 
+                print(s)
+                print()
+
             target_schedule = [total_consumption]
 
 
@@ -415,6 +421,7 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
                 state__ = state_.copy()
                 state__['production']['current'] = schedule_['FlexSchedules'][0]
                 instructions[agent_] = adjust_instruction(state_, state__)
+            #time.sleep(1)
 
     else:
         instructions = {aid : instruction}
