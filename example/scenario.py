@@ -65,7 +65,7 @@ print(f"loads: {len(net.load)}, gens: {len(net.sgen)}")
 #print(_randomize())
 #sys.exit()
 
-END = 60*15 * 5#3600 * 24 * 1  # 1 day 
+END = 60*15 * 1#3600 * 24 * 1  # 1 day 
 START_DATE = '2014-07-01 12:00:00'
 DATE_FORMAT = 'mixed' #'YYYY-MM-DD hh:mm:ss'
 STEP_SIZE = 60 * 15
@@ -120,6 +120,20 @@ SIM_CONFIG = {
     },  
 }
 
+# The simulator meta data that we return in "init()":
+MAS_META = {
+    'api_version': '3.0',
+    'type': 'event-based',
+    'models': {
+        'MosaikAgents': {
+            'public': True,
+            'any_inputs': True,
+            'params': ['controller', 'initial_state'],
+            'attrs': ['current', 'scale_factor', 'steptime', 'production_delta[MW]', 'consumption_delta[MW]', 'consumption[MW]', 'production[MW]'],
+        },
+    },
+}
+
 # PV simulator
 PVSIM_PARAMS = {
     'start_date' : START_DATE,
@@ -149,19 +163,84 @@ def input_to_state(aeid, aid, input_data, current_state, current_time, first_tim
     # current_state: {'production': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}, 
     #                'consumption': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}}
     #print(input_data)
-    def _update(a, b):
-        a = a.copy()
-        a['max'] = b['max']
-        a['min'] = b['min']
-        #if 'current' in a and 'current' in b and isinstance(b['current'], (int, float, list)):
-        #    a['current'] = b['current']
-        #if 'scale_factor' in a and 'scale_factor' in b and isinstance(b['scale_factor'], (int, float, list)):
-        #    a['scale_factor'] = b['scale_factor']
-        return a
+    #def update_flexibility(a, b):
+    #    a = a.copy()
+    #    a['max'] = b['max']
+    #    a['min'] = b['min']
+    #    #if 'current' in a and 'current' in b and isinstance(b['current'], (int, float, list)):
+    #    #    a['current'] = b['current']
+    #    #if 'scale_factor' in a and 'scale_factor' in b and isinstance(b['scale_factor'], (int, float, list)):
+    #    #    a['scale_factor'] = b['scale_factor']
+    #    return a
 
     global cells
     state = copy.deepcopy(MAS_STATE)
     profile = get_unit_profile(aeid, cells)
+    #print(aeid, input_data)
+    for eid, value in input_data.items():
+        value = list(value.values())[0]
+        if 'Load' in eid:
+                value = np.clip(abs(value), profile['min'], profile['max'])
+                state['consumption'] = update_flexibility(state['consumption'], profile)
+                state['consumption']['current'] = value
+                #print('Load', state)
+        elif 'PV' in eid or 'WECS' in eid:
+                if first_time_step:
+                    profile['max'] = min(abs(value), profile['max'])
+                value = np.clip(abs(value), profile['min'], profile['max'])
+                state['production'] = update_flexibility(state['production'], profile)
+                state['production']['current'] = value
+                #print('Gen', state)
+        elif 'StaticGen' in eid:
+                value = np.clip(abs(value), profile['min'], profile['max'])
+                state['production'] = update_flexibility(state['production'], profile)
+                state['production']['current'] = value
+                #print('Gen', state)
+        elif 'ExternalGrid' in eid:
+                state['production'] = update_flexibility(state['production'], profile)
+                state['consumption'] = update_flexibility(state['consumption'], profile)
+                if value > 0: # check the convention here!
+                    state['production']['current'] = value
+                else:
+                    state['consumption']['current'] = abs(value) 
+        break 
+
+    state['consumption']['scale_factor'] = current_state['consumption']['scale_factor']
+    state['production']['scale_factor'] = current_state['production']['scale_factor']
+    return state
+    '''
+    if 'production[MW]' in input_data:
+        for eid, value in input_data['current'].items():
+            if 'Gen' in eid or 'PV' in eid or 'Wecs' in eid: #in eid or 'PV' in eid or 'Wecs'
+                if first_time_step:
+                    profile['max'] = min(abs(value), profile['max'])
+                value = np.clip(abs(value), profile['min'], profile['max'])
+                state['production'] = _update(state['production'], profile)
+                state['production']['current'] += value
+            elif 'ExternalGrid' in eid:
+                state['production'] = _update(state['production'], profile)
+                state['consumption'] = _update(state['consumption'], profile)
+                if value > 0: # check the convention here!
+                    state['production']['current'] += value
+                else:
+                    state['consumption']['current'] += abs(value) 
+
+
+
+    for attr in input_data:
+        if attr == 'production[MW]':
+            for eid, value in input_data['current'].items():
+
+            data.update({attr : current_state['production']['current']})
+            if 'production_delta[MW]' in attrs and not converged:
+                data.update({'production_delta[MW]' : current_state['production']['scale_factor']})
+        elif attr == 'consumption[MW]':
+            data.update({attr : current_state['consumption']['current']})
+            if 'consumption_delta[MW]' in attrs and not converged:
+                data.update({'consumption_delta[MW]' : current_state['consumption']['scale_factor']})
+
+
+
     if 'current' in input_data:
         for eid, value in input_data['current'].items():
             if 'Load' in eid or 'FL' in eid: # check the type of connected unit and its profile in eid or 'FL' 
@@ -212,11 +291,13 @@ def input_to_state(aeid, aid, input_data, current_state, current_time, first_tim
     state['consumption']['scale_factor'] = current_state['consumption']['scale_factor']
     state['production']['scale_factor'] = current_state['production']['scale_factor']
     return state
+    '''
 
 # Multi-agent system (MAS) configuration
 # User-defined methods are specified in methods.py to make scenario cleaner, 
 # except `input_method`, since it requieres an access to global variables
 MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py 
+    'META': MAS_META,
     'verbose': args.verbose, # 0 - no messages, 1 - basic agent comminication, 2 - full
     'performance': args.performance, # returns wall time of each mosaik step / the core loop execution time 
                                      # as a 'steptime' [sec] output attribute of MosaikAgent 
@@ -277,9 +358,10 @@ def main():
     ext_grids = [e for e in grid.children if e.type in ['ExternalGrid', 'Ext_grid']]
     buses = [e for e in grid.children if e.type in ['Bus']]
     cells['match_agent'].update({'MosaikAgent' : ext_grids[0].eid})
-    world.connect(ext_grids[0], mosaik_agent, ('P[MW]', 'current'), time_shifted=True, initial_data={'P[MW]': 0})
+    world.connect(ext_grids[0], mosaik_agent, ('P[MW]', 'ExternalGrid'), time_shifted=True, initial_data={'P[MW]': 0})
     world.connect(mosaik_agent, report, 'steptime')
-    world.connect(mosaik_agent, report, 'current')
+    world.connect(mosaik_agent, report, 'production[MW]')
+    world.connect(mosaik_agent, report, 'consumption[MW]')
     world.connect(ext_grids[0], report, 'P[MW]')
 
     pv = [] # PV simulators
@@ -289,9 +371,12 @@ def main():
     cell_controllers = [] # top-level agents that are named as cell_controllers, one per cell
     hierarchical_controllers = []
 
+    connected_loads = 0
+    connected_gens = 0
+
     for i in [i for i in cells.keys() if 'match' not in i]:
         cell_controllers += masim.MosaikAgents.create(num=1, controller=None)
-        world.connect(cell_controllers[-1], report, 'current')
+        #world.connect(cell_controllers[-1], report, 'current')
 
         entities = list(cells[i]['StaticGen'].values()) + list(cells[i]['Load'].values())
         random.shuffle(entities)
@@ -309,31 +394,38 @@ def main():
                             wp += wsim.WECS.create(num=1, **WECS_CONFIG)
                             e.update({'agent' : agents[-1], 'sim' : wp[-1]}) 
                             world.connect(e['sim'], bus, ('P[MW]', 'P_gen[MW]'))
-                            world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))   
-                            world.connect(e['agent'], e['sim'], 'scale_factor', weak=True)
+                            #world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
+                            world.connect(e['sim'], e['agent'], ('P[MW]', e['sim'].eid))   
+                            #world.connect(e['agent'], e['sim'], 'scale_factor', weak=True)
+                            world.connect(e['agent'], e['sim'], ('production_delta[MW]', 'scale_factor'), weak=True)
                             world.connect(e['sim'], report, 'P[MW]') 
+                            #world.connect(e['agent'], report, 'production[MW]') 
                         elif '-3' in e['bus']:
                             agents += masim.MosaikAgents.create(num=1, controller=hierarchical[-1].eid)
                             pv += pvsim.PVSim.create(num=1, **PVMODEL_PARAMS)
                             e.update({'agent' : agents[-1], 'sim' : pv[-1]})   
                             world.connect(e['sim'], bus, ('P[MW]', 'P_gen[MW]'))
-                            world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
-                            world.connect(e['agent'], e['sim'], 'scale_factor', weak=True)
+                            #world.connect(e['sim'], e['agent'], ('P[MW]', 'current'))
+                            world.connect(e['sim'], e['agent'], ('P[MW]', e['sim'].eid))
+                            #world.connect(e['agent'], e['sim'], 'scale_factor', weak=True)
+                            world.connect(e['agent'], e['sim'], ('production_delta[MW]', 'scale_factor'), weak=True)
                             world.connect(e['sim'], report, 'P[MW]') 
+                            #world.connect(e['agent'], report, 'production[MW]') 
                         else:
                             agents += masim.MosaikAgents.create(num=1, controller=hierarchical[-1].eid)
                             e.update({'agent' : agents[-1], 'sim' : inputs})   
                             world.connect(e['sim'], bus, (e['name'], 'P_gen[MW]'))
                             world.connect(e['sim'], e['agent'], e['name'])#(e['name'], 'current'))
                             world.connect(e['sim'], report, e['name'])#(e['name'], 'P[MW]'))
+                        connected_gens += 1
                             #print(e)
-
                     elif e['type'] == 'Load':
                             agents += masim.MosaikAgents.create(num=1, controller=hierarchical[-1].eid)
                             e.update({'agent' : agents[-1], 'sim' : inputs})   
                             world.connect(e['sim'], bus, (e['name'], 'P_load[MW]'))
                             world.connect(e['sim'], e['agent'], e['name'])#(e['name'], 'current'))
                             world.connect(e['sim'], report, e['name'])#(e['name'], 'P[MW]'))
+                            connected_loads += 1
 
                             
 
@@ -368,6 +460,8 @@ def main():
     #print(cells['match_unit'])
     #print(cells['match_agent'])
     #sys.exit()
+    print('connected_loads', connected_loads)
+    print('connected_gens', connected_gens)
     gridsim.disable_elements(cells['match_unit'].values())
 
     print('cell controllers:', len(cell_controllers))
@@ -376,10 +470,7 @@ def main():
     if args.performance:
         mosaik.util.plot_dataflow_graph(world, hdf5path=os.path.join(results_dir, '.hdf5'), show_plot=False)
     print(f"Simulation started at {time.ctime()}")
-    try:
-        world.run(until=END, print_progress='individual' if args.performance else True)
-    except:
-        pass
+    world.run(until=END, print_progress='individual' if args.performance else True)
     #world.run(until=END, print_progress=True)
     print(f"Simulation finished at {time.ctime()}")
 

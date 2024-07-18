@@ -18,6 +18,20 @@ from mosaik_components.mas.utils import *
 import nest_asyncio
 nest_asyncio.apply()
 
+# The simulator meta data that we return in "init()":
+META = {
+    'api_version': '3.0',
+    'type': 'event-based',
+    'models': {
+        'MosaikAgents': {
+            'public': True,
+            'any_inputs': True,
+            'params': ['controller', 'initial_state'],
+            'attrs': ['current', 'scale_factor', 'steptime'],
+        },
+    },
+}
+
 class Agent(mango.Agent):
     def __init__(self, container, **params):
         super().__init__(container)
@@ -398,24 +412,6 @@ class MosaikAgent(mango.Agent):
             # 2. trigger control actions
             return await self.trigger_communication_cycle()
 
-def main():
-    """Run the multi-agent system."""
-    return mosaik_api.start_simulation(MosaikAgents())
-
-# The simulator meta data that we return in "init()":
-META = {
-    'api_version': '3.0',
-    'type': 'event-based',
-    'models': {
-        'MosaikAgents': {
-            'public': True,
-            'any_inputs': True,
-            'params': ['controller', 'initial_state'],
-            'attrs': ['current', 'scale_factor', 'steptime'],
-        },
-    },
-}
-
 class MosaikAgents(mosaik_api.Simulator):
     """
     Interface to mosaik.
@@ -441,6 +437,7 @@ class MosaikAgents(mosaik_api.Simulator):
         self._steptime = [] # performance
 
     def init(self, sid, time_resolution=1., **sim_params):
+        #print(sim_params)
         self.sid = sid
         self.loop = asyncio.get_event_loop()
         self.params = sim_params
@@ -452,7 +449,7 @@ class MosaikAgents(mosaik_api.Simulator):
         self.params.setdefault('performance', True)
         self.params.setdefault('convergence_steps', 2)
         self.params.setdefault('convegence_max_steps', 5)
-        return META
+        return sim_params.pop('META', META)
 
     async def _create_container(self, host, port, **params):
         return await mango.create_container(addr=(host, port))
@@ -631,6 +628,10 @@ class MosaikAgents(mosaik_api.Simulator):
         
         return data
 
+
+def main():
+    """Run the multi-agent system."""
+    return mosaik_api.start_simulation(MosaikAgents())
 
 if __name__ == '__main__':
     main()

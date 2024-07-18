@@ -99,7 +99,8 @@ class Simulator(mosaik_api.Simulator):
         entities = []  # This will hold the entity data for mosaik
         for wecs_idx in range(n_wecs, n_wecs + num):
             # The entity ID for mosaik:
-            eid = 'wecs-%s' % wecs_idx
+            eid = f"{model}-{wecs_idx}"
+            #eid = 'wecs-%s' % wecs_idx
             # Remember the index of the current entity in "self.wecs_config"
             # and store the config for the current entity:
             self.wecs[eid] = wecs_idx

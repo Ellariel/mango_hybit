@@ -24,24 +24,46 @@ def state_to_output(aeid, aid, attrs, current_state, converged, current_time_ste
     #if aeid == 'MosaikAgent':
     #   print('MosaikAgent', current_state, attrs)
 
-    if abs(current_state['production']['current']) > PRECISION or abs(current_state['production']['scale_factor']) > PRECISION:
-        key = 'production'
-    elif abs(current_state['consumption']['current']) > PRECISION or abs(current_state['consumption']['scale_factor']) > PRECISION:
-        key = 'consumption'
-    else:
-        key = 'production'
+    #if abs(current_state['production']['current']) > PRECISION or abs(current_state['production']['scale_factor']) > PRECISION:
+    #    key = 'production'
+    #elif abs(current_state['consumption']['current']) > PRECISION or abs(current_state['consumption']['scale_factor']) > PRECISION:
+    #    key = 'consumption'
+    #else:
+    #    key = 'production'
 
-    current = current_state[key]['current']
-    scale_factor = current_state[key]['scale_factor']
-
+    #current = current_state[key]['current']
+    #scale_factor = current_state[key]['scale_factor']
+    #scale_factor = np.nan
     for attr in attrs:
-        if 'current' == attr:
-            data.update({'current' : current})
-        elif 'scale_factor' == attr:
-            if not converged:
-                data.update({'scale_factor' : scale_factor})
+        if attr == 'production[MW]':
+            data.update({attr : current_state['production']['current']})
+            if 'production_delta[MW]' in attrs and not converged:
+                data.update({'production_delta[MW]' : current_state['production']['scale_factor']})
+        elif attr == 'consumption[MW]':
+            data.update({attr : current_state['consumption']['current']})
+            if 'consumption_delta[MW]' in attrs and not converged:
+                data.update({'consumption_delta[MW]' : current_state['consumption']['scale_factor']})
+
+
+    #for attr in attrs:
+    #    if attr == 'production[MW]':
+    #        data.update({attr : current_state['production']['current']})
+    #    elif attr == 'consumption[MW]':
+    #        data.update({attr : current_state['consumption']['current']})
+    #    elif attr == 'scale_factor':
+    #        if not converged:
+    #            data.update({attr : scale_factor})
     return data
 
+def update_flexibility(state, profile):
+        state = state.copy()
+        state['max'] = profile['max']
+        state['min'] = profile['min']
+        #if 'current' in a and 'current' in b and isinstance(b['current'], (int, float, list)):
+        #    a['current'] = b['current']
+        #if 'scale_factor' in a and 'scale_factor' in b and isinstance(b['scale_factor'], (int, float, list)):
+        #    a['scale_factor'] = b['scale_factor']
+        return state
 
 def aggregate_states(aeid, aid, requested_states, current_state=MAS_STATE, **kwargs):
     current_state = copy.deepcopy(current_state)
