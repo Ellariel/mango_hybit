@@ -173,7 +173,7 @@ def input_to_state(aeid, aid, input_data, current_state, current_time, first_tim
     #print(aeid, input_data)
     for eid, value in input_data.items():
         value = list(value.values())[0]
-        if pd.isna(value)
+        if pd.isna(value):
             value = 0
         if 'Load' in eid:
                 value = np.clip(abs(value), profile['min'], profile['max'])
