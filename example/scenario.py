@@ -16,6 +16,7 @@ from pathlib import Path
 import argparse
 import more_itertools as mit
 import pandapower as pp
+import pandas as pd
 import nest_asyncio
 nest_asyncio.apply()
 
@@ -26,9 +27,10 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 from cells import *
 #from cells import _randomize
 from methods import *
+from mosaik_components.mas.mosaik_agents import META
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--cells', default=3, type=int)
+parser.add_argument('--cells', default=2, type=int)
 parser.add_argument('--verbose', default=0, type=int)
 parser.add_argument('--clean', default=True, type=bool)
 parser.add_argument('--dir', default='./', type=str)
@@ -121,18 +123,10 @@ SIM_CONFIG = {
 }
 
 # The simulator meta data that we return in "init()":
-MAS_META = {
-    'api_version': '3.0',
-    'type': 'event-based',
-    'models': {
-        'MosaikAgents': {
-            'public': True,
-            'any_inputs': True,
-            'params': ['controller', 'initial_state'],
-            'attrs': ['current', 'scale_factor', 'steptime', 'production_delta[MW]', 'consumption_delta[MW]', 'consumption[MW]', 'production[MW]'],
-        },
-    },
-}
+MAS_META = META.copy()
+MAS_META['models']['MosaikAgents']['attrs'] += ['production_delta[MW]', 
+                                                'consumption_delta[MW]', 
+                                                'consumption[MW]', 'production[MW]']
 
 # PV simulator
 PVSIM_PARAMS = {
@@ -179,6 +173,8 @@ def input_to_state(aeid, aid, input_data, current_state, current_time, first_tim
     #print(aeid, input_data)
     for eid, value in input_data.items():
         value = list(value.values())[0]
+        if pd.isna(value)
+            value = 0
         if 'Load' in eid:
                 value = np.clip(abs(value), profile['min'], profile['max'])
                 state['consumption'] = update_flexibility(state['consumption'], profile)
@@ -379,7 +375,7 @@ def main():
         #world.connect(cell_controllers[-1], report, 'current')
 
         entities = list(cells[i]['StaticGen'].values()) + list(cells[i]['Load'].values())
-        random.shuffle(entities)
+        #random.shuffle(entities)
         hierarchical = [cell_controllers[-1]]
         for subset in mit.divide(hierarchy, entities):
             hierarchical += masim.MosaikAgents.create(num=1, controller=hierarchical[-1].eid)

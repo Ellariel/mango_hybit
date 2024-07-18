@@ -27,7 +27,7 @@ META = {
             'public': True,
             'any_inputs': True,
             'params': ['controller', 'initial_state'],
-            'attrs': ['current', 'scale_factor', 'steptime'],
+            'attrs': ['steptime'],
         },
     },
 }

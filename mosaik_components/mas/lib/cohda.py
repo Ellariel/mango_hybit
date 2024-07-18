@@ -57,15 +57,17 @@ class Simulator(CohdaSimulator):
         await asyncio.gather(*futs)
 
     def finalize(self):
-        try:
+        #try:
             #pending = asyncio.all_tasks()
             #self.loop.run_until_complete(asyncio.gather(*pending))
-            self.loop.run_until_complete(
-                self._shutdown(self.main_container, 
-                               self.agent_container, 
-                               self.mosaik_agent))
-        except:
-            pass
+        if not self.loop.is_closed():
+                self.loop.run_until_complete(
+                    self._shutdown(self.mosaik_agent,
+                                self.agent_container,
+                                self.main_container
+                                ))
+        #except:
+        #    pass
         
 class COHDA():
     def __init__(self, step_size=15*60, time_resolution=1., host='localhost', base_port=6060, muted=False, **sim_params):
