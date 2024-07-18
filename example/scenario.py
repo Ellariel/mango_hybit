@@ -25,7 +25,6 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 from cells import *
-#from cells import _randomize
 from methods import *
 from mosaik_components.mas.mosaik_agents import META
 
@@ -126,7 +125,8 @@ SIM_CONFIG = {
 MAS_META = META.copy()
 MAS_META['models']['MosaikAgents']['attrs'] += ['production_delta[MW]', 
                                                 'consumption_delta[MW]', 
-                                                'consumption[MW]', 'production[MW]']
+                                                'consumption[MW]', 
+                                                'production[MW]']
 
 # PV simulator
 PVSIM_PARAMS = {
@@ -157,15 +157,6 @@ def input_to_state(aeid, aid, input_data, current_state, current_time, first_tim
     # current_state: {'production': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}, 
     #                'consumption': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}}
     #print(input_data)
-    #def update_flexibility(a, b):
-    #    a = a.copy()
-    #    a['max'] = b['max']
-    #    a['min'] = b['min']
-    #    #if 'current' in a and 'current' in b and isinstance(b['current'], (int, float, list)):
-    #    #    a['current'] = b['current']
-    #    #if 'scale_factor' in a and 'scale_factor' in b and isinstance(b['scale_factor'], (int, float, list)):
-    #    #    a['scale_factor'] = b['scale_factor']
-    #    return a
 
     global cells
     state = copy.deepcopy(MAS_STATE)
@@ -204,90 +195,6 @@ def input_to_state(aeid, aid, input_data, current_state, current_time, first_tim
     state['consumption']['scale_factor'] = current_state['consumption']['scale_factor']
     state['production']['scale_factor'] = current_state['production']['scale_factor']
     return state
-    '''
-    if 'production[MW]' in input_data:
-        for eid, value in input_data['current'].items():
-            if 'Gen' in eid or 'PV' in eid or 'Wecs' in eid: #in eid or 'PV' in eid or 'Wecs'
-                if first_time_step:
-                    profile['max'] = min(abs(value), profile['max'])
-                value = np.clip(abs(value), profile['min'], profile['max'])
-                state['production'] = _update(state['production'], profile)
-                state['production']['current'] += value
-            elif 'ExternalGrid' in eid:
-                state['production'] = _update(state['production'], profile)
-                state['consumption'] = _update(state['consumption'], profile)
-                if value > 0: # check the convention here!
-                    state['production']['current'] += value
-                else:
-                    state['consumption']['current'] += abs(value) 
-
-
-
-    for attr in input_data:
-        if attr == 'production[MW]':
-            for eid, value in input_data['current'].items():
-
-            data.update({attr : current_state['production']['current']})
-            if 'production_delta[MW]' in attrs and not converged:
-                data.update({'production_delta[MW]' : current_state['production']['scale_factor']})
-        elif attr == 'consumption[MW]':
-            data.update({attr : current_state['consumption']['current']})
-            if 'consumption_delta[MW]' in attrs and not converged:
-                data.update({'consumption_delta[MW]' : current_state['consumption']['scale_factor']})
-
-
-
-    if 'current' in input_data:
-        for eid, value in input_data['current'].items():
-            if 'Load' in eid or 'FL' in eid: # check the type of connected unit and its profile in eid or 'FL' 
-                state['consumption'] = _update(state['consumption'], profile)
-                value = np.clip(abs(value), profile['min'], profile['max'])
-                state['consumption']['current'] += value
-                #print('Load', state, profile)
-                #print('input0','Load', profile, state)
-            elif 'Gen' in eid or 'PV' in eid or 'Wecs' in eid: #in eid or 'PV' in eid or 'Wecs'
-                if first_time_step:
-                    profile['max'] = min(abs(value), profile['max'])
-                value = np.clip(abs(value), profile['min'], profile['max'])
-                state['production'] = _update(state['production'], profile)
-                state['production']['current'] += value
-            elif 'ExternalGrid' in eid:
-                state['production'] = _update(state['production'], profile)
-                state['consumption'] = _update(state['consumption'], profile)
-                if value > 0: # check the convention here!
-                    state['production']['current'] += value
-                else:
-                    state['consumption']['current'] += abs(value) 
-            break 
-    else:
-        for eid, value in input_data.items():
-            value = list(value.values())[0]
-            if 'Load' in eid: # check the type of connected unit and its profile in eid or 'FL' 
-                #print('input', eid, value,'Load', profile, state)
-                value = np.clip(abs(value), profile['min'], profile['max'])
-                state['consumption'] = _update(state['consumption'], profile)
-                state['consumption']['current'] += value
-                #print('Load', state)
-            elif 'Gen' in eid: #in eid or 'PV' in eid or 'Wecs'
-                if first_time_step:
-                    profile['max'] = min(abs(value), profile['max'])
-                value = np.clip(abs(value), profile['min'], profile['max'])
-                state['production'] = _update(state['production'], profile)
-                state['production']['current'] += value
-                #print('Gen', state)
-            elif 'ExternalGrid' in eid:
-                state['production'] = _update(state['production'], profile)
-                state['consumption'] = _update(state['consumption'], profile)
-                if value > 0: # check the convention here!
-                    state['production']['current'] += value
-                else:
-                    state['consumption']['current'] += abs(value) 
-            break 
-
-    state['consumption']['scale_factor'] = current_state['consumption']['scale_factor']
-    state['production']['scale_factor'] = current_state['production']['scale_factor']
-    return state
-    '''
 
 # Multi-agent system (MAS) configuration
 # User-defined methods are specified in methods.py to make scenario cleaner, 
@@ -297,7 +204,7 @@ MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py
     'verbose': args.verbose, # 0 - no messages, 1 - basic agent comminication, 2 - full
     'performance': args.performance, # returns wall time of each mosaik step / the core loop execution time 
                                      # as a 'steptime' [sec] output attribute of MosaikAgent 
-    'convergence_steps' : 1, # higher value ensures convergence
+    'convergence_steps' : 2, # higher value ensures convergence
     'convegence_max_steps' : 5, # raise an error if there is no convergence
     'state_dict': MAS_STATE, # how an agent state that are gathered and comunicated should look like
     'input_method': input_to_state, # method that transforms mosaik inputs dict to the agent state (see `update_state`, default: copy dict)
@@ -458,6 +365,7 @@ def main():
     #sys.exit()
     print('connected_loads', connected_loads)
     print('connected_gens', connected_gens)
+    #print(cells['match_unit'].values())
     gridsim.disable_elements(cells['match_unit'].values())
 
     print('cell controllers:', len(cell_controllers))

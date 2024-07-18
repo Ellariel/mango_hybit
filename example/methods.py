@@ -37,12 +37,14 @@ def state_to_output(aeid, aid, attrs, current_state, converged, current_time_ste
     for attr in attrs:
         if attr == 'production[MW]':
             data.update({attr : current_state['production']['current']})
-            if 'production_delta[MW]' in attrs and not converged:
-                data.update({'production_delta[MW]' : current_state['production']['scale_factor']})
+        elif attr == 'production_delta[MW]' and first_time_step and not converged:
+            #if 'production_delta[MW]' in attrs:# and not converged:
+            data.update({attr : current_state['production']['scale_factor']})
         elif attr == 'consumption[MW]':
             data.update({attr : current_state['consumption']['current']})
-            if 'consumption_delta[MW]' in attrs and not converged:
-                data.update({'consumption_delta[MW]' : current_state['consumption']['scale_factor']})
+        elif attr == 'consumption_delta[MW]' and first_time_step and not converged:
+            #if 'consumption_delta[MW]' in attrs:# and not converged:
+            data.update({attr : current_state['consumption']['scale_factor']})
 
 
     #for attr in attrs:
@@ -53,6 +55,7 @@ def state_to_output(aeid, aid, attrs, current_state, converged, current_time_ste
     #    elif attr == 'scale_factor':
     #        if not converged:
     #            data.update({attr : scale_factor})
+    print('\n', aid, attrs, data)
     return data
 
 def update_flexibility(state, profile):
@@ -379,7 +382,7 @@ def compute_instructions(current_state, **kwargs):
 
     return ok, instructions, state
 
-def execute_instructions(aeid, aid, instruction, current_state, requested_states, **kwargs):
+def execute_instructions(aeid, aid, instruction, current_state, requested_states, current_time, first_time_step, **kwargs):
     global cohda
     ok = True   
 
@@ -401,49 +404,52 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
             #instructions, remains = compose_instructions(requested_states, cells_delta)
             #print(instructions)
 
-
-            
-            flexibility = [{'flex_max_power': [current_state['production']['max']],
-                            'flex_min_power': [current_state['production']['min']]}]
-
-            total_consumption = 0
-            for s in requested_states.values():
-                flexibility.append({'flex_max_power': [s['production']['max']],
-                                    'flex_min_power': [s['production']['min']]})
-                total_consumption += s['consumption']['current']
-
-                print(s)
-                print()
-
-            target_schedule = [total_consumption]
-
-
-
-            #target_schedule = [0.5, 2.0, 5.0]
-            #flex = {'flex_max_power': [3.0, 3.0, 3.0],
-            #        'flex_min_power': [0.1, 0.2, 0.3],
-            #        }
-            print('target_schedule:', target_schedule)
-            print('flexibility:', flexibility)
-            #sys.exit()
-            schedules = cohda.execute(target_schedule=target_schedule,
-                                            flexibility=flexibility)
-            print('schedules:', schedules)
-
+            #print(current_time, first_time_step)
             state = current_state.copy()
-            value = schedules.pop('Agent_0', {})['FlexSchedules'][0]
-            state['production']['scale_factor'] = value - state['production']['current']
-            state['production']['current'] = value
+            if first_time_step:
+                cohda.flexibility = [{'flex_max_power': [current_state['production']['max']],
+                                'flex_min_power': [current_state['production']['min']]}]
+
+                total_consumption = 0
+                for k, s in requested_states.items():
+                    cohda.flexibility.append({'flex_max_power': [s['production']['max']],
+                                        'flex_min_power': [s['production']['min']]})
+                    total_consumption += s['consumption']['current']
+
+                    print('\n', k, s)
+                    #print()
+
+                cohda.target_schedule = [total_consumption]
+
+
+
+                #target_schedule = [0.5, 2.0, 5.0]
+                #flex = {'flex_max_power': [3.0, 3.0, 3.0],
+                #        'flex_min_power': [0.1, 0.2, 0.3],
+                #        }
+                print('target_schedule:', cohda.target_schedule)
+                print('flexibility:', cohda.flexibility)
+                #sys.exit()
+                cohda.schedules = cohda.execute(target_schedule=cohda.target_schedule,
+                                                flexibility=cohda.flexibility)
+                #print('schedules:', cohda.schedules)
+
+                #state = current_state.copy()
+                value = cohda.schedules.pop('Agent_0', {})['FlexSchedules'][0]
+                state['production']['scale_factor'] = value - state['production']['current']
+                state['production']['current'] = value
 
             #print('state', state)
+                print('schedules:', cohda.schedules)
 
             #print('requested_states', requested_states)
             instructions = {}
-            for (agent_, state_), schedule_ in zip(requested_states.items(), schedules.values()):
+            for (agent_, state_), schedule_ in zip(requested_states.items(), cohda.schedules.values()):
                 state__ = state_.copy()
                 state__['production']['current'] = schedule_['FlexSchedules'][0]
                 instructions[agent_] = adjust_instruction(state_, state__)
             #time.sleep(1)
+            #print(instructions)
 
     else:
         instructions = {aid : instruction}

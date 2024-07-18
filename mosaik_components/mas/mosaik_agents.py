@@ -47,6 +47,8 @@ class Agent(mango.Agent):
         self._instructions_confirmed = {}
         self._requested_states = {}
         self._aggregated_state = {}
+        self.current_time = -1
+        self.first_time_step = True
         if self.params['verbose'] >= 2:
             print(f"Hello world! I am a mango agent. My aid is {self.aid}.{' I am a Controller!' if self.controller[1] == 'agent0' else ''}")
 
@@ -120,14 +122,16 @@ class Agent(mango.Agent):
         """
         
         info = content.state.pop('MosaikAgent', {})
+        self.current_time = info['current_time']
+        self.first_time_step = info['first_time_step']
 
         if callable(self.params['input_method']):
             self.state = self.params['input_method'](self.aeid, 
                                                      self.aid, 
                                                      content.state, 
                                                      self.state,
-                                                     info['current_time'],
-                                                     info['first_time_step'],
+                                                     self.current_time,
+                                                     self.first_time_step,
                                                      **self.params)
         else:
             self.state = copy.deepcopy(content.state)
@@ -196,10 +200,13 @@ class Agent(mango.Agent):
         instruction = instructions[self.aid]
 
         if callable(self.params['execute_method']):
+            #print(self.params)
             ok, add_instructions, state = self.params['execute_method'](self.aeid,
                                                                    self.aid, instruction=instruction, 
                                                                    current_state=self._aggregated_state,
-                                                           requested_states=self._requested_states)
+                                                           requested_states=self._requested_states,
+                                                           current_time=self.current_time,
+                                                           first_time_step=self.first_time_step)
 
             self.state = state
             instructions.update(add_instructions)
@@ -366,6 +373,8 @@ class MosaikAgent(mango.Agent):
                                                                     self.aid, instruction=None, 
                                                                     current_state=self.state,
                                                             requested_states=self._requested_states,
+                                                            current_time=self.current_time,
+                                                            first_time_step=self.first_time_step,
                                                             **self.params)
                     self.state = state
                     self.converged += (1 if ok else 0)
