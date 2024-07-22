@@ -66,7 +66,7 @@ print(f"loads: {len(net.load)}, gens: {len(net.sgen)}")
 #print(_randomize())
 #sys.exit()
 
-END = 60*15 * 1#3600 * 24 * 1  # 1 day 
+END = 60*15 * 5#3600 * 24 * 1  # 1 day 
 START_DATE = '2014-07-01 12:00:00'
 DATE_FORMAT = 'mixed' #'YYYY-MM-DD hh:mm:ss'
 STEP_SIZE = 60 * 15

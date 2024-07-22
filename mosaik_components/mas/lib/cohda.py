@@ -13,6 +13,8 @@ from mosaik_cohda.agent_roles import FlexReceiverRole, FlexCohdaRole, \
     FlexTerminationRole, FlexNegotiationStarterRole, TerminationData
 from mosaik_cohda.start_values import StartValues, SolutionSchedule
 from mosaik_cohda.mango_library.coalition.core import CoalitionParticipantRole
+
+nest_asyncio.apply()
 sys.stdout = old_stdout
 
 class FlexReceiverRoleModified(FlexReceiverRole):
@@ -60,6 +62,7 @@ class Simulator(CohdaSimulator):
         try:
             #pending = asyncio.all_tasks()
             #self.loop.run_until_complete(asyncio.gather(*pending))
+            #self.loop = asyncio.get_event_loop()
             if not self.loop.is_closed():
                 self.loop.run_until_complete(
                     self._shutdown(self.mosaik_agent,
@@ -80,6 +83,7 @@ class COHDA():
             logging.disable()
         self.base_port = base_port
         self.time_step = 0
+        #asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
     def reinitialize(self, n_agents):
         self.simulator = Simulator()
@@ -139,7 +143,6 @@ def main():
     """
     Run the simulator.
     """
-    nest_asyncio.apply()
     logging.disable()
     return mosaik_api.start_simulation(Simulator())
 
