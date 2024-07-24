@@ -19,15 +19,16 @@ MAS_DEFAULT_STATE = {
 }
 
 MAS_DEFAULT_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py 
+    # Required parameters
     'verbose': 1, # 0 - no messages, 1 - basic agent comminication, 2 - full
     'performance': False, # returns wall time of each mosaik step / the core loop execution time 
                                      # as a 'steptime' [sec] output attribute of MosaikAgent 
-    'convergence_steps' : 3, # higher value ensures convergence
+    'convergence_steps' : 2, # higher value ensures convergence
     'convegence_max_steps' : 5, # raise an error if there is no convergence
     'state_dict': MAS_DEFAULT_STATE, # how an agent state that are gathered and comunicated should look like
     'input_method': None, # method that transforms mosaik inputs dict to the agent state (see `update_state`, default: copy dict)
     'output_method': None, # method that transforms the agent state to mosaik outputs dict (default: copy dict)
-    'states_agg_method': None, # method that aggregates gathered states to one top-level state
+    'aggregation_method': None, # method that aggregates gathered states to one top-level state
     'execute_method': None,    # method that computes and decomposes the redispatch instructions 
                                                # that will be hierarchically transmitted from each agent to its connected peers,
                                                # executes the received instructions internally

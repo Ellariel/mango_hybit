@@ -147,8 +147,8 @@ class Agent(mango.Agent):
             ))
 
     def aggregate_states(self, requested_states, current_state=None):
-        if callable(self.params['states_agg_method']):
-            return self.params['states_agg_method'](self.aeid, self.aid, requested_states, current_state)
+        if callable(self.params['aggregation_method']):
+            return self.params['aggregation_method'](self.aeid, self.aid, requested_states, current_state)
 
     async def send_state(self, content, meta):
         """
@@ -206,7 +206,7 @@ class Agent(mango.Agent):
                                                                    current_state=self._aggregated_state,
                                                            requested_states=self._requested_states,
                                                            current_time=self.current_time,
-                                                           first_time_step=self.first_time_step)
+                                                           first_time_step=self.first_time_step, **self.params)
 
             self.state = state
             instructions.update(add_instructions)
@@ -338,8 +338,8 @@ class MosaikAgent(mango.Agent):
             print("UPDATES ARE CONFIRMED")
 
     def aggregate_states(self, requested_states, current_state=None):
-        if callable(self.params['states_agg_method']):
-            return self.params['states_agg_method'](self.aeid, self.aid, requested_states, current_state)
+        if callable(self.params['aggregation_method']):
+            return self.params['aggregation_method'](self.aeid, self.aid, requested_states, current_state)
         else:
             raise AttributeError('States aggregation method is not defined!')
 

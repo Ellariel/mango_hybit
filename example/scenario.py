@@ -17,16 +17,16 @@ import argparse
 import more_itertools as mit
 import pandapower as pp
 import pandas as pd
-import nest_asyncio
-nest_asyncio.apply()
-
-import warnings
-warnings.filterwarnings("ignore", category=FutureWarning)
-warnings.filterwarnings("ignore", category=DeprecationWarning)
+#import warnings
+#warnings.filterwarnings("ignore", category=FutureWarning)
+#warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 from cells import *
 from methods import *
 from mosaik_components.mas.mosaik_agents import META
+
+import nest_asyncio
+nest_asyncio.apply()
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--cells', default=2, type=int)
@@ -66,7 +66,7 @@ print(f"loads: {len(net.load)}, gens: {len(net.sgen)}")
 #print(_randomize())
 #sys.exit()
 
-END = 60*15 * 5#3600 * 24 * 1  # 1 day 
+END = 60*15 * 1#3600 * 24 * 1  # 1 day 
 START_DATE = '2014-07-01 12:00:00'
 DATE_FORMAT = 'mixed' #'YYYY-MM-DD hh:mm:ss'
 STEP_SIZE = 60 * 15
@@ -197,9 +197,10 @@ def input_to_state(aeid, aid, input_data, current_state, current_time, first_tim
     return state
 
 # Multi-agent system (MAS) configuration
-# User-defined methods are specified in methods.py to make scenario cleaner, 
+# User-defined methods are specified in methods.py to make scenario concise, 
 # except `input_method`, since it requieres an access to global variables
 MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py 
+    # Required parameters
     'META': MAS_META,
     'verbose': args.verbose, # 0 - no messages, 1 - basic agent comminication, 2 - full
     'performance': args.performance, # returns wall time of each mosaik step / the core loop execution time 
@@ -209,12 +210,16 @@ MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py
     'state_dict': MAS_STATE, # how an agent state that are gathered and comunicated should look like
     'input_method': input_to_state, # method that transforms mosaik inputs dict to the agent state (see `update_state`, default: copy dict)
     'output_method': state_to_output, # method that transforms the agent state to mosaik outputs dict (default: copy dict)
-    'states_agg_method': aggregate_states, # method that aggregates gathered states to one top-level state
+    'aggregation_method': aggregate_states, # method that aggregates gathered states to one top-level state
     'execute_method': execute_instructions,    # method that computes and decomposes the redispatch instructions 
                                                # that will be hierarchically transmitted from each agent to its connected peers,
                                                # executes the received instructions internally
     'initialize' : initialize,
     'finalize' : finalize,
+
+    # Additional user-defined parameters
+    'between-cells' : 'cohda', #'default',
+    'within-cell' : 'default',
 }
 
 def main():
@@ -274,8 +279,8 @@ def main():
     cell_controllers = [] # top-level agents that are named as cell_controllers, one per cell
     hierarchical_controllers = []
 
-    connected_loads = 0
-    connected_gens = 0
+    #connected_loads = 0
+    #connected_gens = 0
 
     for i in [i for i in cells.keys() if 'match' not in i]:
         cell_controllers += masim.MosaikAgents.create(num=1, controller=None)
@@ -320,7 +325,7 @@ def main():
                             world.connect(e['sim'], bus, (e['name'], 'P_gen[MW]'))
                             world.connect(e['sim'], e['agent'], e['name'])#(e['name'], 'current'))
                             world.connect(e['sim'], report, e['name'])#(e['name'], 'P[MW]'))
-                        connected_gens += 1
+                        #connected_gens += 1
                             #print(e)
                     elif e['type'] == 'Load':
                             agents += masim.MosaikAgents.create(num=1, controller=hierarchical[-1].eid)
@@ -328,7 +333,7 @@ def main():
                             world.connect(e['sim'], bus, (e['name'], 'P_load[MW]'))
                             world.connect(e['sim'], e['agent'], e['name'])#(e['name'], 'current'))
                             world.connect(e['sim'], report, e['name'])#(e['name'], 'P[MW]'))
-                            connected_loads += 1
+                            #connected_loads += 1
 
                             
 
@@ -363,8 +368,8 @@ def main():
     #print(cells['match_unit'])
     #print(cells['match_agent'])
     #sys.exit()
-    print('connected_loads', connected_loads)
-    print('connected_gens', connected_gens)
+    #print('connected_loads', connected_loads)
+    #print('connected_gens', connected_gens)
     #print(cells['match_unit'].values())
     gridsim.disable_elements(cells['match_unit'].values())
 
