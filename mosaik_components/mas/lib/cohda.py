@@ -167,7 +167,7 @@ class COHDA():
             #self.time_step += 1
             #print('get_data')
             self.simulator.get_data(outputs=output_data)
-            output_data = self.simulator.schedules
+            self.cache[cache_key] = self.simulator.schedules
             #print('output_data', output_data)
             self.simulator.finalize()
             del self.simulators[self.simulator.id]
@@ -177,8 +177,7 @@ class COHDA():
             if self.muted:
                 sys.stdout = self.old_stdout
 
-            self.cache[cache_key] = output_data
-            return copy.deepcopy(output_data)
+            return copy.deepcopy(self.cache[cache_key])
 
 def main():
     """
