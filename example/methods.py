@@ -8,7 +8,7 @@ cohda = None
 
 def initialize(**kwargs):
     global cohda
-    cohda = COHDA(muted=False)
+    cohda = COHDA(muted=kwargs.get('verbose', 0) <= 0)
 
 def finalize(**kwargs):
     global cohda
@@ -403,23 +403,40 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
                     #print('hierarchical:',aeid)
                     if aeid not in cohda.flexibility:
                         cohda.flexibility[aeid] = []
+                    
+                    zero_flexibility = []
+                    total_fixed_values = 0
                     for k, s in requested_states.items():
-                            cohda.flexibility[aeid].append({'flex_max_power': [s['production']['max']],
-                                                'flex_min_power': [s['production']['min']]})
+                            if abs(s['production']['max'] - s['production']['min']) > PRECISION:
+                                zero_flexibility.append(None)
+                                cohda.flexibility[aeid].append({'flex_max_power': [s['production']['max']],
+                                                    'flex_min_power': [s['production']['min']]})
+                            else:
+                                zero_flexibility.append(s['production']['min'])
+                                total_fixed_values += s['production']['min']
                             #print('\n', k, s)
 
-                    cohda.target_schedule[aeid] = [instruction['production']['current']]
+                    cohda.target_schedule[aeid] = [instruction['production']['current'] - total_fixed_values]
 
                     print('target_schedule:', cohda.target_schedule[aeid])
+                    print('zero_flexibility:', zero_flexibility)
                     print('flexibility:', cohda.flexibility[aeid])
                     #sys.exit()
                     if len(requested_states.keys()) > 1:
-                        cohda.schedules[aeid] = cohda.execute(target_schedule=cohda.target_schedule[aeid],
+                        schedules = cohda.execute(target_schedule=cohda.target_schedule[aeid],
                                                         flexibility=cohda.flexibility[aeid])
                         #sys.exit()
-                        
                     else:
-                        cohda.schedules[aeid] = {'Agent_0': {'FlexSchedules': [instruction['production']['current']]}}
+                        schedules = {'Agent_0': {'FlexSchedules': [instruction['production']['current']]}}
+
+                    cohda.schedules[aeid] = {}
+                    schedules = iter(schedules.values())
+                    for idx, i in enumerate(zero_flexibility):
+                        if i == None:
+                            cohda.schedules[aeid].update({f"Agent_{idx}" : next(schedules)})
+                        else:
+                            cohda.schedules[aeid].update({f"Agent_{idx}" : {'FlexSchedules': [i]}})
+
                     print('schedules:', cohda.schedules[aeid])
                     
                 instructions = {}

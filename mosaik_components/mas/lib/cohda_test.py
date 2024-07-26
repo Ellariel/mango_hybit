@@ -11,7 +11,7 @@ def test():
     logging.basicConfig(level=logging.INFO)
 
     n_agents = 5
-    cohda = COHDA()
+    cohda = COHDA(base_port=10000)
 
     target_schedule = [0.5, 2.0, 5.0]
     flex = {'flex_max_power': [3.0, 3.0, 3.0],
@@ -28,6 +28,9 @@ def test():
             }
     print('target_schedule:', target_schedule)
     print('flexibility:', flex)
+    print(cohda.execute(target_schedule=target_schedule,
+                        flexibility=[flex for i in range(n_agents-2)]))
+
     print(cohda.execute(target_schedule=target_schedule,
                         flexibility=[flex for i in range(n_agents-2)]))
 

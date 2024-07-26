@@ -35,7 +35,7 @@ parser.add_argument('--clean', default=True, type=bool)
 parser.add_argument('--dir', default='./', type=str)
 parser.add_argument('--seed', default=13, type=int)
 parser.add_argument('--output_file', default='results.csv', type=str)
-parser.add_argument('--performance', default=False, type=bool)
+parser.add_argument('--performance', default=True, type=bool)
 parser.add_argument('--hierarchy', default=1, type=int)
 args = parser.parse_args()
 
@@ -218,8 +218,8 @@ MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py
     'finalize' : finalize,
 
     # Additional user-defined parameters
-    'between-cells' : 'default', #'default',
-    'within-cell' : 'cohda', #'cohda'
+    'between-cells' : 'cohda', #'default', 'cohda'
+    'within-cell' : 'cohda', 
 }
 
 def main():

@@ -1,8 +1,9 @@
-import sys, os
+import sys, os, copy
 old_stdout = sys.stdout
 sys.stdout = open(os.devnull, "w")
 import logging
 import asyncio
+#import functools
 import nest_asyncio
 import mosaik_api_v3 as mosaik_api
 from mango import Agent, RoleAgent
@@ -13,6 +14,9 @@ from mosaik_cohda.agent_roles import FlexReceiverRole, FlexCohdaRole, \
     FlexTerminationRole, FlexNegotiationStarterRole#, TerminationData
 from mosaik_cohda.start_values import StartValues, SolutionSchedule
 from mosaik_cohda.mango_library.coalition.core import CoalitionParticipantRole
+
+from mosaik_components.mas.utils import *
+
 sys.stdout = old_stdout
 
 class FlexReceiverRoleModified(FlexReceiverRole):
@@ -86,6 +90,7 @@ class COHDA():
         self.target_schedule = {}
         self.schedules = {}
         self.simulators = []
+        self.cache = {}
         nest_asyncio.apply()
 
     def reinitialize(self, n_agents):
@@ -124,11 +129,19 @@ class COHDA():
         self.simulator.setup_done()
         #print('reinitialize end', len(self.simulators))
 
+    #@functools.cache
     def execute(self, target_schedule, flexibility):
             #print('execute start', len(self.simulators))
+
+            cache_key = make_hash_sha256(make_hashable((target_schedule, flexibility)))
+            if cache_key in self.cache:
+                if not self.muted:
+                    print('COHDA returns a cached solution.')
+                return copy.deepcopy(self.cache[cache_key])
+
             if self.muted:
                 sys.stdout = open(os.devnull, "w")
-            
+           
             n_agents = len(flexibility)
             participants = list(range(n_agents))
             self.reinitialize(n_agents=n_agents)
@@ -164,7 +177,8 @@ class COHDA():
             if self.muted:
                 sys.stdout = self.old_stdout
 
-            return output_data
+            self.cache[cache_key] = output_data
+            return copy.deepcopy(output_data)
 
 def main():
     """
