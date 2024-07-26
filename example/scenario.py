@@ -218,8 +218,8 @@ MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py
     'finalize' : finalize,
 
     # Additional user-defined parameters
-    'between-cells' : 'cohda', #'default',
-    'within-cell' : 'default',
+    'between-cells' : 'default', #'default',
+    'within-cell' : 'cohda', #'cohda'
 }
 
 def main():

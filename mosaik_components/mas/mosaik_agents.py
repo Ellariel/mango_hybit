@@ -197,6 +197,7 @@ class Agent(mango.Agent):
         """
         ok = False
         instructions = content.instructions
+        #print(self.aid, self.aid in instructions)
         instruction = instructions[self.aid]
 
         if callable(self.params['execute_method']):
@@ -217,6 +218,8 @@ class Agent(mango.Agent):
             print(f"{highlight(self.aid)} <- {highlight('current_state')}: {self._aggregated_state}, {highlight('new_state')}: {reduce_equal_dicts(self.state, self._aggregated_state)}")
         
         self._instructions_confirmed = instructions
+        #print('_instructions_confirmed', self._instructions_confirmed)
+        #print('1', self.aeid, len(self._requested_states), len(self._instructions_confirmed))
 
         if len(self.connected_agents):
             # Broadcast instructions
@@ -232,6 +235,8 @@ class Agent(mango.Agent):
             await asyncio.gather(*futs)
             self._instructions_confirmed = await asyncio.gather(*[fut for fut in self._instructions_confirmed.values()])
             self._instructions_confirmed = {k : v for i in self._instructions_confirmed for k, v in i['instructions'].items()}
+
+        #print('2', self.aeid, len(self._requested_states), len(self._instructions_confirmed))
 
         if ok:        
             msg_content = create_msg_content(InstructionsConfirmMessage, instructions={'aid': self.aid,

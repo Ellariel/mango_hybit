@@ -10,11 +10,9 @@ from mosaik_cohda.des_flex.flex_class import Flexibility
 from mosaik_cohda.start_values import StartValues
 from mosaik_cohda.cohda_simulator import CohdaSimulator
 from mosaik_cohda.agent_roles import FlexReceiverRole, FlexCohdaRole, \
-    FlexTerminationRole, FlexNegotiationStarterRole, TerminationData
+    FlexTerminationRole, FlexNegotiationStarterRole#, TerminationData
 from mosaik_cohda.start_values import StartValues, SolutionSchedule
 from mosaik_cohda.mango_library.coalition.core import CoalitionParticipantRole
-
-nest_asyncio.apply()
 sys.stdout = old_stdout
 
 class FlexReceiverRoleModified(FlexReceiverRole):
@@ -73,47 +71,72 @@ class Simulator(CohdaSimulator):
             pass
         
 class COHDA():
-    def __init__(self, step_size=15*60, time_resolution=1., host='localhost', base_port=6060, muted=False, **sim_params):
+    def __init__(self, step_size=15*60, time_resolution=1., host='localhost', base_port=7060, muted=False, **sim_params):
         self.step_size = step_size
         self.sim_params = sim_params
         self.time_resolution = time_resolution
         self.host = host
         self.muted = muted
+        self.old_stdout = sys.stdout
         if self.muted:
             logging.disable()
         self.base_port = base_port
-        self.time_step = 0
-        #asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+        #self.time_step = 0
+        self.flexibility = {}
+        self.target_schedule = {}
+        self.schedules = {}
+        self.simulators = []
+        nest_asyncio.apply()
 
     def reinitialize(self, n_agents):
-        self.simulator = Simulator()
+        #print('reinitialize start', len(self.simulators))
+        if len(self.simulators):
+            self.simulators = sorted(self.simulators, reverse=True, key=lambda x: x.in_progress)
+            if self.simulators[-1].in_progress:
+                s = Simulator()
+                s.in_progress = False
+                self.simulators.append(s)
+        else:
+                s = Simulator()
+                s.in_progress = False
+                self.simulators.append(s)            
+
+        self.simulator = self.simulators[-1]
+        #print('reinitialize in1', len(self.simulators))
+        self.simulator.in_progress = True
+        self.simulator.id = len(self.simulators) - 1
         self.simulator.host = self.host
-        self.simulator.port = self.base_port
+        self.simulator.port = self.base_port + self.simulator.id
         self.base_port += n_agents
-        self.simulator.init(sid=0, step_size=self.step_size, time_resolution=self.time_resolution, **self.sim_params)
+        #print('reinitialize in2', len(self.simulators))
+        
+        #print(asyncio.wa)
+        self.sim_params.update({'loop': asyncio.new_event_loop()})
+        self.simulator.init(sid=self.simulator.id, step_size=self.step_size, time_resolution=self.time_resolution, **self.sim_params)
+        #print('reinitialize in3', len(self.simulators))
         agent_params = {'control_id': 0, 
                 'time_resolution': self.time_resolution,
                 'step_size' : self.step_size}
-        self.agents = []
+        self.simulator.agents = []
         for i in range(n_agents):
             agent_model = self.simulator.create(1, 'FlexAgent', **agent_params)
-            self.agents.append(agent_model)
+            self.simulator.agents.append(agent_model)
         self.simulator.setup_done()
+        #print('reinitialize end', len(self.simulators))
 
     def execute(self, target_schedule, flexibility):
+            #print('execute start', len(self.simulators))
             if self.muted:
-                old_stdout = sys.stdout
                 sys.stdout = open(os.devnull, "w")
             
             n_agents = len(flexibility)
             participants = list(range(n_agents))
             self.reinitialize(n_agents=n_agents)
-
             input_data = {}
             output_data = {}
             self.simulator.uids = {}
             for i in participants:
-                agent, flex = self.agents[i], flexibility[i]
+                agent, flex = self.simulator.agents[i], flexibility[i]
                 eid = agent[0]['eid']
                 data = {'StartValues': {'ID_0': StartValues(schedule=target_schedule, 
                                                             participants=participants)},
@@ -126,16 +149,20 @@ class COHDA():
                 input_data[eid] = data
                 self.simulator.uids[eid] = None
                 output_data[eid] = ['FlexSchedules'] 
-
-            self.simulator.step(time=self.time_step, inputs=input_data, max_advance=0)
-            self.time_step += 1
+            #print('step')
+            self.simulator.step(time=0, inputs=input_data, max_advance=0)
+            #self.time_step += 1
+            #print('get_data')
             self.simulator.get_data(outputs=output_data)
             output_data = self.simulator.schedules
+            #print('output_data', output_data)
             self.simulator.finalize()
+            del self.simulators[self.simulator.id]
             del self.simulator
-
+            #print('execute end', len(self.simulators))
+            
             if self.muted:
-                sys.stdout = old_stdout
+                sys.stdout = self.old_stdout
 
             return output_data
 

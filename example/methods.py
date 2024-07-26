@@ -8,7 +8,7 @@ cohda = None
 
 def initialize(**kwargs):
     global cohda
-    cohda = COHDA(muted=True)
+    cohda = COHDA(muted=False)
 
 def finalize(**kwargs):
     global cohda
@@ -395,12 +395,43 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
                 ok, instructions, state = compute_instructions(instruction=instruction, 
                                                                     current_state=current_state,
                                                             requested_states=requested_states, **kwargs)
+                #print(aeid, aid, 'instruction', instruction)
+                #state = MAS_STATE.copy()
+                #print(aeid, 'instructions', instructions)
             elif within == 'cohda':
-                 pass
-            
+                if first_time_step:
+                    #print('hierarchical:',aeid)
+                    if aeid not in cohda.flexibility:
+                        cohda.flexibility[aeid] = []
+                    for k, s in requested_states.items():
+                            cohda.flexibility[aeid].append({'flex_max_power': [s['production']['max']],
+                                                'flex_min_power': [s['production']['min']]})
+                            #print('\n', k, s)
+
+                    cohda.target_schedule[aeid] = [instruction['production']['current']]
+
+                    print('target_schedule:', cohda.target_schedule[aeid])
+                    print('flexibility:', cohda.flexibility[aeid])
+                    #sys.exit()
+                    if len(requested_states.keys()) > 1:
+                        cohda.schedules[aeid] = cohda.execute(target_schedule=cohda.target_schedule[aeid],
+                                                        flexibility=cohda.flexibility[aeid])
+                        #sys.exit()
+                        
+                    else:
+                        cohda.schedules[aeid] = {'Agent_0': {'FlexSchedules': [instruction['production']['current']]}}
+                    print('schedules:', cohda.schedules[aeid])
+                    
+                instructions = {}
+                for (agent_, state_), schedule_ in zip(requested_states.items(), cohda.schedules[aeid].values()):
+                    state__ = state_.copy()
+                    state__['production']['current'] = schedule_['FlexSchedules'][0]
+                    instructions[agent_] = adjust_instruction(state_, state__)
+
+                #print(aeid, 'instructions', instructions)
             else:
-                 print('The within-cell communication algorithm is not implemented!')
-                 sys.exit()
+                print('The within-cell communication algorithm is not implemented!')
+                sys.exit()
             #print('instructions', instructions)
             #if len(requested_states.keys()) >= 2:
             #     print('hierarchical agent', aeid, aid, requested_states.keys(), kwargs)
@@ -425,19 +456,19 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
                 #print(current_time, first_time_step)
                 state = current_state.copy()
                 if first_time_step:
-                    cohda.flexibility = [{'flex_max_power': [current_state['production']['max']],
+                    cohda.flexibility[aeid] = [{'flex_max_power': [current_state['production']['max']],
                                     'flex_min_power': [current_state['production']['min']]}]
 
                     total_consumption = 0
                     for k, s in requested_states.items():
-                        cohda.flexibility.append({'flex_max_power': [s['production']['max']],
+                        cohda.flexibility[aeid].append({'flex_max_power': [s['production']['max']],
                                             'flex_min_power': [s['production']['min']]})
                         total_consumption += s['consumption']['current']
 
-                        print('\n', k, s)
+                        #print('\n', k, s)
                         #print()
 
-                    cohda.target_schedule = [total_consumption]
+                    cohda.target_schedule[aeid] = [total_consumption]
 
 
 
@@ -445,31 +476,31 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
                     #flex = {'flex_max_power': [3.0, 3.0, 3.0],
                     #        'flex_min_power': [0.1, 0.2, 0.3],
                     #        }
-                    print('target_schedule:', cohda.target_schedule)
-                    print('flexibility:', cohda.flexibility)
+                    print('target_schedule:', cohda.target_schedule[aeid])
+                    print('flexibility:', cohda.flexibility[aeid])
                     #sys.exit()
-                    cohda.schedules = cohda.execute(target_schedule=cohda.target_schedule,
-                                                    flexibility=cohda.flexibility)
+                    cohda.schedules[aeid] = cohda.execute(target_schedule=cohda.target_schedule[aeid],
+                                                    flexibility=cohda.flexibility[aeid])
                     #print('schedules:', cohda.schedules)
 
                     #state = current_state.copy()
-                    value = cohda.schedules.pop('Agent_0', {})['FlexSchedules'][0]
+                    value = cohda.schedules[aeid].pop('Agent_0', {})['FlexSchedules'][0]
                     state['production']['scale_factor'] = value - state['production']['current']
                     state['production']['current'] = value
 
                 #print('state', state)
-                    print('schedules:', cohda.schedules)
+                    print('schedules:', cohda.schedules[aeid])
 
                 #print('requested_states', requested_states)
                 instructions = {}
-                for (agent_, state_), schedule_ in zip(requested_states.items(), cohda.schedules.values()):
+                for (agent_, state_), schedule_ in zip(requested_states.items(), cohda.schedules[aeid].values()):
                     state__ = state_.copy()
                     state__['production']['current'] = schedule_['FlexSchedules'][0]
                     instructions[agent_] = adjust_instruction(state_, state__)
                 #time.sleep(1)
             else:
-                 print('The between-cells communication algorithm is not implemented!')    #print(instructions)
-                 sys.exit()
+                print('The between-cells communication algorithm is not implemented!')    #print(instructions)
+                sys.exit()
 
     else:
         instructions = {aid : instruction}
