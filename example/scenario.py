@@ -11,7 +11,6 @@ import time
 import json
 import mosaik
 import mosaik.util
-import random
 from pathlib import Path
 import argparse
 import more_itertools as mit
@@ -60,11 +59,6 @@ else:
     net = pp.from_json(net_file)
 pp.runpp(net, numba=False)
 print(f"loads: {len(net.load)}, gens: {len(net.sgen)}")
-
-#print(net.sgen)
-#print(net.bus)
-#print(_randomize())
-#sys.exit()
 
 END = 60*15 * 1#3600 * 24 * 1  # 1 day 
 START_DATE = '2014-07-01 12:00:00'
@@ -156,8 +150,6 @@ def input_to_state(aeid, aid, input_data, current_state, current_time, first_tim
     # input_data: {'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0, 'FLSim-0.FLSim-0': 0.9}}
     # current_state: {'production': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}, 
     #                'consumption': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}}
-    #print(input_data)
-
     global cells
     state = copy.deepcopy(MAS_STATE)
     profile = get_unit_profile(aeid, cells)
@@ -279,15 +271,11 @@ def main():
     cell_controllers = [] # top-level agents that are named as cell_controllers, one per cell
     hierarchical_controllers = []
 
-    #connected_loads = 0
-    #connected_gens = 0
-
     for i in [i for i in cells.keys() if 'match' not in i]:
         cell_controllers += masim.MosaikAgents.create(num=1, controller=None)
         #world.connect(cell_controllers[-1], report, 'current')
 
         entities = list(cells[i]['StaticGen'].values()) + list(cells[i]['Load'].values())
-        #random.shuffle(entities)
         hierarchical = [cell_controllers[-1]]
         for subset in mit.divide(hierarchy, entities):
             hierarchical += masim.MosaikAgents.create(num=1, controller=hierarchical[-1].eid)
@@ -365,12 +353,7 @@ def main():
                         
 
             hierarchical_controllers += hierarchical[1:]
-    #print(cells['match_unit'])
-    #print(cells['match_agent'])
-    #sys.exit()
-    #print('connected_loads', connected_loads)
-    #print('connected_gens', connected_gens)
-    #print(cells['match_unit'].values())
+
     gridsim.disable_elements(cells['match_unit'].values())
 
     print('cell controllers:', len(cell_controllers))

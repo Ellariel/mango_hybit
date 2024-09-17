@@ -1,4 +1,4 @@
-import copy, time, sys
+import copy, sys
 import numpy as np
 from mosaik_components.mas.utils import *
 from mosaik_components.mas.lib.cohda import COHDA
@@ -20,52 +20,21 @@ def state_to_output(aeid, aid, attrs, current_state, converged, current_time_ste
 # entities: {'Agent_3': 'WecsSim-0.wecs-0', 'Agent_4': 'Grid-0.Load-0',
 # Agent_6 ['scale_factor'] {'production': {'min': 0, 'max': 0.02, 'current': 0.02, 'scale_factor': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}}
     data = {}
-
-    #if aeid == 'MosaikAgent':
-    #   print('MosaikAgent', current_state, attrs)
-
-    #if abs(current_state['production']['current']) > PRECISION or abs(current_state['production']['scale_factor']) > PRECISION:
-    #    key = 'production'
-    #elif abs(current_state['consumption']['current']) > PRECISION or abs(current_state['consumption']['scale_factor']) > PRECISION:
-    #    key = 'consumption'
-    #else:
-    #    key = 'production'
-
-    #current = current_state[key]['current']
-    #scale_factor = current_state[key]['scale_factor']
-    #scale_factor = np.nan
     for attr in attrs:
         if attr == 'production[MW]':
             data.update({attr : current_state['production']['current']})
         elif attr == 'production_delta[MW]' and first_time_step and not converged:
-            #if 'production_delta[MW]' in attrs:# and not converged:
             data.update({attr : current_state['production']['scale_factor']})
         elif attr == 'consumption[MW]':
             data.update({attr : current_state['consumption']['current']})
         elif attr == 'consumption_delta[MW]' and first_time_step and not converged:
-            #if 'consumption_delta[MW]' in attrs:# and not converged:
             data.update({attr : current_state['consumption']['scale_factor']})
-
-
-    #for attr in attrs:
-    #    if attr == 'production[MW]':
-    #        data.update({attr : current_state['production']['current']})
-    #    elif attr == 'consumption[MW]':
-    #        data.update({attr : current_state['consumption']['current']})
-    #    elif attr == 'scale_factor':
-    #        if not converged:
-    #            data.update({attr : scale_factor})
-    print('\n', aid, attrs, data)
     return data
 
 def update_flexibility(state, profile):
         state = state.copy()
         state['max'] = profile['max']
         state['min'] = profile['min']
-        #if 'current' in a and 'current' in b and isinstance(b['current'], (int, float, list)):
-        #    a['current'] = b['current']
-        #if 'scale_factor' in a and 'scale_factor' in b and isinstance(b['scale_factor'], (int, float, list)):
-        #    a['scale_factor'] = b['scale_factor']
         return state
 
 def aggregate_states(aeid, aid, requested_states, current_state=MAS_STATE, **kwargs):
@@ -114,30 +83,21 @@ def compose_instructions(agents_info, delta):
 
 def adjust_instruction(current_state, new_state):
         _current_state = copy.deepcopy(current_state)
-        #if abs(new_state['production']['current']) > PRECISION or abs(new_state['production']['scale_factor']) > PRECISION:
-        #    key = 'production'
-        #elif abs(new_state['consumption']['current']) > PRECISION or abs(new_state['consumption']['scale_factor']) > PRECISION:
-        #    key = 'consumption'
-        #else:
-        #    key = 'production'
         key = 'consumption'
         _current_state[key]['scale_factor'] = current_state[key]['current'] - new_state[key]['current']
         _current_state[key]['current'] = new_state[key]['current']
         key = 'production'
         _current_state[key]['scale_factor'] = current_state[key]['current'] - new_state[key]['current']
         _current_state[key]['current'] = new_state[key]['current']
-
         return _current_state
 
 def compute_instructions(current_state, **kwargs):
 
     verbose = kwargs.get('verbose', 0)
 
-    def compute_balance(external_network_state,#=copy.deepcopy(MAS_STATE), 
-                                    cells_aggregated_state):#=copy.deepcopy(MAS_STATE)):
-                
-                #cells_aggregated_state = copy.deepcopy(cells_aggregated_state)
-                #external_network_state = copy.deepcopy(external_network_state)               
+    def compute_balance(external_network_state,
+                                    cells_aggregated_state):
+                              
                 old_cells_aggregated_state = copy.deepcopy(cells_aggregated_state)
                 old_external_network_state = copy.deepcopy(external_network_state)
                 cell_balance = cells_aggregated_state['production']['current'] - cells_aggregated_state['consumption']['current']
@@ -158,9 +118,6 @@ def compute_instructions(current_state, **kwargs):
                     print(highlight('cells balance:', 'red'), cell_balance)
                     print(highlight('cells expected balance:', 'red'), cell_expected_balance)
                     print(highlight('external network default balance:', 'blue'), external_network_default_balance)
-                #print('flexibility:')
-                #print('external_network_min', external_network_min)
-                #print('external_network_max', external_network_max)
 
                 cell_inc_production = cells_aggregated_state['production']['max'] - cells_aggregated_state['production']['current']
                 if cell_inc_production < PRECISION:
@@ -174,17 +131,9 @@ def compute_instructions(current_state, **kwargs):
                 cell_inc_consumption = cells_aggregated_state['consumption']['max'] - cells_aggregated_state['consumption']['current']
                 if cell_inc_consumption < PRECISION:
                     cell_inc_consumption = 0
-                
-                #print('cell_inc_production', cell_inc_production)
-                #print('cell_dec_production', cell_dec_production)
-                #print('cell_inc_consumption', cell_inc_consumption)
-                #print('cell_dec_consumption', cell_dec_consumption)
-                #print()
 
                 grid_inc = external_network_max - external_network_default_balance
                 grid_dec = external_network_default_balance - external_network_min
-                #print('grid_inc', grid_inc)
-                #print('grid_dec', grid_dec)
 
                 if cell_expected_balance < PRECISION:
                     if abs(cell_expected_balance) <= cell_inc_production:
@@ -395,12 +344,8 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
                 ok, instructions, state = compute_instructions(instruction=instruction, 
                                                                     current_state=current_state,
                                                             requested_states=requested_states, **kwargs)
-                #print(aeid, aid, 'instruction', instruction)
-                #state = MAS_STATE.copy()
-                #print(aeid, 'instructions', instructions)
             elif within == 'cohda':
                 if first_time_step:
-                    #print('hierarchical:',aeid)
                     if aeid not in cohda.flexibility:
                         cohda.flexibility[aeid] = []
                     
@@ -414,18 +359,16 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
                             else:
                                 zero_flexibility.append(s['production']['min'])
                                 total_fixed_values += s['production']['min']
-                            #print('\n', k, s)
 
                     cohda.target_schedule[aeid] = [instruction['production']['current'] - total_fixed_values]
 
                     print('target_schedule:', cohda.target_schedule[aeid])
                     print('zero_flexibility:', zero_flexibility)
                     print('flexibility:', cohda.flexibility[aeid])
-                    #sys.exit()
+
                     if len(requested_states.keys()) > 1:
                         schedules = cohda.execute(target_schedule=cohda.target_schedule[aeid],
                                                         flexibility=cohda.flexibility[aeid])
-                        #sys.exit()
                     else:
                         schedules = {'Agent_0': {'FlexSchedules': [instruction['production']['current']]}}
 
@@ -445,32 +388,17 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
                     state__['production']['current'] = schedule_['FlexSchedules'][0]
                     instructions[agent_] = adjust_instruction(state_, state__)
 
-                #print(aeid, 'instructions', instructions)
             else:
                 print('The within-cell communication algorithm is not implemented!')
                 sys.exit()
-            #print('instructions', instructions)
-            #if len(requested_states.keys()) >= 2:
-            #     print('hierarchical agent', aeid, aid, requested_states.keys(), kwargs)
 
             state = MAS_STATE.copy()
         else:
-            #print(instruction, current_state, requested_states)
-            #print('instruction', instruction)
-            #print('current_state', current_state)
-            #print('requested_states', requested_states)
-            #print('len(requested_states)', len(requested_states))
-            #cells_aggregated_state = aggregate_states(None, None, requested_states)
-            #ok, _, cells_delta, state, _ = compute_balance(current_state, cells_aggregated_state)
-            #instructions, remains = compose_instructions(requested_states, cells_delta)
-            #print(instructions)
-            #    'within-cell' : '',
             if between == 'default':
                 ok, instructions, state = compute_instructions(instruction=instruction, 
                                                                     current_state=current_state,
                                                             requested_states=requested_states, **kwargs)
             elif between == 'cohda':
-                #print(current_time, first_time_step)
                 state = current_state.copy()
                 if first_time_step:
                     cohda.flexibility[aeid] = [{'flex_max_power': [current_state['production']['max']],
@@ -482,49 +410,31 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
                                             'flex_min_power': [s['production']['min']]})
                         total_consumption += s['consumption']['current']
 
-                        #print('\n', k, s)
-                        #print()
-
                     cohda.target_schedule[aeid] = [total_consumption]
 
-
-
-                    #target_schedule = [0.5, 2.0, 5.0]
-                    #flex = {'flex_max_power': [3.0, 3.0, 3.0],
-                    #        'flex_min_power': [0.1, 0.2, 0.3],
-                    #        }
                     print('target_schedule:', cohda.target_schedule[aeid])
                     print('flexibility:', cohda.flexibility[aeid])
-                    #sys.exit()
+
                     cohda.schedules[aeid] = cohda.execute(target_schedule=cohda.target_schedule[aeid],
                                                     flexibility=cohda.flexibility[aeid])
-                    #print('schedules:', cohda.schedules)
 
-                    #state = current_state.copy()
                     value = cohda.schedules[aeid].pop('Agent_0', {})['FlexSchedules'][0]
                     state['production']['scale_factor'] = value - state['production']['current']
                     state['production']['current'] = value
 
-                #print('state', state)
                     print('schedules:', cohda.schedules[aeid])
 
-                #print('requested_states', requested_states)
                 instructions = {}
                 for (agent_, state_), schedule_ in zip(requested_states.items(), cohda.schedules[aeid].values()):
                     state__ = state_.copy()
                     state__['production']['current'] = schedule_['FlexSchedules'][0]
                     instructions[agent_] = adjust_instruction(state_, state__)
-                #time.sleep(1)
             else:
-                print('The between-cells communication algorithm is not implemented!')    #print(instructions)
+                print('The between-cells communication algorithm is not implemented!')
                 sys.exit()
 
     else:
         instructions = {aid : instruction}
-        #print(aid)
-        #print(current_state)
-        #print(instruction)
-        #print()
         state = instruction
 
     return ok, instructions, state

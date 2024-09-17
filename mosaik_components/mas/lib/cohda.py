@@ -3,7 +3,6 @@ old_stdout = sys.stdout
 sys.stdout = open(os.devnull, "w")
 import logging
 import asyncio
-#import functools
 import nest_asyncio
 import mosaik_api_v3 as mosaik_api
 from mango import Agent, RoleAgent
@@ -11,7 +10,7 @@ from mosaik_cohda.des_flex.flex_class import Flexibility
 from mosaik_cohda.start_values import StartValues
 from mosaik_cohda.cohda_simulator import CohdaSimulator
 from mosaik_cohda.agent_roles import FlexReceiverRole, FlexCohdaRole, \
-    FlexTerminationRole, FlexNegotiationStarterRole#, TerminationData
+    FlexTerminationRole, FlexNegotiationStarterRole
 from mosaik_cohda.start_values import StartValues, SolutionSchedule
 from mosaik_cohda.mango_library.coalition.core import CoalitionParticipantRole
 
@@ -85,7 +84,6 @@ class COHDA():
         if self.muted:
             logging.disable()
         self.base_port = base_port
-        #self.time_step = 0
         self.flexibility = {}
         self.target_schedule = {}
         self.schedules = {}
@@ -94,7 +92,6 @@ class COHDA():
         nest_asyncio.apply()
 
     def reinitialize(self, n_agents):
-        #print('reinitialize start', len(self.simulators))
         if len(self.simulators):
             self.simulators = sorted(self.simulators, reverse=True, key=lambda x: x.in_progress)
             if self.simulators[-1].in_progress:
@@ -107,18 +104,13 @@ class COHDA():
                 self.simulators.append(s)            
 
         self.simulator = self.simulators[-1]
-        #print('reinitialize in1', len(self.simulators))
         self.simulator.in_progress = True
         self.simulator.id = len(self.simulators) - 1
         self.simulator.host = self.host
         self.simulator.port = self.base_port + self.simulator.id
         self.base_port += n_agents
-        #print('reinitialize in2', len(self.simulators))
-        
-        #print(asyncio.wa)
         self.sim_params.update({'loop': asyncio.new_event_loop()})
         self.simulator.init(sid=self.simulator.id, step_size=self.step_size, time_resolution=self.time_resolution, **self.sim_params)
-        #print('reinitialize in3', len(self.simulators))
         agent_params = {'control_id': 0, 
                 'time_resolution': self.time_resolution,
                 'step_size' : self.step_size}
@@ -127,11 +119,8 @@ class COHDA():
             agent_model = self.simulator.create(1, 'FlexAgent', **agent_params)
             self.simulator.agents.append(agent_model)
         self.simulator.setup_done()
-        #print('reinitialize end', len(self.simulators))
 
-    #@functools.cache
     def execute(self, target_schedule, flexibility):
-            #print('execute start', len(self.simulators))
 
             cache_key = make_hash_sha256(make_hashable((target_schedule, flexibility)))
             if cache_key in self.cache:
@@ -162,17 +151,12 @@ class COHDA():
                 input_data[eid] = data
                 self.simulator.uids[eid] = None
                 output_data[eid] = ['FlexSchedules'] 
-            #print('step')
             self.simulator.step(time=0, inputs=input_data, max_advance=0)
-            #self.time_step += 1
-            #print('get_data')
             self.simulator.get_data(outputs=output_data)
             self.cache[cache_key] = self.simulator.schedules
-            #print('output_data', output_data)
             self.simulator.finalize()
             del self.simulators[self.simulator.id]
             del self.simulator
-            #print('execute end', len(self.simulators))
             
             if self.muted:
                 sys.stdout = self.old_stdout

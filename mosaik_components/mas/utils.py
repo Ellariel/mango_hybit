@@ -1,7 +1,6 @@
 import hashlib
 import base64
 import numbers
-import decimal
 from termcolor import colored
 from pandas.io.json._normalize import nested_to_record
 
