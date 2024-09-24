@@ -22,8 +22,8 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 #from cells import *
-#from methods import *
-#from mosaik_components.mas.mosaik_agents import META
+from methods import *
+from mosaik_components.mas.mosaik_agents import META
 
 import nest_asyncio
 nest_asyncio.apply()
@@ -47,6 +47,7 @@ os.makedirs(results_dir, exist_ok=True)
 grid_file = os.path.join(data_dir, 'grid_model.json')
 prof_file = os.path.join(data_dir, 'grid_profiles.csv')
 profiles = pd.read_csv(prof_file, skiprows=1)
+profiles.index = profiles["Time"].apply(lambda x: (arrow.get(x) - arrow.get(profiles["Time"].iloc[0])).seconds)
 grid = pp.from_json(grid_file)
 pp.runpp(grid, numba=False)
 print(f"Grid model of {len(grid.load)} loads, {len(grid.sgen)} sgens, {len(grid.bus)} buses, {len(grid.line)} lines, {len(grid.trafo)} trafos")
@@ -60,9 +61,9 @@ SIM_CONFIG = {
     #'PVSim': {
     #    'python': 'simulators.pv:Simulator',
     #},
-    #'FLSim': {
-    #    'python': 'simulators.flexible:Simulator',
-    #},
+    'FlexSim': {
+        'python': 'simulators.flexible:Simulator',
+    },
     #'FGSim': {
     #    'python': 'simulators.flexible:Simulator',
     #},
@@ -72,9 +73,9 @@ SIM_CONFIG = {
     'GridSim': {
          'python': 'mosaik_components.pandapower:Simulator',
     },
-    #'MAS': {
-    #    'python': 'mosaik_components.mas:MosaikAgents',
-    #},
+    'MASSCA': {
+        'python': 'mosaik_components.mas:MosaikAgents',
+    },
     'OutputSim': {
         'python': 'mosaik_csv_writer:CSVWriter',
     },
@@ -89,11 +90,11 @@ SIM_CONFIG = {
 #sys.exit()
 
 # The simulator meta data that we return in "init()":
-#MAS_META = META.copy()
-#MAS_META['models']['MosaikAgents']['attrs'] += ['production_delta[MW]', 
-#                                                'consumption_delta[MW]', 
-#                                                'consumption[MW]', 
-#                                                'production[MW]']
+MAS_META = META.copy()
+MAS_META['models']['MosaikAgents']['attrs'] += ['production_delta[MW]', 
+                                                'consumption_delta[MW]', 
+                                                'consumption[MW]', 
+                                                'production[MW]']
 
 # PV simulator
 #PVSIM_PARAMS = {
@@ -117,24 +118,26 @@ SIM_CONFIG = {
 #               'v_min': 3.5, 
 #               'v_max': 25}
 
-#def input_to_state(aeid, aid, input_data, current_state, current_time, first_time_step, **kwargs):
+def input_to_state(aeid, aid, input_data, current_state, current_time, first_time_step, **kwargs):
     # aeid: Agent_3
     # aid: agent3
     # input_data: {'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0, 'FLSim-0.FLSim-0': 0.9}}
     # current_state: {'production': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}, 
     #                'consumption': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}}
 #    global cells
-#    state = copy.deepcopy(MAS_STATE)
-#    profile = get_unit_profile(aeid, cells)
+    global profiles
+    state = copy.deepcopy(MAS_STATE)
     #print(aeid, input_data)
-#    for eid, value in input_data.items():
-#        value = list(value.values())[0]
-#        if pd.isna(value):
-#            value = 0
-#        if 'Load' in eid:
-#                value = np.clip(abs(value), profile['min'], profile['max'])
-#                state['consumption'] = update_flexibility(state['consumption'], profile)
-#                state['consumption']['current'] = value
+    for eid, value in input_data.items():
+        value = sum(value.values())
+        print(current_time, eid, value)
+        if pd.isna(value):
+            value = 0
+        if 'Load' in eid:
+                profile = get_unit_profile(eid, current_time, profiles)
+                value = np.clip(abs(value), profile['min'], profile['max'])
+                state['consumption'] = update_flexibility(state['consumption'], profile)
+                state['consumption']['current'] = value
                 #print('Load', state)
 #        elif 'PV' in eid or 'WECS' in eid:
 #                if first_time_step:
@@ -143,68 +146,72 @@ SIM_CONFIG = {
 #                state['production'] = update_flexibility(state['production'], profile)
 #                state['production']['current'] = value
 #                #print('Gen', state)
-#        elif 'StaticGen' in eid:
-#                value = np.clip(abs(value), profile['min'], profile['max'])
-#                state['production'] = update_flexibility(state['production'], profile)
-#                state['production']['current'] = value
+        elif 'StaticGen' in eid:
+                profile = get_unit_profile(eid, current_time, profiles)
+                value = np.clip(abs(value), profile['min'], profile['max'])
+                state['production'] = update_flexibility(state['production'], profile)
+                state['production']['current'] = value
 #                #print('Gen', state)
-#        elif 'ExternalGrid' in eid:
-#                state['production'] = update_flexibility(state['production'], profile)
-#                state['consumption'] = update_flexibility(state['consumption'], profile)
-#                if value > 0: # check the convention here!
-#                    state['production']['current'] = value
-#                else:
-#                    state['consumption']['current'] = abs(value) 
-#        break 
+        elif 'ExternalGrid' in eid:
+                profile = get_unit_profile(eid, current_time, profiles)
+                if not len(profile):
+                    profile['min'] = 5
+                    profile['max'] = 5
+                state['production'] = update_flexibility(state['production'], profile)
+                state['consumption'] = update_flexibility(state['consumption'], profile)
+                if value > 0: # check the convention here!
+                    state['production']['current'] = value
+                else:
+                    state['consumption']['current'] = abs(value) 
+        break 
 #
-#    state['consumption']['scale_factor'] = current_state['consumption']['scale_factor']
-#    state['production']['scale_factor'] = current_state['production']['scale_factor']
-#    return state
+    state['consumption']['scale_factor'] = current_state['consumption']['scale_factor']
+    state['production']['scale_factor'] = current_state['production']['scale_factor']
+    return state
 
 # Multi-agent system (MAS) configuration
 # User-defined methods are specified in methods.py to make scenario concise, 
 # except `input_method`, since it requieres an access to global variables
-#MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py 
-#    # Required parameters
-#    'META': MAS_META,
-#    'verbose': args.verbose, # 0 - no messages, 1 - basic agent comminication, 2 - full
-#    'performance': args.performance, # returns wall time of each mosaik step / the core loop execution time 
-#                                     # as a 'steptime' [sec] output attribute of MosaikAgent 
-#    'convergence_steps' : 2, # higher value ensures convergence
-#    'convegence_max_steps' : 5, # raise an error if there is no convergence
-#    'state_dict': MAS_STATE, # how an agent state that are gathered and comunicated should look like
-#    'input_method': input_to_state, # method that transforms mosaik inputs dict to the agent state (see `update_state`, default: copy dict)
-#    'output_method': state_to_output, # method that transforms the agent state to mosaik outputs dict (default: copy dict)
-#    'aggregation_method': aggregate_states, # method that aggregates gathered states to one top-level state
-#    'execute_method': execute_instructions,    # method that computes and decomposes the redispatch instructions 
-#                                               # that will be hierarchically transmitted from each agent to its connected peers,
-#                                               # executes the received instructions internally
-#    'initialize' : initialize,
-#    'finalize' : finalize,#
-#
-#    # Additional user-defined parameters
-#    'between-cells' : 'cohda', #'default', 'cohda'
-#    'within-cell' : 'default', 
-#}
+MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py 
+    # Required parameters
+    'META': MAS_META,
+    'verbose': args.verbose, # 0 - no messages, 1 - basic agent comminication, 2 - full
+    'performance': args.performance, # returns wall time of each mosaik step / the core loop execution time 
+                                     # as a 'steptime' [sec] output attribute of MosaikAgent 
+    'convergence_steps' : 2, # higher value ensures convergence
+    'convegence_max_steps' : 5, # raise an error if there is no convergence
+    'state_dict': MAS_STATE, # how an agent state that are gathered and comunicated should look like
+    'input_method': input_to_state, # method that transforms mosaik inputs dict to the agent state (see `update_state`, default: copy dict)
+    'output_method': state_to_output, # method that transforms the agent state to mosaik outputs dict (default: copy dict)
+    'aggregation_method': aggregate_states, # method that aggregates gathered states to one top-level state
+    'execute_method': execute_instructions,    # method that computes and decomposes the redispatch instructions 
+                                               # that will be hierarchically transmitted from each agent to its connected peers,
+                                               # executes the received instructions internally
+    'initialize' : initialize,
+    'finalize' : finalize,#
+
+    # Additional user-defined parameters
+    'between-cells' : 'cohda', #'default', 'cohda'
+    'within-cell' : 'default', 
+}
 
 world = mosaik.World(SIM_CONFIG)
-
-    #with world.group():
-        #masim = world.start('MAS', 
-        #                    step_size=STEP_SIZE, 
-        #                    **MAS_CONFIG,
-        #                    )
+with world.group():
+        massim = world.start('MASSCA', 
+                            step_size=STEP_SIZE, 
+                            **MAS_CONFIG,
+                            )
         #pvsim = world.start(
         #                "PVSim",
         #                step_size=STEP_SIZE,
         #                sim_params=PVSIM_PARAMS,
         #            )
-        #flsim = world.start(
-        #                "FLSim",
-        #                step_size=STEP_SIZE,
-        #                csv_file=LOAD_FILE,
-        #                sim_params=dict(gen_neg=True),
-        #            )
+        flsim = world.start(
+                        "FlexSim",
+                        step_size=STEP_SIZE,
+                        #csv_file=LOAD_FILE,
+                        sim_params=dict(gen_neg=False),
+                    )
         #wsim = world.start('WPSim', 
         #                step_size=STEP_SIZE, 
         #                wind_file=WIND_FILE,
@@ -232,22 +239,63 @@ units = {k : (e, v.to_dict()) for k, v in units.iterrows() #grid_sim.get_extra_i
 #print(profiles)
 #sys.exit()
 
+agents = [] # one simple agent per unit (sgen, load)
+controllers = [] # top-level agents that are named as cell_controllers, one per cell
+hierarchical_controllers = []
+
+mosaik_agent = massim.MosaikAgents() # core agent for the mosaik communication
+world.connect(units['ExternalGrid-0'][0], outputs, ("P[MW]", "value"))
+world.connect(units['ExternalGrid-0'][0], mosaik_agent, ('P[MW]', 'ExternalGrid-0.value'), 
+                                            time_shifted=True, initial_data={'P[MW]': 0})
+world.connect(mosaik_agent, outputs, ("production[MW]", "ExternalGrid"))
+
+controllers += massim.MosaikAgents.create(num=2, controller=None)
+hierarchical_controllers = [massim.MosaikAgents.create(num=1, controller=i.eid)[0] for i in controllers]
 
 switch_off = [] 
 for k, v in units.items():
+        cell_idx = int(int(k.split('-')[-1]) % 2 != 0)
         if "Load" in k:
-            world.connect(inputs, units[f"Bus-{int(v[1]['bus'])}"][0], (f"{k}.current", "P_load[MW]"))
+            fload = flsim.FLSim.create(num=1)[0]
+            agents += massim.MosaikAgents.create(num=1, controller=hierarchical_controllers[cell_idx].eid)
+            world.connect(inputs, fload, (f"{k}.value", "P[MW]"))
+            world.connect(fload, agents[-1], ('P[MW]', f"{k}.consumption[MW]"))
+            world.connect(agents[-1], fload, ('consumption_delta[MW]', 'scale_factor'), weak=True)
+            world.connect(agents[-1], units[f"Bus-{int(v[1]['bus'])}"][0], ("consumption[MW]", "P_load[MW]"))
+            
+            #world.connect(fload, units[f"Bus-{int(v[1]['bus'])}"][0], ("P[MW]", "P_load[MW]"))
+            #world.connect(fload, outputs, ("P[MW]", f"{k}-current"))
+            #world.connect(inputs, units[f"Bus-{int(v[1]['bus'])}"][0], (f"{k}.current", "P_load[MW]"))
+
+            #world.connect(fload, units[f"Bus-{int(v[1]['bus'])}"][0], ("P[MW]", "P_load[MW]"))
+            #world.connect(fload, outputs, ("P[MW]", f"{k}-current"))
+            
+            world.connect(agents[-1], outputs)
             switch_off.append(k)
             
         elif "StaticGen" in k:
-            world.connect(inputs, units[f"Bus-{int(v[1]['bus'])}"][0], (f"{k}.current", "P_gen[MW]"))
+            fgen = flsim.FLSim.create(num=1)[0]
+            agents += massim.MosaikAgents.create(num=1, controller=hierarchical_controllers[cell_idx].eid)
+            world.connect(inputs, fgen, (f"{k}.value", "P[MW]"))
+            world.connect(fgen, agents[-1], ('P[MW]', f"{k}.production[MW]"))
+            world.connect(agents[-1], fgen, ('production_delta[MW]', 'scale_factor'), weak=True)
+            world.connect(agents[-1], units[f"Bus-{int(v[1]['bus'])}"][0], ("production[MW]", "P_gen[MW]"))
+            
+            #world.connect(fgen, units[f"Bus-{int(v[1]['bus'])}"][0], ("P[MW]", "P_gen[MW]"))
+            #world.connect(fgen, outputs, ("P[MW]", f"{k}-current"))
+            #world.connect(inputs, units[f"Bus-{int(v[1]['bus'])}"][0], (f"{k}.current", "P_gen[MW]"))
+            
+            
+            
+            world.connect(agents[-1], outputs)      
             switch_off.append(k)
             
         elif "Bus" in k:
-            world.connect(v[0], outputs, ("P[MW]", "current"))
+            world.connect(v[0], outputs, ("P[MW]", "value"))
+            pass
             
 grid_sim.disable_elements(switch_off)
-world.connect(units['ExternalGrid-0'][0], outputs, ("P[MW]", "current"))       
+      
     
     #print(grid_sim.get_extra_info())
     #world.connect(v[0], outputs, ("P[MW]", "current"))
@@ -258,9 +306,10 @@ world.connect(units['ExternalGrid-0'][0], outputs, ("P[MW]", "current"))
     
     
     
-if args.performance:
-    mosaik.util.plot_dataflow_graph(world, hdf5path=os.path.join(results_dir, '.hdf5'), show_plot=False)
-world.run(until=END, print_progress='individual' if args.performance else True)
+#if args.performance:
+#    mosaik.util.plot_dataflow_graph(world, hdf5path=os.path.join(results_dir, '.hdf5'), show_plot=False)
+#world.run(until=END, print_progress='individual' if args.performance else True)
+world.run(until=END)
 sys.exit()
     
 '''

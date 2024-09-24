@@ -23,7 +23,6 @@ META = {
             "public": True,
             "any_inputs": True,
             "trigger" : ['scale_factor'],
-            #"params": ["scale_factor"], 
             "attrs": ["P[MW]",           # input/output active power [MW]
                       'scale_factor'],   # input of modifier from ctrl
         }
@@ -126,7 +125,7 @@ class Simulator(mosaik_api.Simulator):
     
 def main():
     """Run our simulator"""
-    return mosaik_api.start_simulation(Simulator(), 'Flexible Load Simulator')
+    return mosaik_api.start_simulation(Simulator(), 'Flexible Load/Gen Simulator')
 
 if __name__ == '__main__':
     main()

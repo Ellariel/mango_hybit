@@ -51,12 +51,12 @@ timeline = timeseries(start=args.start, end=args.end, step_size=args.step)
 units = {}
 loads = {f"Load-{idx}" : {'min' : min(1, i['p_mw']),
                         'max' : max(5, i['p_mw'] * 5),
-                        'current' : i['p_mw'],
+                        'value' : i['p_mw'],
                         'scale_factor' : 0,
                         } for idx, i in grid.load.iterrows()}
 sgens = {f"StaticGen-{idx}" : {'min' : min(1, i['p_mw']),
                         'max' : max(5, i['p_mw'] * 5),
-                        'current' : i['p_mw'],
+                        'value' : i['p_mw'],
                         'scale_factor' : 0,
                         } for idx, i in grid.sgen.iterrows()}
 units.update(loads)
@@ -67,7 +67,7 @@ for k, v in nested_to_record(units, sep='.').items():
                 a, b = v, v + 0.1
         elif "max" in k:
                 a, b = v - 0.5, v + 0.5
-        elif "current" in k:
+        elif "value" in k:
                 a, b = v - 0.5, v + 0.5
         else:
                 a, b = 0, 0
@@ -76,7 +76,7 @@ for k, v in nested_to_record(units, sep='.').items():
                                                 for i in range(len(timeline))]).rename(k)], axis=1)
 
 for k, v in units.items():
-        profiles[f"{k}.current"] += profiles[f"{k}.min"]
+        profiles[f"{k}.value"] += profiles[f"{k}.min"]
 
 profiles = pd.concat([timeline, profiles], axis=1)
 

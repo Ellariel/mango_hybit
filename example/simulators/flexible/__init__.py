@@ -1,3 +1,3 @@
-from simulators.flexible.flexiload_simulator import Simulator
+from simulators.flexible.flex_simulator import Simulator
 
 __all__ = ["Simulator"]

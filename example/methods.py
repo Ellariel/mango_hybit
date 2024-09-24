@@ -1,10 +1,24 @@
 import copy, sys
 import numpy as np
+import arrow
 from mosaik_components.mas.utils import *
 from mosaik_components.mas.lib.cohda import COHDA
 
 MAS_STATE = MAS_DEFAULT_STATE.copy()
 cohda = None
+
+def get_unit_profile(eid, time_step, profiles):
+    eid = eid.split('.')[0]
+    idx = profiles.index.get_indexer([time_step], method='ffill')[0]
+    #print()
+    #print()
+    #print(eid, time_step, idx)
+    #print()
+    #print()
+    item = profiles.iloc[idx]
+    return {i : item[f"{eid}.{i}"] 
+                for i in ['min', 'max'] #, 'value', 'scale_factor'
+                    if f"{eid}.{i}" in item} 
 
 def initialize(**kwargs):
     global cohda
@@ -401,14 +415,16 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
             elif between == 'cohda':
                 state = current_state.copy()
                 if first_time_step:
-                    cohda.flexibility[aeid] = [{'flex_max_power': [current_state['production']['max']],
-                                    'flex_min_power': [current_state['production']['min']]}]
+                    cohda.flexibility[aeid] = []
 
                     total_consumption = 0
                     for k, s in requested_states.items():
                         cohda.flexibility[aeid].append({'flex_max_power': [s['production']['max']],
                                             'flex_min_power': [s['production']['min']]})
                         total_consumption += s['consumption']['current']
+                        
+                    cohda.flexibility[aeid] += [{'flex_max_power': [current_state['production']['max']],
+                                    'flex_min_power': [current_state['production']['min']]}]
 
                     cohda.target_schedule[aeid] = [total_consumption]
 
@@ -418,7 +434,7 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
                     cohda.schedules[aeid] = cohda.execute(target_schedule=cohda.target_schedule[aeid],
                                                     flexibility=cohda.flexibility[aeid])
 
-                    value = cohda.schedules[aeid].pop('Agent_0', {})['FlexSchedules'][0]
+                    value = cohda.schedules[aeid].pop(f'Agent_{len(cohda.schedules[aeid])-1}', {})['FlexSchedules'][0]
                     state['production']['scale_factor'] = value - state['production']['current']
                     state['production']['current'] = value
 
