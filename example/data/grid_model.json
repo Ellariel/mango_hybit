@@ -5,7 +5,7 @@
     "bus": {
       "_module": "pandas.core.frame",
       "_class": "DataFrame",
-      "_object": "{\"columns\":[\"name\",\"vn_kv\",\"type\",\"zone\",\"in_service\"],\"index\":[0,1,2,3,4],\"data\":[[\"110 kV bar\",110.0,\"b\",null,true],[\"20 kV bar\",20.0,\"b\",null,true],[\"bus_2\",20.0,\"b\",null,true],[\"bus_3\",20.0,\"b\",null,true],[\"bus_4\",20.0,\"b\",null,true]]}",
+      "_object": "{\"columns\":[\"name\",\"vn_kv\",\"type\",\"zone\",\"in_service\"],\"index\":[0,1,2,3,4],\"data\":[[\"110 kV bar\",110.0,\"b\",null,true],[\"20 kV bar\",20.0,\"b\",null,true],[\"Bus-2\",20.0,\"b\",null,true],[\"Bus-3\",20.0,\"b\",null,true],[\"Bus-4\",20.0,\"b\",null,true]]}",
       "orient": "split",
       "dtype": {
         "name": "object",
@@ -20,7 +20,7 @@
     "load": {
       "_module": "pandas.core.frame",
       "_class": "DataFrame",
-      "_object": "{\"columns\":[\"name\",\"bus\",\"p_mw\",\"q_mvar\",\"const_z_percent\",\"const_i_percent\",\"sn_mva\",\"scaling\",\"in_service\",\"type\"],\"index\":[0,1],\"data\":[[\"load_0\",2,1.0,0.2,0.0,0.0,null,1.0,true,\"wye\"],[\"load_1\",4,1.0,0.2,0.0,0.0,null,1.0,true,\"wye\"]]}",
+      "_object": "{\"columns\":[\"name\",\"bus\",\"p_mw\",\"q_mvar\",\"const_z_percent\",\"const_i_percent\",\"sn_mva\",\"scaling\",\"in_service\",\"type\"],\"index\":[0,1],\"data\":[[\"Load-0\",2,1.0,0.2,0.0,0.0,null,1.0,true,\"wye\"],[\"Load-1\",4,1.0,0.2,0.0,0.0,null,1.0,true,\"wye\"]]}",
       "orient": "split",
       "dtype": {
         "name": "object",
@@ -40,7 +40,7 @@
     "sgen": {
       "_module": "pandas.core.frame",
       "_class": "DataFrame",
-      "_object": "{\"columns\":[\"name\",\"bus\",\"p_mw\",\"q_mvar\",\"sn_mva\",\"scaling\",\"in_service\",\"type\",\"current_source\"],\"index\":[0],\"data\":[[\"gen_0\",3,1.0,0.0,null,1.0,true,\"wye\",true]]}",
+      "_object": "{\"columns\":[\"name\",\"bus\",\"p_mw\",\"q_mvar\",\"sn_mva\",\"scaling\",\"in_service\",\"type\",\"current_source\"],\"index\":[0],\"data\":[[\"StaticGen-0\",3,1.0,0.0,null,1.0,true,\"wye\",true]]}",
       "orient": "split",
       "dtype": {
         "name": "object",
@@ -226,7 +226,7 @@
     "ext_grid": {
       "_module": "pandas.core.frame",
       "_class": "DataFrame",
-      "_object": "{\"columns\":[\"name\",\"bus\",\"vm_pu\",\"va_degree\",\"slack_weight\",\"in_service\"],\"index\":[0],\"data\":[[null,0,1.0,0.0,1.0,true]]}",
+      "_object": "{\"columns\":[\"name\",\"bus\",\"vm_pu\",\"va_degree\",\"slack_weight\",\"in_service\"],\"index\":[0],\"data\":[[\"ExternalGrid-0\",0,1.0,0.0,1.0,true]]}",
       "orient": "split",
       "dtype": {
         "name": "object",
@@ -242,7 +242,7 @@
     "line": {
       "_module": "pandas.core.frame",
       "_class": "DataFrame",
-      "_object": "{\"columns\":[\"name\",\"std_type\",\"from_bus\",\"to_bus\",\"length_km\",\"r_ohm_per_km\",\"x_ohm_per_km\",\"c_nf_per_km\",\"g_us_per_km\",\"max_i_ka\",\"df\",\"parallel\",\"type\",\"in_service\"],\"index\":[0,1,2],\"data\":[[\"line_0\",\"NAYY 4x150 SE\",1,2,1.0,0.208,0.08,261.0,0.0,0.27,1.0,1,\"cs\",true],[\"line_1\",\"NAYY 4x150 SE\",1,3,1.0,0.208,0.08,261.0,0.0,0.27,1.0,1,\"cs\",true],[\"line_2\",\"NAYY 4x150 SE\",1,4,1.0,0.208,0.08,261.0,0.0,0.27,1.0,1,\"cs\",true]]}",
+      "_object": "{\"columns\":[\"name\",\"std_type\",\"from_bus\",\"to_bus\",\"length_km\",\"r_ohm_per_km\",\"x_ohm_per_km\",\"c_nf_per_km\",\"g_us_per_km\",\"max_i_ka\",\"df\",\"parallel\",\"type\",\"in_service\"],\"index\":[0,1,2],\"data\":[[\"Line-0\",\"NAYY 4x150 SE\",1,2,1.0,0.208,0.08,261.0,0.0,0.27,1.0,1,\"cs\",true],[\"Line-1\",\"NAYY 4x150 SE\",1,3,1.0,0.208,0.08,261.0,0.0,0.27,1.0,1,\"cs\",true],[\"Line-2\",\"NAYY 4x150 SE\",1,4,1.0,0.208,0.08,261.0,0.0,0.27,1.0,1,\"cs\",true]]}",
       "orient": "split",
       "dtype": {
         "name": "object",
