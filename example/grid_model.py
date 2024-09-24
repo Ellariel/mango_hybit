@@ -32,26 +32,29 @@ net = pp.create_empty_network()
 
 pp.create_bus(net, name = "Bus-0", vn_kv = 110, type = 'b') # bus 0, 110 kV bar
 pp.create_bus(net, name = "Bus-1", vn_kv = 20, type = 'b') # bus 1, 20 kV bar
+pp.create_ext_grid(net, 0, vm_pu = 1, name = "ExternalGrid-0")
+pp.create_transformer_from_parameters(net, hv_bus=0, lv_bus=1, i0_percent=0.038, pfe_kw=11.6,
+        vkr_percent=0.322, sn_mva=40, vn_lv_kv=22.0, vn_hv_kv=110.0, vk_percent=17.8)
+
 pp.create_bus(net, name = "Bus-2", vn_kv = 20, type = 'b')
 pp.create_bus(net, name = "Bus-3", vn_kv = 20, type = 'b')
 pp.create_bus(net, name = "Bus-4", vn_kv = 20, type = 'b')
-
-pp.create_ext_grid(net, 0, vm_pu = 1, name = "ExternalGrid-0")
+pp.create_bus(net, name = "Bus-5", vn_kv = 20, type = 'b')
 
 pp.create_line(net, name = "Line-0", from_bus = 1, to_bus = 2, length_km = 1, std_type = "NAYY 4x150 SE")
 pp.create_line(net, name = "Line-1", from_bus = 1, to_bus = 3, length_km = 1, std_type = "NAYY 4x150 SE")
 pp.create_line(net, name = "Line-2", from_bus = 1, to_bus = 4, length_km = 1, std_type = "NAYY 4x150 SE")
-
-pp.create_transformer_from_parameters(net, hv_bus=0, lv_bus=1, i0_percent=0.038, pfe_kw=11.6,
-        vkr_percent=0.322, sn_mva=40, vn_lv_kv=22.0, vn_hv_kv=110.0, vk_percent=17.8)
+pp.create_line(net, name = "Line-3", from_bus = 1, to_bus = 5, length_km = 1, std_type = "NAYY 4x150 SE")
 
 pp.create_load(net, 2, p_mw = 1, q_mvar = 0.2, name = "Load-0")
-pp.create_load(net, 4, p_mw = 1, q_mvar = 0.2, name = "Load-1")
-
+pp.create_load(net, 2, p_mw = 1, q_mvar = 0.2, name = "Load-2")
 pp.create_sgen(net, 3, p_mw = 1, name = "StaticGen-0")
 
-pp.runpp(net, numba=False)
+pp.create_load(net, 4, p_mw = 1, q_mvar = 0.2, name = "Load-1")
+pp.create_load(net, 4, p_mw = 1, q_mvar = 0.2, name = "Load-3")
+pp.create_sgen(net, 5, p_mw = 1, name = "StaticGen-1")
 
+pp.runpp(net, numba=False)
 pp.to_json(net, grid_file)
 
 print("buses", net.bus)

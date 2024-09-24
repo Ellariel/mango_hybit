@@ -178,7 +178,7 @@ MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py
     'verbose': args.verbose, # 0 - no messages, 1 - basic agent comminication, 2 - full
     'performance': args.performance, # returns wall time of each mosaik step / the core loop execution time 
                                      # as a 'steptime' [sec] output attribute of MosaikAgent 
-    'convergence_steps' : 2, # higher value ensures convergence
+    'convergence_steps' : 1, # higher value ensures convergence
     'convegence_max_steps' : 5, # raise an error if there is no convergence
     'state_dict': MAS_STATE, # how an agent state that are gathered and comunicated should look like
     'input_method': input_to_state, # method that transforms mosaik inputs dict to the agent state (see `update_state`, default: copy dict)
@@ -191,8 +191,8 @@ MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py
     'finalize' : finalize,#
 
     # Additional user-defined parameters
-    'between-cells' : 'cohda', #'default', 'cohda'
-    'within-cell' : 'default', 
+    'between-cells' : 'default', #'default', 'cohda'
+    'within-cell' : 'cohda', 
 }
 
 world = mosaik.World(SIM_CONFIG)
