@@ -11,19 +11,18 @@ import time
 import json
 import mosaik
 import mosaik.util
-#from pathlib import Path
+from pathlib import Path
 import argparse
-#import more_itertools as mit
+import more_itertools as mit
 import pandapower as pp
 import pandas as pd
+#import warnings
+#warnings.filterwarnings("ignore", category=FutureWarning)
+#warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-import warnings
-warnings.filterwarnings("ignore", category=FutureWarning)
-warnings.filterwarnings("ignore", category=DeprecationWarning)
-
-#from cells import *
-#from methods import *
-#from mosaik_components.mas.mosaik_agents import META
+from cells import *
+from methods import *
+from mosaik_components.mas.mosaik_agents import META
 
 import nest_asyncio
 nest_asyncio.apply()
@@ -31,43 +30,41 @@ nest_asyncio.apply()
 parser = argparse.ArgumentParser()
 parser.add_argument('--cells', default=2, type=int)
 parser.add_argument('--verbose', default=0, type=int)
-#parser.add_argument('--clean', default=True, type=bool)
+parser.add_argument('--clean', default=True, type=bool)
 parser.add_argument('--dir', default='./', type=str)
 parser.add_argument('--seed', default=13, type=int)
 parser.add_argument('--output_file', default='results.csv', type=str)
-#parser.add_argument('--performance', default=True, type=bool)
-#parser.add_argument('--hierarchy', default=1, type=int)
+parser.add_argument('--performance', default=True, type=bool)
+parser.add_argument('--hierarchy', default=1, type=int)
 args = parser.parse_args()
 
-#set_random_seed(seed=args.seed)
+set_random_seed(seed=args.seed)
 
 base_dir = args.dir
 data_dir = os.path.join(base_dir, 'data')
 results_dir = os.path.join(base_dir, 'results')
 os.makedirs(data_dir, exist_ok=True)
 os.makedirs(results_dir, exist_ok=True)
-#cells_count = args.cells
-#hierarchy = args.hierarchy
+cells_count = args.cells
+hierarchy = args.hierarchy
 
-#print(f"cells count: {cells_count}")
-#print(f"hierarchy depth: {hierarchy}")
+print(f"cells count: {cells_count}")
+print(f"hierarchy depth: {hierarchy}")
 
 # loading network and flexibility profiles
-#if not os.path.exists(net_file) or args.clean:
-#    net, net_file = create_cells(cells_count=cells_count, dir=data_dir)
-#else:
-grid_file = os.path.join(data_dir, 'grid_model.json')
-grid = pp.from_json(grid_file)
-pp.runpp(grid, numba=False)
-print(f"grid model of {len(grid.load)} loads, {len(grid.sgen)} sgens, {len(grid.bus)} buses, {len(grid.line)} lines, {len(grid.trafo)} trafos")
-
-sys.exit()
+net_file = os.path.join(data_dir, 'cells.json')
+if not os.path.exists(net_file) or args.clean:
+    net, net_file = create_cells(cells_count=cells_count, dir=data_dir)
+else:
+    net = pp.from_json(net_file)
+pp.runpp(net, numba=False)
+print(f"loads: {len(net.load)}, gens: {len(net.sgen)}")
 
 END = 60*15 * 1#3600 * 24 * 1  # 1 day 
 START_DATE = '2014-07-01 12:00:00'
 DATE_FORMAT = 'mixed' #'YYYY-MM-DD hh:mm:ss'
 STEP_SIZE = 60 * 15
-GRID_FILE = grid_file
+GRID_FILE = net_file
 WIND_FILE = os.path.join(data_dir, 'wind_speed_m-s_15min.csv')
 LOAD_FILE = os.path.join(data_dir, 'syntetic_data_15min.csv')
 
