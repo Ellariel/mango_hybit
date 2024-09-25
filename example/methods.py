@@ -10,11 +10,6 @@ cohda = None
 def get_unit_profile(eid, time_step, profiles):
     eid = eid.split('.')[0]
     idx = profiles.index.get_indexer([time_step], method='ffill')[0]
-    #print()
-    #print()
-    #print(eid, time_step, idx)
-    #print()
-    #print()
     item = profiles.iloc[idx]
     return {i : item[f"{eid}.{i}"] 
                 for i in ['min', 'max'] #, 'value', 'scale_factor'
@@ -23,6 +18,7 @@ def get_unit_profile(eid, time_step, profiles):
 def initialize(**kwargs):
     global cohda
     cohda = COHDA(muted=kwargs.get('verbose', 0) <= 0)
+    cohda.final_schedules = {}
 
 def finalize(**kwargs):
     global cohda
@@ -73,7 +69,6 @@ def compose_instructions(agents_info, delta):
         _agents_info = copy.deepcopy(agents_info)
         for aid, state in _agents_info.items():
             for i in _delta.keys():
-                #if i != 'info':
                     max_inc = state[i]['max'] - state[i]['current']
                     max_dec = state[i]['current'] - state[i]['min']
                     if _delta[i]['current'] > PRECISION:
@@ -360,44 +355,45 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
                                                             requested_states=requested_states, **kwargs)
             elif within == 'cohda':
                 if first_time_step:
-                    if aeid not in cohda.flexibility:
-                        cohda.flexibility[aeid] = []
-                    
+                    flexibility = []
                     zero_flexibility = []
                     total_fixed_values = 0
                     for k, s in requested_states.items():
+                            #print('     ', k, s)
                             if abs(s['production']['max'] - s['production']['min']) > PRECISION:
                                 zero_flexibility.append(None)
-                                cohda.flexibility[aeid].append({'flex_max_power': [s['production']['max']],
+                                flexibility.append({'flex_max_power': [s['production']['max']],
                                                     'flex_min_power': [s['production']['min']]})
                             else:
                                 zero_flexibility.append(s['production']['min'])
                                 total_fixed_values += s['production']['min']
 
-                    cohda.target_schedule[aeid] = [instruction['production']['current'] - total_fixed_values]
+                    target_schedule = [instruction['production']['current'] - total_fixed_values]
+                    if kwargs.get('verbose', 0) >= 0:
+                        print('target_schedule:', target_schedule)
+                        print('zero_flexibility:', zero_flexibility)
+                        print('flexibility:', flexibility)
 
-                    print('target_schedule:', cohda.target_schedule[aeid])
-                    print('zero_flexibility:', zero_flexibility)
-                    print('flexibility:', cohda.flexibility[aeid])
-
-                    if len(requested_states.keys()) > 1:
-                        schedules = cohda.execute(target_schedule=cohda.target_schedule[aeid],
-                                                        flexibility=cohda.flexibility[aeid])
+                    if (len(requested_states.keys()) > 1) and (len([i for i in zero_flexibility if i == None]) > 1): # if there is only agent, no COHDA needed
+                        schedules = cohda.execute(target_schedule=target_schedule,
+                                                        flexibility=flexibility)
                     else:
-                        schedules = {'Agent_0': {'FlexSchedules': [instruction['production']['current']]}}
+                        clip_max = [sum(i['flex_max_power']) for i in flexibility]
+                        clip_min = [sum(i['flex_min_power']) for i in flexibility]
+                        schedules = {'Agent_0': {'FlexSchedules': np.clip(target_schedule, clip_min, clip_max)}}
 
-                    cohda.schedules[aeid] = {}
+                    cohda.final_schedules[aeid] = {}
                     schedules = iter(schedules.values())
                     for idx, i in enumerate(zero_flexibility):
                         if i == None:
-                            cohda.schedules[aeid].update({f"Agent_{idx}" : next(schedules)})
+                            cohda.final_schedules[aeid].update({f"Agent_{idx}" : next(schedules)})
                         else:
-                            cohda.schedules[aeid].update({f"Agent_{idx}" : {'FlexSchedules': [i]}})
-
-                    print('schedules:', cohda.schedules[aeid])
+                            cohda.final_schedules[aeid].update({f"Agent_{idx}" : {'FlexSchedules': [i]}})
+                    if kwargs.get('verbose', 0) >= 0:
+                        print('schedules:', cohda.final_schedules[aeid])
                     
                 instructions = {}
-                for (agent_, state_), schedule_ in zip(requested_states.items(), cohda.schedules[aeid].values()):
+                for (agent_, state_), schedule_ in zip(requested_states.items(), cohda.final_schedules[aeid].values()):
                     state__ = state_.copy()
                     state__['production']['current'] = schedule_['FlexSchedules'][0]
                     instructions[agent_] = adjust_instruction(state_, state__)
@@ -415,33 +411,34 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
             elif between == 'cohda':
                 state = current_state.copy()
                 if first_time_step:
-                    cohda.flexibility[aeid] = []
-
+                    flexibility = []
                     total_consumption = 0
                     for k, s in requested_states.items():
-                        cohda.flexibility[aeid].append({'flex_max_power': [s['production']['max']],
+                        flexibility.append({'flex_max_power': [s['production']['max']],
                                             'flex_min_power': [s['production']['min']]})
                         total_consumption += s['consumption']['current']
                         
-                    cohda.flexibility[aeid] += [{'flex_max_power': [current_state['production']['max']],
+                    flexibility += [{'flex_max_power': [current_state['production']['max']],
                                     'flex_min_power': [current_state['production']['min']]}]
 
-                    cohda.target_schedule[aeid] = [total_consumption]
+                    target_schedule = [total_consumption]
+                    if kwargs.get('verbose', 0) >= 0:
+                        print('target_schedule:', target_schedule)
+                        print('flexibility:', flexibility)
 
-                    print('target_schedule:', cohda.target_schedule[aeid])
-                    print('flexibility:', cohda.flexibility[aeid])
+                    schedules = cohda.execute(target_schedule=target_schedule,
+                                                    flexibility=flexibility)
 
-                    cohda.schedules[aeid] = cohda.execute(target_schedule=cohda.target_schedule[aeid],
-                                                    flexibility=cohda.flexibility[aeid])
-
-                    value = cohda.schedules[aeid].pop(f'Agent_{len(cohda.schedules[aeid])-1}', {})['FlexSchedules'][0]
+                    value = schedules.pop(f'Agent_{len(schedules)-1}', {})['FlexSchedules'][0]
                     state['production']['scale_factor'] = value - state['production']['current']
                     state['production']['current'] = value
 
-                    print('schedules:', cohda.schedules[aeid])
+                    cohda.final_schedules[aeid] = schedules
+                    if kwargs.get('verbose', 0) >= 0:
+                        print('schedules:', schedules)
 
                 instructions = {}
-                for (agent_, state_), schedule_ in zip(requested_states.items(), cohda.schedules[aeid].values()):
+                for (agent_, state_), schedule_ in zip(requested_states.items(), cohda.final_schedules[aeid].values()):
                     state__ = state_.copy()
                     state__['production']['current'] = schedule_['FlexSchedules'][0]
                     instructions[agent_] = adjust_instruction(state_, state__)

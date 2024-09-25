@@ -130,7 +130,7 @@ def input_to_state(aeid, aid, input_data, current_state, current_time, first_tim
     #print(aeid, input_data)
     for eid, value in input_data.items():
         value = sum(value.values())
-        print(current_time, eid, value)
+        #print(current_time, eid, value)
         if pd.isna(value):
             value = 0
         if 'Load' in eid:
@@ -191,8 +191,8 @@ MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py
     'finalize' : finalize,#
 
     # Additional user-defined parameters
-    'between-cells' : 'default', #'default', 'cohda'
-    'within-cell' : 'cohda', 
+    'between-cells' : 'cohda', #'default', 'cohda'
+    'within-cell' : 'default', 
 }
 
 world = mosaik.World(SIM_CONFIG)
@@ -247,7 +247,8 @@ mosaik_agent = massim.MosaikAgents() # core agent for the mosaik communication
 world.connect(units['ExternalGrid-0'][0], outputs, ("P[MW]", "value"))
 world.connect(units['ExternalGrid-0'][0], mosaik_agent, ('P[MW]', 'ExternalGrid-0.value'), 
                                             time_shifted=True, initial_data={'P[MW]': 0})
-world.connect(mosaik_agent, outputs, ("production[MW]", "ExternalGrid"))
+world.connect(mosaik_agent, outputs, ("production[MW]", "ExternalGrid-0.production[MW]"))
+world.connect(mosaik_agent, outputs, ("consumption[MW]", "ExternalGrid-0.consumption[MW]"))
 
 controllers += massim.MosaikAgents.create(num=2, controller=None)
 hierarchical_controllers = [massim.MosaikAgents.create(num=1, controller=i.eid)[0] for i in controllers]

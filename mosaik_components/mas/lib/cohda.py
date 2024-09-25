@@ -3,6 +3,7 @@ old_stdout = sys.stdout
 sys.stdout = open(os.devnull, "w")
 import logging
 import asyncio
+import random
 import nest_asyncio
 import mosaik_api_v3 as mosaik_api
 from mango import Agent, RoleAgent
@@ -84,41 +85,26 @@ class COHDA():
         if self.muted:
             logging.disable()
         self.base_port = base_port
-        self.flexibility = {}
-        self.target_schedule = {}
-        self.schedules = {}
-        self.simulators = []
         self.cache = {}
         nest_asyncio.apply()
 
     def reinitialize(self, n_agents):
-        if len(self.simulators):
-            self.simulators = sorted(self.simulators, reverse=True, key=lambda x: x.in_progress)
-            if self.simulators[-1].in_progress:
-                s = Simulator()
-                s.in_progress = False
-                self.simulators.append(s)
-        else:
-                s = Simulator()
-                s.in_progress = False
-                self.simulators.append(s)            
-
-        self.simulator = self.simulators[-1]
-        self.simulator.in_progress = True
-        self.simulator.id = len(self.simulators) - 1
-        self.simulator.host = self.host
-        self.simulator.port = self.base_port + self.simulator.id
+        simulator = Simulator()
+        simulator.id = random.randint(1, 10)
+        simulator.host = self.host
+        simulator.port = self.base_port + simulator.id
         self.base_port += n_agents
         self.sim_params.update({'loop': asyncio.new_event_loop()})
-        self.simulator.init(sid=self.simulator.id, step_size=self.step_size, time_resolution=self.time_resolution, **self.sim_params)
+        simulator.init(sid=simulator.id, step_size=self.step_size, time_resolution=self.time_resolution, **self.sim_params)
         agent_params = {'control_id': 0, 
                 'time_resolution': self.time_resolution,
                 'step_size' : self.step_size}
-        self.simulator.agents = []
+        simulator.agents = []
         for i in range(n_agents):
-            agent_model = self.simulator.create(1, 'FlexAgent', **agent_params)
-            self.simulator.agents.append(agent_model)
-        self.simulator.setup_done()
+            agent_model = simulator.create(1, 'FlexAgent', **agent_params)
+            simulator.agents.append(agent_model)
+        simulator.setup_done()
+        return simulator
 
     def execute(self, target_schedule, flexibility):
 
@@ -133,30 +119,30 @@ class COHDA():
            
             n_agents = len(flexibility)
             participants = list(range(n_agents))
-            self.reinitialize(n_agents=n_agents)
+            simulator = self.reinitialize(n_agents=n_agents)
             input_data = {}
             output_data = {}
-            self.simulator.uids = {}
+            simulator.uids = {}
             for i in participants:
-                agent, flex = self.simulator.agents[i], flexibility[i]
+                agent, flex = simulator.agents[i], flexibility[i]
                 eid = agent[0]['eid']
                 data = {'StartValues': {'ID_0': StartValues(schedule=target_schedule, 
                                                             participants=participants)},
                         'Flexibility': {'ID_0': Flexibility(flex_max_power=flex['flex_max_power'],
                                                             flex_min_power=flex['flex_min_power'],
-                                                            flex_max_energy_delta=[1] * len(flex['flex_min_power']),
+                                                            flex_max_energy_delta=[100] * len(flex['flex_min_power']),
                                                             flex_min_energy_delta=[0] * len(flex['flex_min_power']),
                                                         )}
                 }
                 input_data[eid] = data
-                self.simulator.uids[eid] = None
-                output_data[eid] = ['FlexSchedules'] 
-            self.simulator.step(time=0, inputs=input_data, max_advance=0)
-            self.simulator.get_data(outputs=output_data)
-            self.cache[cache_key] = self.simulator.schedules
-            self.simulator.finalize()
-            del self.simulators[self.simulator.id]
-            del self.simulator
+                simulator.uids[eid] = None
+                output_data[eid] = ['FlexSchedules']
+
+            simulator.step(time=0, inputs=input_data, max_advance=0)
+            simulator.get_data(outputs=output_data)
+            self.cache[cache_key] = simulator.schedules
+            simulator.finalize()
+            del simulator
             
             if self.muted:
                 sys.stdout = self.old_stdout

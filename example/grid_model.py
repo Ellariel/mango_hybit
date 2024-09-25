@@ -49,10 +49,12 @@ pp.create_line(net, name = "Line-3", from_bus = 1, to_bus = 5, length_km = 1, st
 pp.create_load(net, 2, p_mw = 1, q_mvar = 0.2, name = "Load-0")
 pp.create_load(net, 2, p_mw = 1, q_mvar = 0.2, name = "Load-2")
 pp.create_sgen(net, 3, p_mw = 1, name = "StaticGen-0")
+pp.create_sgen(net, 3, p_mw = 1, name = "StaticGen-2")
 
 pp.create_load(net, 4, p_mw = 1, q_mvar = 0.2, name = "Load-1")
 pp.create_load(net, 4, p_mw = 1, q_mvar = 0.2, name = "Load-3")
 pp.create_sgen(net, 5, p_mw = 1, name = "StaticGen-1")
+pp.create_sgen(net, 5, p_mw = 1, name = "StaticGen-3")
 
 pp.runpp(net, numba=False)
 pp.to_json(net, grid_file)
