@@ -373,7 +373,7 @@ class MosaikAgent(mango.Agent):
                 print('EXECUTE REDISPATCH ALGORITHM')
                 
             if callable(self.params['execute_method']):
-                if self.converged < self.convergence_steps:
+                if self.converged <= self.convergence_steps:
                     ok, self.cached_solution, state = self.params['execute_method'](self.aeid,
                                                                     self.aid, instruction=None, 
                                                                     current_state=self.state,
@@ -602,12 +602,16 @@ class MosaikAgents(mosaik_api.Simulator):
         steptime = time.time() - steptime
         output = {self.aid_to_eid[k]: v for k, v in output.items()}    
 
-        if self.mosaik_agent.converged <= self.mosaik_agent.convergence_steps:
-            self.output_cache = output
-            self.output_cache["MosaikAgent"] = self.mosaik_agent.state
-            self._steptime += [steptime]       
-        else:
-            self.output_cache["MosaikAgent"] = self.mosaik_agent.state
+        self.output_cache = output
+        self.output_cache["MosaikAgent"] = self.mosaik_agent.state
+        self._steptime += [steptime] 
+
+        #if self.mosaik_agent.converged <= self.mosaik_agent.convergence_steps:
+        #    self.output_cache = output
+        #    self.output_cache["MosaikAgent"] = self.mosaik_agent.state
+        #    self._steptime += [steptime]       
+        #else:
+        #    self.output_cache["MosaikAgent"] = self.mosaik_agent.state
 
         return current_time + self.step_size
 

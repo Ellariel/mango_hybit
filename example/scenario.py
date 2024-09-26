@@ -54,8 +54,9 @@ print(f"Grid model of {len(grid.load)} loads, {len(grid.sgen)} sgens, {len(grid.
 
 START_DATE = '2016-01-01 00:00:00'
 DATE_FORMAT = 'mixed' #'YYYY-MM-DD hh:mm:ss'
-END = 60*60 + 1 # 1 day
+END = 60*60 + 60*15 # 1 day
 STEP_SIZE = 60*15
+MAX_EXT_GRID_CAPACITY = 10
 
 SIM_CONFIG = {
     #'PVSim': {
@@ -155,8 +156,8 @@ def input_to_state(aeid, aid, input_data, current_state, current_time, first_tim
         elif 'ExternalGrid' in eid:
                 profile = get_unit_profile(eid, current_time, profiles)
                 if not len(profile):
-                    profile['min'] = 5
-                    profile['max'] = 5
+                    profile['min'] = 0
+                    profile['max'] = MAX_EXT_GRID_CAPACITY
                 state['production'] = update_flexibility(state['production'], profile)
                 state['consumption'] = update_flexibility(state['consumption'], profile)
                 if value > 0: # check the convention here!
@@ -192,7 +193,7 @@ MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py
 
     # Additional user-defined parameters
     'between-cells' : 'cohda', #'default', 'cohda'
-    'within-cell' : 'default', 
+    'within-cell' : 'cohda', 
 }
 
 world = mosaik.World(SIM_CONFIG)

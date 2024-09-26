@@ -429,19 +429,25 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
                     schedules = cohda.execute(target_schedule=target_schedule,
                                                     flexibility=flexibility)
 
-                    value = schedules.pop(f'Agent_{len(schedules)-1}', {})['FlexSchedules'][0]
-                    state['production']['scale_factor'] = value - state['production']['current']
-                    state['production']['current'] = value
+                    #value = schedules.pop(f'Agent_{len(schedules)-1}', {})['FlexSchedules'][0]
+                    #state['production']['scale_factor'] = value - state['production']['current']
+                    #state['production']['current'] = value
 
                     cohda.final_schedules[aeid] = schedules
                     if kwargs.get('verbose', 0) >= 0:
                         print('schedules:', schedules)
 
+                #schedules = cohda.final_schedules[aeid].copy()
+                #value = schedules.pop(f'Agent_{len(schedules)-1}', {})['FlexSchedules'][0]
+                #state['production']['scale_factor'] = value - state['production']['current']
+                #state['production']['current'] = value
+                
                 instructions = {}
                 for (agent_, state_), schedule_ in zip(requested_states.items(), cohda.final_schedules[aeid].values()):
                     state__ = state_.copy()
                     state__['production']['current'] = schedule_['FlexSchedules'][0]
                     instructions[agent_] = adjust_instruction(state_, state__)
+                print('end',state)
             else:
                 print('The between-cells communication algorithm is not implemented!')
                 sys.exit()
