@@ -36,6 +36,8 @@ parser.add_argument('--dir', default='./', type=str)
 parser.add_argument('--seed', default=13, type=int)
 parser.add_argument('--output_file', default='results.csv', type=str)
 parser.add_argument('--performance', default=True, type=bool)
+parser.add_argument('--between', default='cohda', type=str)
+parser.add_argument('--within', default='cohda', type=str)
 #parser.add_argument('--hierarchy', default=1, type=int)
 args = parser.parse_args()
 
@@ -192,8 +194,8 @@ MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py
     'finalize' : finalize,#
 
     # Additional user-defined parameters
-    'between-cells' : 'cohda', #'default', 'cohda'
-    'within-cell' : 'cohda', 
+    'between-cells' : args.between, #'default', 'cohda'
+    'within-cell' : args.within, 
 }
 
 world = mosaik.World(SIM_CONFIG)
@@ -225,7 +227,8 @@ input_sim = world.start("InputSim",
 inputs = input_sim.Profiles.create(1)[0]
     
 output_sim = world.start('OutputSim', start_date = START_DATE,
-                                          output_file=os.path.join(results_dir, args.output_file))
+                                          output_file=os.path.join(results_dir, 
+                                                                   f'{args.between}_{args.within}_{args.output_file}'))
 outputs = output_sim.CSVWriter(buff_size=STEP_SIZE)
     
 grid_sim = world.start('GridSim', step_size=STEP_SIZE)
@@ -250,6 +253,7 @@ world.connect(units['ExternalGrid-0'][0], mosaik_agent, ('P[MW]', 'ExternalGrid-
                                             time_shifted=True, initial_data={'P[MW]': 0})
 world.connect(mosaik_agent, outputs, ("production[MW]", "ExternalGrid-0.production[MW]"))
 world.connect(mosaik_agent, outputs, ("consumption[MW]", "ExternalGrid-0.consumption[MW]"))
+world.connect(mosaik_agent, outputs, 'steptime')
 
 controllers += massim.MosaikAgents.create(num=2, controller=None)
 hierarchical_controllers = [massim.MosaikAgents.create(num=1, controller=i.eid)[0] for i in controllers]
