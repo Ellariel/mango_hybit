@@ -14,7 +14,7 @@ from mosaik_cohda.agent_roles import FlexReceiverRole, FlexCohdaRole, \
     FlexTerminationRole, FlexNegotiationStarterRole
 from mosaik_cohda.start_values import StartValues, SolutionSchedule
 from mosaik_cohda.mango_library.coalition.core import CoalitionParticipantRole
-
+from mosaik_cohda.cohda_simulator import logger
 from mosaik_components.mas.utils import *
 
 sys.stdout = old_stdout
@@ -84,6 +84,7 @@ class COHDA():
         self.old_stdout = sys.stdout
         if self.muted:
             logging.disable()
+            logging.shutdown()
         self.base_port = base_port
         self.cache = {}
         nest_asyncio.apply()
@@ -153,7 +154,6 @@ def main():
     """
     Run the simulator.
     """
-    logging.disable()
     return mosaik_api.start_simulation(Simulator())
 
 if __name__ == '__main__':
