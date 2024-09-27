@@ -257,4 +257,5 @@ grid_sim.disable_elements(switch_off)
     
 if args.performance:
     mosaik.util.plot_dataflow_graph(world, hdf5path=os.path.join(results_dir, '.hdf5'), show_plot=False)
-world.run(until=END, print_progress='individual' if args.performance else True)
+#world.run(until=END, print_progress='individual' if args.performance else True)
+world.run(until=END)
