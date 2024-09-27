@@ -8,6 +8,7 @@ script from the command line::
 import os
 import sys
 import mosaik
+import arrow
 import mosaik.util
 import argparse
 import pandapower as pp
@@ -20,8 +21,8 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 from methods import *
 from mosaik_components.mas.mosaik_agents import META
 
-import nest_asyncio
-nest_asyncio.apply()
+#import nest_asyncio
+#nest_asyncio.apply()
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--cells', default=2, type=int)
