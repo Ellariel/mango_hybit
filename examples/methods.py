@@ -1,6 +1,5 @@
 import copy, sys
 import numpy as np
-import arrow
 from mosaik_components.mas.utils import *
 from mosaik_components.mas.lib.cohda import COHDA
 
@@ -25,10 +24,6 @@ def finalize(**kwargs):
     del cohda
 
 def state_to_output(aeid, aid, attrs, current_state, converged, current_time_step, first_time_step, **kwargs):
-# inputs {'Agent_3': {'current': {'WecsSim-0.wecs-0': 147.26366926766127}},
-# output_state: {'Agent_1': {'production': {'min': 0, 'max': 0, 'current': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 0.0}},
-# entities: {'Agent_3': 'WecsSim-0.wecs-0', 'Agent_4': 'Grid-0.Load-0',
-# Agent_6 ['scale_factor'] {'production': {'min': 0, 'max': 0.02, 'current': 0.02, 'scale_factor': 1.0}, 'consumption': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}}
     data = {}
     for attr in attrs:
         if attr == 'production[MW]':
@@ -86,7 +81,7 @@ def compose_instructions(agents_info, delta):
                             state[i]['current'] -= max_dec
                             _delta[i]['current'] += max_dec
                     
-                    state[i]['scale_factor'] = state[i]['current'] - agents_info[aid][i]['current']#/ if agents_info[aid][i]['current'] > PRECISION else 1
+                    state[i]['scale_factor'] = state[i]['current'] - agents_info[aid][i]['current']
 
         return _agents_info, _delta
 
@@ -359,7 +354,6 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
                     zero_flexibility = []
                     total_fixed_values = 0
                     for k, s in requested_states.items():
-                            #print('     ', k, s)
                             if abs(s['production']['max'] - s['production']['min']) > PRECISION:
                                 zero_flexibility.append(None)
                                 flexibility.append({'flex_max_power': [s['production']['max']],
@@ -429,18 +423,9 @@ def execute_instructions(aeid, aid, instruction, current_state, requested_states
                     schedules = cohda.execute(target_schedule=target_schedule,
                                                     flexibility=flexibility)
 
-                    #value = schedules.pop(f'Agent_{len(schedules)-1}', {})['FlexSchedules'][0]
-                    #state['production']['scale_factor'] = value - state['production']['current']
-                    #state['production']['current'] = value
-
                     cohda.final_schedules[aeid] = schedules
                     if kwargs.get('verbose', 0) >= 0:
                         print('schedules:', schedules)
-
-                #schedules = cohda.final_schedules[aeid].copy()
-                #value = schedules.pop(f'Agent_{len(schedules)-1}', {})['FlexSchedules'][0]
-                #state['production']['scale_factor'] = value - state['production']['current']
-                #state['production']['current'] = value
                 
                 instructions = {}
                 for (agent_, state_), schedule_ in zip(requested_states.items(), cohda.final_schedules[aeid].values()):

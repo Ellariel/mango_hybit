@@ -7,13 +7,9 @@ script from the command line::
 """
 import os
 import sys
-import time
-import json
 import mosaik
 import mosaik.util
-#from pathlib import Path
 import argparse
-#import more_itertools as mit
 import pandapower as pp
 import pandas as pd
 
@@ -21,7 +17,6 @@ import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-#from cells import *
 from methods import *
 from mosaik_components.mas.mosaik_agents import META
 
@@ -31,14 +26,12 @@ nest_asyncio.apply()
 parser = argparse.ArgumentParser()
 parser.add_argument('--cells', default=2, type=int)
 parser.add_argument('--verbose', default=0, type=int)
-#parser.add_argument('--clean', default=True, type=bool)
 parser.add_argument('--dir', default='./', type=str)
 parser.add_argument('--seed', default=13, type=int)
 parser.add_argument('--output_file', default='results.csv', type=str)
 parser.add_argument('--performance', default=True, type=bool)
 parser.add_argument('--between', default='cohda', type=str)
 parser.add_argument('--within', default='cohda', type=str)
-#parser.add_argument('--hierarchy', default=1, type=int)
 args = parser.parse_args()
 
 base_dir = args.dir
@@ -87,12 +80,6 @@ SIM_CONFIG = {
     },  
 }
 
-
-
-
-#sys.exit()
-
-# The simulator meta data that we return in "init()":
 MAS_META = META.copy()
 MAS_META['models']['MosaikAgents']['attrs'] += ['production_delta[MW]', 
                                                 'consumption_delta[MW]', 
@@ -122,18 +109,10 @@ MAS_META['models']['MosaikAgents']['attrs'] += ['production_delta[MW]',
 #               'v_max': 25}
 
 def input_to_state(aeid, aid, input_data, current_state, current_time, first_time_step, **kwargs):
-    # aeid: Agent_3
-    # aid: agent3
-    # input_data: {'current': {'Grid-0.Gen-0': 1.0, 'Grid-0.Load-0': 1.0, 'FLSim-0.FLSim-0': 0.9}}
-    # current_state: {'production': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}, 
-    #                'consumption': {'min': 0, 'max': 0, 'current': 0, 'scale_factor': 1}}
-#    global cells
     global profiles
     state = copy.deepcopy(MAS_STATE)
-    #print(aeid, input_data)
     for eid, value in input_data.items():
         value = sum(value.values())
-        #print(current_time, eid, value)
         if pd.isna(value):
             value = 0
         if 'Load' in eid:
@@ -154,7 +133,6 @@ def input_to_state(aeid, aid, input_data, current_state, current_time, first_tim
                 value = np.clip(abs(value), profile['min'], profile['max'])
                 state['production'] = update_flexibility(state['production'], profile)
                 state['production']['current'] = value
-#                #print('Gen', state)
         elif 'ExternalGrid' in eid:
                 profile = get_unit_profile(eid, current_time, profiles)
                 if not len(profile):
@@ -175,8 +153,7 @@ def input_to_state(aeid, aid, input_data, current_state, current_time, first_tim
 # Multi-agent system (MAS) configuration
 # User-defined methods are specified in methods.py to make scenario concise, 
 # except `input_method`, since it requieres an access to global variables
-MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py 
-    # Required parameters
+MAS_CONFIG = { # Required parameters
     'META': MAS_META,
     'verbose': args.verbose, # 0 - no messages, 1 - basic agent comminication, 2 - full
     'performance': args.performance, # returns wall time of each mosaik step / the core loop execution time 
@@ -191,7 +168,7 @@ MAS_CONFIG = { # see MAS_DEFAULT_CONFIG in utils.py
                                                # that will be hierarchically transmitted from each agent to its connected peers,
                                                # executes the received instructions internally
     'initialize' : initialize,
-    'finalize' : finalize,#
+    'finalize' : finalize,
 
     # Additional user-defined parameters
     'between-cells' : args.between, #'default', 'cohda'
@@ -239,10 +216,6 @@ units = {k : (e, v.to_dict()) for k, v in units.iterrows() #grid_sim.get_extra_i
                             for e in grid.children
                                 if e.eid == k}
 
-    
-#print(profiles)
-#sys.exit()
-
 agents = [] # one simple agent per unit (sgen, load)
 controllers = [] # top-level agents that are named as cell_controllers, one per cell
 hierarchical_controllers = []
@@ -268,14 +241,6 @@ for k, v in units.items():
             world.connect(fload, agents[-1], ('P[MW]', f"{k}.consumption[MW]"))
             world.connect(agents[-1], fload, ('consumption_delta[MW]', 'scale_factor'), weak=True)
             world.connect(agents[-1], units[f"Bus-{int(v[1]['bus'])}"][0], ("consumption[MW]", "P_load[MW]"))
-            
-            #world.connect(fload, units[f"Bus-{int(v[1]['bus'])}"][0], ("P[MW]", "P_load[MW]"))
-            #world.connect(fload, outputs, ("P[MW]", f"{k}-current"))
-            #world.connect(inputs, units[f"Bus-{int(v[1]['bus'])}"][0], (f"{k}.current", "P_load[MW]"))
-
-            #world.connect(fload, units[f"Bus-{int(v[1]['bus'])}"][0], ("P[MW]", "P_load[MW]"))
-            #world.connect(fload, outputs, ("P[MW]", f"{k}-current"))
-            
             world.connect(agents[-1], outputs)
             switch_off.append(k)
             
@@ -286,13 +251,6 @@ for k, v in units.items():
             world.connect(fgen, agents[-1], ('P[MW]', f"{k}.production[MW]"))
             world.connect(agents[-1], fgen, ('production_delta[MW]', 'scale_factor'), weak=True)
             world.connect(agents[-1], units[f"Bus-{int(v[1]['bus'])}"][0], ("production[MW]", "P_gen[MW]"))
-            
-            #world.connect(fgen, units[f"Bus-{int(v[1]['bus'])}"][0], ("P[MW]", "P_gen[MW]"))
-            #world.connect(fgen, outputs, ("P[MW]", f"{k}-current"))
-            #world.connect(inputs, units[f"Bus-{int(v[1]['bus'])}"][0], (f"{k}.current", "P_gen[MW]"))
-            
-            
-            
             world.connect(agents[-1], outputs)      
             switch_off.append(k)
             
@@ -301,21 +259,11 @@ for k, v in units.items():
             pass
             
 grid_sim.disable_elements(switch_off)
-      
     
-    #print(grid_sim.get_extra_info())
-    #world.connect(v[0], outputs, ("P[MW]", "current"))
-    #print(loads)
-    #print(buses)
-    #print(gens)
-    #print(ext_grids)
-    
-    
-    
-#if args.performance:
-#    mosaik.util.plot_dataflow_graph(world, hdf5path=os.path.join(results_dir, '.hdf5'), show_plot=False)
-#world.run(until=END, print_progress='individual' if args.performance else True)
-world.run(until=END)
+if args.performance:
+    mosaik.util.plot_dataflow_graph(world, hdf5path=os.path.join(results_dir, '.hdf5'), show_plot=False)
+world.run(until=END, print_progress='individual' if args.performance else True)
+
 sys.exit()
     
 '''
@@ -434,5 +382,5 @@ sys.exit()
     #world.run(until=END, print_progress=True)
     print(f"Simulation finished at {time.ctime()}")
     '''
-if __name__ == '__main__':
-    main()
+#if __name__ == '__main__':
+#    main()
