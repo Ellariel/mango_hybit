@@ -100,24 +100,21 @@ Connect and run:
 
 ## How to cite
 
-#### BibTeX format
-
-```tex
-@software{TODO,
-author = {TODO, TODO},
-license = {Apache-2.0},
-month = {10},
-title = {{TODO}},
-url = {https://github.com/TODO},
-version = {0.1.0},
-year = {2024}
-}
-```
-
 #### APA-like format
-
 ```
-TODO, R. (2024). TODO (Version 1.0.0) [Computer software]. https://github.com/TODO
+Valko, D., Alsharif, S., Tolk, D., & Grimm, T. (2024). MASSCA: Scalable Multi-Agent System Framework for Smart Power Cell Co-Simulation. European Simulation and Modelling Conference 2024 (ESM 2024), San Sebastian, Spain. https://doi.org/10.5281/zenodo.14004357
+```
+
+#### BibTeX format
+```tex
+@inproceedings{ValkoAlsharifTolkGrimm2024,
+author={Danila Valko and Sharaf Alsharif and Deborah Tolk and Tobias Grimm},
+title={MASSCA: Scalable Multi-Agent System Framework for Smart Power Cell Co-Simulation},
+year={2024},
+pages={361-368},
+publisher={EUROSIS-ETI},
+booktitle={European Simulation and Modelling Conference 2024 (ESM 2024)},
+doi={https://doi.org/10.5281/zenodo.14004357},
 ```
 
 ## The example scenario and scalability experiments
