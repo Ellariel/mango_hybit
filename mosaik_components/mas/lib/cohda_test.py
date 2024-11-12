@@ -3,7 +3,7 @@ import time
 import nest_asyncio
 from cohda import COHDA
 
-def test():
+def test_cohda():
     """
     Run test.
     """
@@ -20,9 +20,10 @@ def test():
     print('n_agents:', n_agents)
     print('target_schedule:', target_schedule)
     print('flexibility:', flex)
-    print('schedules:', cohda.execute(target_schedule=target_schedule,
-                        flexibility=[flex for i in range(n_agents)]))
-    
+    schedules = cohda.execute(target_schedule=target_schedule,
+                        flexibility=[flex for i in range(n_agents)])
+    print('schedules:', schedules)
+
     time.sleep(1)
     print()
 
@@ -34,14 +35,18 @@ def test():
             }
     print('target_schedule:', target_schedule)
     print('flexibility:', flex)
-    print('schedules:', cohda.execute(target_schedule=target_schedule,
-                        flexibility=[flex for i in range(n_agents)]))
+    schedules = cohda.execute(target_schedule=target_schedule,
+                        flexibility=[flex for i in range(n_agents)])
+    print('schedules:', schedules)
+    last_schedules = schedules
 
     print()
     print('run again with the same input, to test caching..')
-    print('schedules:', cohda.execute(target_schedule=target_schedule,
-                        flexibility=[flex for i in range(n_agents)]))
+    schedules = cohda.execute(target_schedule=target_schedule,
+                        flexibility=[flex for i in range(n_agents)])
+    print('schedules:', schedules)
+    assert schedules == last_schedules
 
 if __name__ == '__main__':
-    test()
+    test_cohda()
 
