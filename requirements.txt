@@ -1,8 +1,9 @@
 mango_agents>=1.1.2
-mosaik>=3.2.0
+mosaik>=3.3.0
 mosaik_api_v3>=3.0.7
 nest_asyncio>=1.5.8
 termcolor>=2.4.0
 networkx>=2.5
 pandas>=2.2.1
 numpy>=1.26.4
+git+https://gitlab.com/mosaik/examples/mosaik-cohda
