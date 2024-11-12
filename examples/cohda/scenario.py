@@ -52,14 +52,8 @@ END = 60*60 + STEP_SIZE
 MAX_EXT_GRID_CAPACITY = 10
 
 SIM_CONFIG = {
-    #'PVSim': {
-    #    'python': 'simulators.pv:Simulator',
-    #},
-    #'WPSim': {
-    #    'python': 'simulators.wecssim:Simulator',
-    #},
     'FlexSim': {
-        'python': 'simulators.flexible:Simulator', #simulators.flexible:Simulator
+        'python': 'simulators.flexible:Simulator',
     },
     'GridSim': {
          'python': 'mosaik_components.pandapower:Simulator',
@@ -81,28 +75,6 @@ MAS_META['models']['MosaikAgents']['attrs'] += ['production_delta[MW]',
                                                 'consumption[MW]', 
                                                 'production[MW]']
 
-# PV simulator
-#PVSIM_PARAMS = {
-#    'start_date' : START_DATE,
-#    'cache_dir' : data_dir, # it caches PVGIS API requests
-#    'verbose' : False, # print PVGIS parameters and requests
-#    'gen_neg' : False, # return negative P
-#}
-
-# For each PV
-#PVMODEL_PARAMS = {
-#    'scale_factor' : 10000,
-#    'lat' : 52.373,
-#    'lon' : 9.738,
-#    'optimal_both' : True,
-#}
-
-# Wind power
-#WECS_CONFIG = {'P_rated': 7000, 
-#               'v_rated': 13, 
-#               'v_min': 3.5, 
-#               'v_max': 25}
-
 def input_to_state(aeid, aid, input_data, current_state, current_time, first_time_step, **kwargs):
     global profiles
     state = copy.deepcopy(MAS_STATE)
@@ -115,14 +87,6 @@ def input_to_state(aeid, aid, input_data, current_state, current_time, first_tim
                 value = np.clip(abs(value), profile['min'], profile['max'])
                 state['consumption'] = update_flexibility(state['consumption'], profile)
                 state['consumption']['current'] = value
-                #print('Load', state)
-#        elif 'PV' in eid or 'WECS' in eid:
-#                if first_time_step:
-#                    profile['max'] = min(abs(value), profile['max'])
-#                value = np.clip(abs(value), profile['min'], profile['max'])
-#                state['production'] = update_flexibility(state['production'], profile)
-#                state['production']['current'] = value
-#                #print('Gen', state)
         elif 'StaticGen' in eid:
                 profile = get_unit_profile(eid, current_time, profiles)
                 value = np.clip(abs(value), profile['min'], profile['max'])
@@ -162,8 +126,8 @@ MAS_CONFIG = { # Required parameters
     'execute_method': execute_instructions,    # method that computes and decomposes the redispatch instructions 
                                                # that will be hierarchically transmitted from each agent to its connected peers,
                                                # executes the received instructions internally
-    'initialize' : initialize,
-    'finalize' : finalize,
+    'initialize' : initialize, # run in setup_done()
+    'finalize' : finalize, # run in finalize()
 
     # Additional user-defined parameters
     'between-cells' : args.between, #'default', 'cohda'
@@ -182,15 +146,6 @@ with world.group():
                         #csv_file=LOAD_FILE,
                         sim_params=dict(gen_neg=False),
                     )
-        #pvsim = world.start(
-        #                "PVSim",
-        #                step_size=STEP_SIZE,
-        #                sim_params=PVSIM_PARAMS,
-        #            )
-        #wsim = world.start('WPSim', 
-        #                step_size=STEP_SIZE, 
-        #                wind_file=WIND_FILE,
-        #            )
     
 input_sim = world.start("InputSim", 
                               sim_start=START_DATE, 
@@ -258,4 +213,3 @@ grid_sim.disable_elements(switch_off)
 if args.performance:
     mosaik.util.plot_dataflow_graph(world, hdf5path=os.path.join(results_dir, '.hdf5'), show_plot=False)
 world.run(until=END, print_progress='individual' if args.performance else True)
-#world.run(until=END)

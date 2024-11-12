@@ -1,4 +1,3 @@
-faas_cache_dict>=0.2.8
 mosaik_api_v3>=3.0.7
 mango_agents>=1.1.2
 nest_asyncio>=1.5.8

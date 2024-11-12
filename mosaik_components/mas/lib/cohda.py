@@ -62,9 +62,6 @@ class Simulator(CohdaSimulator):
 
     def finalize(self):
         try:
-            #pending = asyncio.all_tasks()
-            #self.loop.run_until_complete(asyncio.gather(*pending))
-            #self.loop = asyncio.get_event_loop()
             if not self.loop.is_closed():
                 self.loop.run_until_complete(
                     self._shutdown(self.mosaik_agent,

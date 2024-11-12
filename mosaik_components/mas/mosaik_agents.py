@@ -218,8 +218,6 @@ class Agent(mango.Agent):
             print(f"{highlight(self.aid)} <- {highlight('current_state')}: {self._aggregated_state}, {highlight('new_state')}: {reduce_equal_dicts(self.state, self._aggregated_state)}")
         
         self._instructions_confirmed = instructions
-        #print('_instructions_confirmed', self._instructions_confirmed)
-        #print('1', self.aeid, len(self._requested_states), len(self._instructions_confirmed))
 
         if len(self.connected_agents):
             # Broadcast instructions
@@ -235,8 +233,6 @@ class Agent(mango.Agent):
             await asyncio.gather(*futs)
             self._instructions_confirmed = await asyncio.gather(*[fut for fut in self._instructions_confirmed.values()])
             self._instructions_confirmed = {k : v for i in self._instructions_confirmed for k, v in i['instructions'].items()}
-
-        #print('2', self.aeid, len(self._requested_states), len(self._instructions_confirmed))
 
         if ok:        
             msg_content = create_msg_content(InstructionsConfirmMessage, instructions={'aid': self.aid,
@@ -451,7 +447,6 @@ class MosaikAgents(mosaik_api.Simulator):
         self._steptime = [] # performance
 
     def init(self, sid, time_resolution=1., **sim_params):
-        #print(sim_params)
         self.sid = sid
         self.loop = asyncio.get_event_loop()
         self.params = sim_params
@@ -459,10 +454,20 @@ class MosaikAgents(mosaik_api.Simulator):
         self.step_size = self.params.pop('step_size', 60*15)
         self.host = self.params.pop('host', '0.0.0.0')
         self.port = self.params.pop('port', 5678)
+
         self.params.setdefault('verbose', 1)
         self.params.setdefault('performance', True)
         self.params.setdefault('convergence_steps', 2)
         self.params.setdefault('convegence_max_steps', 5)
+        self.params.setdefault('state_dict', {}) # how an agent state that are gathered and comunicated should look like
+        self.params.setdefault('input_method', None) # method that transforms mosaik inputs dict to the agent state (see `update_state`, default: copy dict)
+        self.params.setdefault('output_method', None) # method that transforms the agent state to mosaik outputs dict (default: copy dict)
+        self.params.setdefault('aggregation_method', None)  # method that aggregates gathered states to one top-level state
+        self.params.setdefault('execute_method', None)  # method that computes and decomposes the redispatch instructions 
+                                                        # that will be hierarchically transmitted from each agent to its connected peers,
+                                                        # executes the received instructions internally
+        self.params.setdefault('initialize', None) # run in setup_done()
+        self.params.setdefault('finalize', None) # run in finalize()
         return sim_params.pop('META', META)
 
     async def _create_container(self, host, port, **params):
@@ -530,7 +535,6 @@ class MosaikAgents(mosaik_api.Simulator):
         for full_aid, units in relations.items():
             if len(units):
                 # We should be connected to at least one entity
-                #assert len(units) >= 1
                 uid, _ = units.popitem()
                 # Create a mapping "agent ID -> unit ID"
                 aid = full_aid.split('.')[-1]
@@ -542,8 +546,6 @@ class MosaikAgents(mosaik_api.Simulator):
             self.params['initialize'](**self.params)
 
     def finalize(self):
-        # pending = asyncio.all_tasks()
-        # self.loop.run_until_complete(asyncio.gather(*pending))
         self.loop.run_until_complete(self._shutdown(self.main_container))
 
         if callable(self.params['finalize']):
@@ -554,9 +556,7 @@ class MosaikAgents(mosaik_api.Simulator):
         futs = []
         for arg in args:
             futs.append(arg.shutdown())
-        #print('Going to shutdown agents and container... ', end='')
         await asyncio.gather(*futs)
-        #print('done.')
 
     def step(self, current_time, inputs, max_advance):
         """Send the inputs of the controlled unites to our agents and get new
@@ -605,13 +605,6 @@ class MosaikAgents(mosaik_api.Simulator):
         self.output_cache = output
         self.output_cache["MosaikAgent"] = self.mosaik_agent.state
         self._steptime += [steptime] 
-
-        #if self.mosaik_agent.converged <= self.mosaik_agent.convergence_steps:
-        #    self.output_cache = output
-        #    self.output_cache["MosaikAgent"] = self.mosaik_agent.state
-        #    self._steptime += [steptime]       
-        #else:
-        #    self.output_cache["MosaikAgent"] = self.mosaik_agent.state
 
         return current_time + self.step_size
 
