@@ -16,7 +16,7 @@ def get_unit_profile(eid, time_step, profiles):
 
 def initialize(**kwargs):
     global cohda
-    cohda = COHDA(muted=kwargs.get('verbose', 0) <= 0)
+    cohda = COHDA(verbose=kwargs.get('verbose', 0))
     cohda.final_schedules = {}
 
 def finalize(**kwargs):

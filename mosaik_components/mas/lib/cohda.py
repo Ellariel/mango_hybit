@@ -72,14 +72,14 @@ class Simulator(CohdaSimulator):
             pass
         
 class COHDA():
-    def __init__(self, step_size=15*60, time_resolution=1., host='localhost', base_port=7060, muted=False, **sim_params):
+    def __init__(self, step_size=15*60, time_resolution=1., host='localhost', base_port=7060, verbose=True, **sim_params):
         self.step_size = step_size
         self.sim_params = sim_params
         self.time_resolution = time_resolution
         self.host = host
-        self.muted = muted
+        self.verbose = verbose
         self.old_stdout = sys.stdout
-        if self.muted:
+        if not self.verbose:
             logging.disable()
             logging.shutdown()
         self.base_port = base_port
@@ -106,13 +106,13 @@ class COHDA():
 
     def execute(self, target_schedule, flexibility):
 
-            cache_key = make_hash_sha256(make_hashable((target_schedule, flexibility)))
+            cache_key = make_hashable((target_schedule, flexibility)) # make_hash_sha256(
             if cache_key in self.cache:
-                if not self.muted:
+                if self.verbose:
                     print('COHDA returns a cached solution.')
                 return copy.deepcopy(self.cache[cache_key])
 
-            if self.muted:
+            if not self.verbose:
                 sys.stdout = open(os.devnull, "w")
            
             n_agents = len(flexibility)
@@ -142,17 +142,8 @@ class COHDA():
             simulator.finalize()
             del simulator
             
-            if self.muted:
+            if not self.verbose:
                 sys.stdout = self.old_stdout
 
             return copy.deepcopy(self.cache[cache_key])
-
-def main():
-    """
-    Run the simulator.
-    """
-    return mosaik_api.start_simulation(Simulator())
-
-if __name__ == '__main__':
-    main()
 
