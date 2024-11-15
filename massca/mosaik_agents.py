@@ -8,17 +8,17 @@ import asyncio
 import mango
 import copy
 import time
-import sys
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
+#import sys
+#from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 import mosaik_api_v3 as mosaik_api
-from mosaik_components.mas.agent_messages import *
-from mosaik_components.mas.utils import *
+from .agent_messages import * #mosaik_components.mas.
+from .utils import highlight, reduce_equal_dicts #mosaik_components.mas.
 
-# to run asyncio loop with updated mosaik
+# To run asyncio loop to solve possible issues with nested loops
 import nest_asyncio
 nest_asyncio.apply()
 
-# The simulator meta data that we return in "init()":
+# The simulator metadata that is returned in "init()":
 META = {
     'api_version': '3.0',
     'type': 'event-based',
@@ -33,15 +33,16 @@ META = {
 }
 
 class Agent(mango.Agent):
+
     def __init__(self, container, **params):
         super().__init__(container)
         self.container = container
         self.params = params
-        self.state = self.params.pop('initial_state', copy.deepcopy(self.params['state_dict']))
+        self.state = self.params.pop('initial_state', 
+                                        copy.deepcopy(self.params['state_dict']))
         self.controller = self.params.pop('controller', None)
         self.sid = self.params.pop('sid', None)
         self.aeid = self.params.pop('aeid', None)
-        #print(self.sid, self.aeid, self.aid)
         self.connected_agents = []
         self._registration_confirmed = asyncio.Future()
         self._instructions_confirmed = {}
@@ -86,7 +87,8 @@ class Agent(mango.Agent):
         This should be called once an agent is initialized.
         """
         msg_content = create_msg_content(RegisterRequestMessage,
-                                         aid=self.aid, host=self.container.addr[0], port=self.container.addr[1])
+                                         aid=self.aid, host=self.container.addr[0], 
+                                         port=self.container.addr[1])
         self.schedule_instant_task(
             coroutine=self.container.send_acl_message(
                 content=msg_content,
@@ -106,7 +108,8 @@ class Agent(mango.Agent):
         aid = content.aid
         self.connected_agents.append((addr, aid))
         msg_content = create_msg_content(RegisterConfirmMessage,
-                                         aid=self.aid, host=self.container.addr[0], port=self.container.addr[1])
+                                         aid=self.aid, host=self.container.addr[0], 
+                                         port=self.container.addr[1])
         self.schedule_instant_task(self.container.send_acl_message(
             receiver_addr=addr,
             receiver_id=aid,
@@ -466,9 +469,10 @@ class MosaikAgents(mosaik_api.Simulator):
         self.params.setdefault('execute_method', None)  # method that computes and decomposes the redispatch instructions 
                                                         # that will be hierarchically transmitted from each agent to its connected peers,
                                                         # executes the received instructions internally
-        self.params.setdefault('initialize', None) # run in setup_done()
-        self.params.setdefault('finalize', None) # run in finalize()
-        return sim_params.pop('META', META)
+        self.params.setdefault('initialize_method', None) # run in setup_done()
+        self.params.setdefault('finalize_method', None) # run in finalize()
+        self.META = sim_params.pop('META', META)
+        return self.META 
 
     async def _create_container(self, host, port, **params):
         return await mango.create_container(addr=(host, port))
@@ -493,7 +497,7 @@ class MosaikAgents(mosaik_api.Simulator):
         Create *num* instances of *model* and return a list of entity dicts
         to mosaik.
         """
-        assert model in META['models']
+        assert model in self.META['models']
         # Get the number of agents created so far and count from this number
         # when creating new entity IDs:
 
@@ -542,14 +546,14 @@ class MosaikAgents(mosaik_api.Simulator):
         if self.params['verbose'] >= 2:
             print('entities:', self.entities)
 
-        if callable(self.params['initialize']):
-            self.params['initialize'](**self.params)
+        if callable(self.params['initialize_method']):
+            self.params['initialize_method'](**self.params)
 
     def finalize(self):
         self.loop.run_until_complete(self._shutdown(self.main_container))
 
-        if callable(self.params['finalize']):
-            self.params['finalize'](**self.params)
+        if callable(self.params['finalize_method']):
+            self.params['finalize_method'](**self.params)
 
     @staticmethod
     async def _shutdown(*args):

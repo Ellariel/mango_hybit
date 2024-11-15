@@ -1,10 +1,12 @@
 import hashlib
 import base64
 import numbers
+import numpy as np
 from termcolor import colored
 from pandas.io.json._normalize import nested_to_record
 
-PRECISION = 10 ** -6
+PRECISION = 6
+ZERO = 10 ** -PRECISION
 
 MAS_DEFAULT_STATE = {
     'production' : {
@@ -64,19 +66,19 @@ def make_hash_sha256(o):
     return base64.b64encode(hasher.digest()).decode()
 
 def make_hashable(o):
-    if isinstance(o, (tuple, list)):
+    if isinstance(o, (tuple, list, np.ndarray)):
         return tuple((make_hashable(e) for e in o))
 
     if isinstance(o, dict):
-        return tuple(sorted((k,make_hashable(v)) for k,v in o.items()))
+        return tuple(sorted((k, make_hashable(v)) for k, v in o.items()))
 
     if isinstance(o, (set, frozenset)):
         return tuple(sorted(make_hashable(e) for e in o))
     
     if isinstance(o, numbers.Number):
-        if abs(o) <= PRECISION:
+        if abs(o) <= ZERO:
             return 0
         else:
-            return f'{o:.6f}'
+            return str(round(o, PRECISION))       
 
     return o

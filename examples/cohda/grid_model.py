@@ -1,25 +1,13 @@
 import os
-import sys
-import time
-import json
-from pathlib import Path
 import argparse
 import pandapower as pp
-import pandas as pd
 
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 parser = argparse.ArgumentParser()
-#parser.add_argument('--cells', default=2, type=int)
-#parser.add_argument('--verbose', default=0, type=int)
-#parser.add_argument('--clean', default=True, type=bool)
 parser.add_argument('--dir', default='./', type=str)
-#parser.add_argument('--seed', default=13, type=int)
-#parser.add_argument('--output_file', default='results.csv', type=str)
-#parser.add_argument('--performance', default=True, type=bool)
-#parser.add_argument('--hierarchy', default=1, type=int)
 args = parser.parse_args()
 
 base_dir = args.dir

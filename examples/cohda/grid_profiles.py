@@ -22,17 +22,11 @@ def timeseries(start='2016-01-01 00:00:00', end=60*60, step_size=60*15):
                         date_start.shift(seconds=end)))[::int(step_size)]]).rename('Time')
 
 parser = argparse.ArgumentParser()
-#parser.add_argument('--cells', default=2, type=int)
-#parser.add_argument('--verbose', default=0, type=int)
-#parser.add_argument('--clean', default=True, type=bool)
 parser.add_argument('--dir', default='./', type=str)
 parser.add_argument('--start', default='2016-01-01 00:00:00', type=str)
 parser.add_argument('--end', default=60*60, type=int)
 parser.add_argument('--step', default=60*15, type=int)
 parser.add_argument('--seed', default=13, type=int)
-#parser.add_argument('--output_file', default='results.csv', type=str)
-#parser.add_argument('--performance', default=True, type=bool)
-#parser.add_argument('--hierarchy', default=1, type=int)
 args = parser.parse_args()
 
 base_dir = args.dir
@@ -52,12 +46,12 @@ units = {}
 loads = {f"Load-{idx}" : {'min' : min(1, i['p_mw']),
                         'max' : max(5, i['p_mw'] * 5),
                         'value' : i['p_mw'],
-                        'scale_factor' : 0,
+                        'delta' : 0,
                         } for idx, i in grid.load.iterrows()}
 sgens = {f"StaticGen-{idx}" : {'min' : min(1, i['p_mw']),
                         'max' : max(5, i['p_mw'] * 5),
                         'value' : i['p_mw'],
-                        'scale_factor' : 0,
+                        'delta' : 0,
                         } for idx, i in grid.sgen.iterrows()}
 units.update(loads)
 units.update(sgens)

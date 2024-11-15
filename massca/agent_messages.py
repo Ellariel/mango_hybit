@@ -1,4 +1,5 @@
-import sys, inspect
+import sys
+import inspect
 from dataclasses import dataclass, asdict
 from typing import Dict
 

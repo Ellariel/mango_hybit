@@ -1,7 +1,7 @@
-import logging
 import time
+import logging
 import nest_asyncio
-from cohda import COHDA
+from massca.lib.cohda import COHDA
 
 def test_cohda():
     """
@@ -12,7 +12,6 @@ def test_cohda():
 
     n_agents = 5
     cohda = COHDA(base_port=10000, verbose=False)
-
     target_schedule = [0.5, 2.0, 5.0]
     flexibility = {'flex_max_power': [3.0, 3.0, 3.0],
             'flex_min_power': [0.1, 0.2, 0.3],
@@ -20,10 +19,11 @@ def test_cohda():
     print('n_agents:', n_agents)
     print('target_schedule:', target_schedule)
     print('flexibility:', flexibility)
-    schedules = cohda.execute(target_schedule=target_schedule,
+    schedules = cohda.execute(seed=13, target_schedule=target_schedule,
                         flexibility=[flexibility for i in range(n_agents)])
     print('schedules:', schedules)
-    assert len(schedules['Agent_0']['FlexSchedules']) == 3
+    assert len(schedules) == n_agents
+    assert len(schedules[0]) == len(target_schedule)
 
     time.sleep(1)
     print()
@@ -36,14 +36,14 @@ def test_cohda():
             }
     print('target_schedule:', target_schedule)
     print('flexibility:', flexibility)
-    schedules = cohda.execute(target_schedule=target_schedule,
+    schedules = cohda.execute(seed=13, target_schedule=target_schedule,
                         flexibility=[flexibility for i in range(n_agents)])
     print('schedules:', schedules)
     last_schedules = schedules
 
     print()
     print('run again with the same input, to test caching..')
-    schedules = cohda.execute(target_schedule=target_schedule,
+    schedules = cohda.execute(seed=13, target_schedule=target_schedule,
                         flexibility=[flexibility for i in range(n_agents)])
     print('schedules:', schedules)
     assert schedules == last_schedules

@@ -4,6 +4,7 @@ sys.stdout = open(os.devnull, "w")
 import logging
 import asyncio
 import random
+import numpy as np
 import nest_asyncio
 import mosaik_api_v3 as mosaik_api
 from mango import Agent, RoleAgent
@@ -15,7 +16,8 @@ from mosaik_cohda.agent_roles import FlexReceiverRole, FlexCohdaRole, \
 from mosaik_cohda.start_values import StartValues, SolutionSchedule
 from mosaik_cohda.mango_library.coalition.core import CoalitionParticipantRole
 from mosaik_cohda.cohda_simulator import logger
-from mosaik_components.mas.utils import *
+
+from ..utils import make_hashable
 
 sys.stdout = old_stdout
 
@@ -72,7 +74,8 @@ class Simulator(CohdaSimulator):
             pass
         
 class COHDA():
-    def __init__(self, step_size=15*60, time_resolution=1., host='localhost', base_port=7060, verbose=True, **sim_params):
+    def __init__(self, step_size=15*60, time_resolution=1., 
+                 host='localhost', base_port=7060, verbose=True, **sim_params):
         self.step_size = step_size
         self.sim_params = sim_params
         self.time_resolution = time_resolution
@@ -93,7 +96,8 @@ class COHDA():
         simulator.port = self.base_port + simulator.id
         self.base_port += n_agents
         self.sim_params.update({'loop': asyncio.new_event_loop()})
-        simulator.init(sid=simulator.id, step_size=self.step_size, time_resolution=self.time_resolution, **self.sim_params)
+        simulator.init(sid=simulator.id, step_size=self.step_size, 
+                       time_resolution=self.time_resolution, **self.sim_params)
         agent_params = {'control_id': 0, 
                 'time_resolution': self.time_resolution,
                 'step_size' : self.step_size}
@@ -104,13 +108,16 @@ class COHDA():
         simulator.setup_done()
         return simulator
 
-    def execute(self, target_schedule, flexibility):
-
-            cache_key = make_hashable((target_schedule, flexibility)) # make_hash_sha256(
+    def execute(self, target_schedule, flexibility, **kwargs):
+            seed = kwargs.get('seed', None)
+            cache_key = make_hashable((target_schedule, flexibility, seed))
             if cache_key in self.cache:
                 if self.verbose:
                     print('COHDA returns a cached solution.')
                 return copy.deepcopy(self.cache[cache_key])
+            
+            random.seed(seed)
+            np.random.seed(seed)
 
             if not self.verbose:
                 sys.stdout = open(os.devnull, "w")
@@ -123,14 +130,15 @@ class COHDA():
             simulator.uids = {}
             for i in participants:
                 agent, flex = simulator.agents[i], flexibility[i]
+                flex_max_energy_delta = flex.get('flex_max_energy_delta', [100] * len(flex['flex_max_power']))
+                flex_min_energy_delta = flex.get('flex_min_energy_delta', [0] * len(flex['flex_min_power']))
                 eid = agent[0]['eid']
                 data = {'StartValues': {'ID_0': StartValues(schedule=target_schedule, 
                                                             participants=participants)},
                         'Flexibility': {'ID_0': Flexibility(flex_max_power=flex['flex_max_power'],
                                                             flex_min_power=flex['flex_min_power'],
-                                                            flex_max_energy_delta=[100] * len(flex['flex_min_power']),
-                                                            flex_min_energy_delta=[0] * len(flex['flex_min_power']),
-                                                        )}
+                                                            flex_max_energy_delta=flex_max_energy_delta,
+                                                            flex_min_energy_delta=flex_min_energy_delta)}
                 }
                 input_data[eid] = data
                 simulator.uids[eid] = None
@@ -138,7 +146,8 @@ class COHDA():
 
             simulator.step(time=0, inputs=input_data, max_advance=0)
             simulator.get_data(outputs=output_data)
-            self.cache[cache_key] = simulator.schedules
+            schedules = [simulator.schedules[agent[0]['eid']]['FlexSchedules'] for agent in simulator.agents]
+            self.cache[cache_key] = schedules
             simulator.finalize()
             del simulator
             
