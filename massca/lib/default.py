@@ -5,6 +5,7 @@ import numpy as np
 from ..mosaik_agents import META
 from ..utils import ZERO, highlight
 from .cohda import COHDA
+from .swarm import SWARM
 
 
 DEFAULT_STATE = {
@@ -60,6 +61,8 @@ def initialize_protocol(proto, **kwargs):
     elif isinstance(proto, str):
         if proto == 'cohda':
             proto = COHDA(**kwargs)
+        elif proto == 'swarm':
+            proto = SWARM(**kwargs)
         elif proto == 'default':
             pass
         else:

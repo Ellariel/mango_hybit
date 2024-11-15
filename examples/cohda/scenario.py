@@ -31,7 +31,7 @@ parser.add_argument('--seed', default=13, type=int)
 parser.add_argument('--output_file', default='results.csv', type=str)
 parser.add_argument('--performance', default=True, type=bool)
 parser.add_argument('--between', default='cohda', type=str)
-parser.add_argument('--within', default='cohda', type=str)
+parser.add_argument('--within', default='swarm', type=str)
 args = parser.parse_args()
 
 base_dir = args.dir
@@ -50,7 +50,7 @@ print(f"Grid model of {len(grid.load)} loads, {len(grid.sgen)} sgens, {len(grid.
 START_DATE = '2016-01-01 00:00:00'
 DATE_FORMAT = 'mixed' #'YYYY-MM-DD hh:mm:ss'
 STEP_SIZE = 60*15
-END = 60*15 + STEP_SIZE
+END = 60*60 + STEP_SIZE
 MAX_EXT_GRID_CAPACITY = 25
 
 SIM_CONFIG = {

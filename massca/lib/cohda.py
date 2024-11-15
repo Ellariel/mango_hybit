@@ -86,7 +86,7 @@ class COHDA():
             simulator.step(time=0, inputs=input_data, max_advance=0)
             simulator.get_data(outputs=output_data)
             schedules = [simulator.schedules[agent[0]['eid']]['FlexSchedules'] for agent in simulator.agents]
-            self.cache[cache_key] = schedules
+            self.cache[cache_key] = np.asarray(schedules)
             simulator.finalize()
             del simulator
             
