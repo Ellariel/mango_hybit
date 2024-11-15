@@ -8,6 +8,7 @@ script from the command line::
 import os
 import sys
 import copy
+import random
 import mosaik
 import arrow
 import argparse
